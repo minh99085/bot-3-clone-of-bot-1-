@@ -420,6 +420,25 @@ function buildRows(s){
       gat.last_action==='tighten'?'yellow':(gat.last_action==='loosen'?'green':'yellow'));
   }
 
+  addSection(rows,'SAWR — Self-Adjusting Win-Rate');
+  const sawr=s.sawr||{};
+  const sRoll=sawr.rolling||{};
+  if(sawr.enabled!==false){
+    addRow(rows,'Fill-Quality Pareto',
+      'U='+f(sawr.utility,3)+' · stance '+(sawr.stance||'hold'),
+      'Wilson LB '+(sRoll.wilson_lb!=null?(sRoll.wilson_lb*100).toFixed(0)+'%':'—')
+      +' · WR '+(sRoll.win_rate!=null?(sRoll.win_rate*100).toFixed(0)+'%':'—')
+      +' · n='+f(sRoll.n,0),
+      sawr.veto_loosen?'yellow':'green');
+    addRow(rows,'Side affinity + arbitration',
+      'last '+(sawr.last_action||'hold')+' · η='+f(sawr.step_scale,2)
+      +' · regime '+f(sawr.regime_factor,2),
+      sawr.veto_loosen?'veto loosen active (kill floor)':'Beta posteriors size/soft-block sides',
+      sawr.veto_loosen?'yellow':'green');
+  }else{
+    addRow(rows,'SAWR','OFF','enable PULSE_SAWR_ENABLED','yellow');
+  }
+
   addSection(rows,'Entry timing · sizing · pre-trade');
   const band=he.target_entry_band_s||[he.min_seconds_since_open,he.max_seconds_since_open];
   addRow(rows,'Hourly entry band',

@@ -163,6 +163,13 @@ class GateAutoTuner:
         action = self._decide(roll)
         if action is None:
             return None
+        # SAWR meta-arbitration: do not loosen when win-rate kill floor is active.
+        if action == "loosen" and getattr(engine, "sawr", None) is not None:
+            try:
+                if engine.sawr.veto_loosen():
+                    return None
+            except Exception:  # noqa: BLE001
+                pass
 
         b = self.cfg.bounds
         cfg = engine.cfg

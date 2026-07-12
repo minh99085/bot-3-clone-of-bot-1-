@@ -533,6 +533,18 @@ class PulseConfig:
     binary_intel_exploration_rate: float = 0.05
     binary_intel_min_size_scale: float = 0.40
     binary_intel_kelly_fraction: float = 0.25
+    # SAWR — Self-Adjusting Win-Rate meta-controller (Fill-Quality Pareto + Beta affinity).
+    sawr_enabled: bool = True
+    sawr_lookback_n: int = 40
+    sawr_min_samples: int = 8
+    sawr_target_wr: float = 0.60
+    sawr_kill_wr: float = 0.48
+    sawr_starve_fph: float = 0.6
+    sawr_rich_fph: float = 4.0
+    sawr_wr_weight: float = 1.0
+    sawr_fill_weight: float = 0.35
+    sawr_kill_penalty: float = 2.0
+    sawr_cooldown: int = 5
     # RSI 30/70 band heartbeats (separate FIFO; Grok + MC context).
     tradingview_rsi_band_history_per_symbol: int = 50
     tv_rsi_band_enabled: bool = True
@@ -1192,6 +1204,18 @@ class PulseConfig:
             binary_intel_exploration_rate=_envf("PULSE_BINARY_INTEL_EXPLORATION_RATE", 0.05),
             binary_intel_min_size_scale=_envf("PULSE_BINARY_INTEL_MIN_SIZE_SCALE", 0.40),
             binary_intel_kelly_fraction=_envf("PULSE_BINARY_INTEL_KELLY_FRACTION", 0.25),
+            sawr_enabled=str(os.getenv("PULSE_SAWR_ENABLED", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            sawr_lookback_n=int(_envf("PULSE_SAWR_LOOKBACK_N", 40)),
+            sawr_min_samples=int(_envf("PULSE_SAWR_MIN_SAMPLES", 8)),
+            sawr_target_wr=_envf("PULSE_SAWR_TARGET_WR", 0.60),
+            sawr_kill_wr=_envf("PULSE_SAWR_KILL_WR", 0.48),
+            sawr_starve_fph=_envf("PULSE_SAWR_STARVE_FPH", 0.6),
+            sawr_rich_fph=_envf("PULSE_SAWR_RICH_FPH", 4.0),
+            sawr_wr_weight=_envf("PULSE_SAWR_WR_WEIGHT", 1.0),
+            sawr_fill_weight=_envf("PULSE_SAWR_FILL_WEIGHT", 0.35),
+            sawr_kill_penalty=_envf("PULSE_SAWR_KILL_PENALTY", 2.0),
+            sawr_cooldown=int(_envf("PULSE_SAWR_COOLDOWN", 5)),
             tradingview_rsi_band_history_per_symbol=int(
                 _envf("PULSE_TV_RSI_BAND_HISTORY_PER_SYMBOL", 50)),
             tv_rsi_band_enabled=str(
@@ -1593,6 +1617,21 @@ class PulseEngine:
             exploration_rate=float(getattr(self.cfg, "binary_intel_exploration_rate", 0.05) or 0.05),
             min_size_scale=float(getattr(self.cfg, "binary_intel_min_size_scale", 0.40) or 0.40),
         )
+        # SAWR — invented Self-Adjusting Win-Rate meta-controller (Pareto + Beta affinity).
+        from engine.pulse.sawr_controller import SawrConfig, SawrController
+        self.sawr = SawrController(SawrConfig(
+            enabled=bool(getattr(self.cfg, "sawr_enabled", True)),
+            lookback_n=int(getattr(self.cfg, "sawr_lookback_n", 40)),
+            min_samples=int(getattr(self.cfg, "sawr_min_samples", 8)),
+            target_wr=float(getattr(self.cfg, "sawr_target_wr", 0.60)),
+            kill_wr=float(getattr(self.cfg, "sawr_kill_wr", 0.48)),
+            starve_fph=float(getattr(self.cfg, "sawr_starve_fph", 0.6)),
+            rich_fph=float(getattr(self.cfg, "sawr_rich_fph", 4.0)),
+            wr_weight=float(getattr(self.cfg, "sawr_wr_weight", 1.0)),
+            fill_weight=float(getattr(self.cfg, "sawr_fill_weight", 0.35)),
+            kill_penalty=float(getattr(self.cfg, "sawr_kill_penalty", 2.0)),
+            cooldown_settlements=int(getattr(self.cfg, "sawr_cooldown", 5)),
+        ))
         self.reconciler = LifecycleReconciler()   # GS-Quant-style candidate lifecycle audit
         self.gate_obs = GateObservations()        # orderbook-reality observations seen at the gate
         self._baseline: Optional[dict] = None     # legacy ledger totals that predate accounting
@@ -2207,6 +2246,8 @@ class PulseEngine:
                 self.cross_horizon_learner.load_state(acct.get("cross_horizon_learner") or {})
             if getattr(self, "binary_intel", None) is not None:
                 self.binary_intel.load_state(acct.get("binary_intel") or {})
+            if getattr(self, "sawr", None) is not None:
+                self.sawr.load_state(acct.get("sawr") or {})
         self.tv_context_gate.load_state(acct.get("tv_context_gate") or {})
         self.tv_down_bias_gate.load_state(acct.get("tv_down_bias_gate") or {})
         self.tv_mtf_gate.load_state(acct.get("tv_mtf_gate") or {})
@@ -4123,6 +4164,36 @@ class PulseEngine:
                     )
                 except Exception:  # noqa: BLE001 — never break settlement
                     logger.exception("binary_intel settlement adjust failed")
+            # SAWR — Fill-Quality Pareto meta-controller + Beta side affinity.
+            if getattr(self, "sawr", None) is not None:
+                try:
+                    from engine.pulse.sawr_controller import asset_from_research, lane_from_research
+                    _rts = pos.research or {}
+                    _lane_s = lane_from_research(_rts)
+                    _asset_s = asset_from_research(_rts)
+                    _model_p = None
+                    if pos.side == "up":
+                        _model_p = _rts.get("p_win") or _rts.get("model_p_up")
+                    elif pos.side == "down":
+                        _pu = _rts.get("model_p_up")
+                        if _pu is not None:
+                            _model_p = 1.0 - float(_pu)
+                        elif _rts.get("p_win") is not None:
+                            _model_p = float(_rts.get("p_win"))
+                    self.sawr.record_settled(
+                        won=bool(pos.won),
+                        pnl_usd=float(pos.pnl_usd or 0.0),
+                        side=str(pos.side or ""),
+                        asset=_asset_s,
+                        lane=_lane_s,
+                        entry_price=float(pos.entry_price) if pos.entry_price is not None else None,
+                        model_p_win=float(_model_p) if _model_p is not None else None,
+                        market_mid=(float(pos.entry_price) if pos.entry_price is not None else None),
+                        now=now,
+                    )
+                    self.sawr.maybe_adjust(self)
+                except Exception:  # noqa: BLE001 — never break settlement
+                    logger.exception("sawr settlement adjust failed")
             # Shared 15m↔1h cross-horizon learner — restrict/size overlays from graded settles.
             if getattr(self, "cross_horizon_learner", None) is not None:
                 try:
@@ -6917,6 +6988,25 @@ class PulseEngine:
             except Exception:  # noqa: BLE001
                 logger.exception("osmani binary_intel failed; continuing")
 
+        # SAWR — Empirical-Bayes side affinity size / soft-block (meta WR maximizer).
+        if getattr(self, "sawr", None) is not None and bool(getattr(self.cfg, "sawr_enabled", True)):
+            try:
+                from engine.pulse.sawr_controller import lane_from_research
+                _slug_s = str(getattr(w, "series_slug", "") or "").lower()
+                _asset_s = "eth" if _slug_s.startswith("eth") else "btc"
+                _lane_s = lane_from_research({
+                    "series_slug": _slug_s,
+                    "window_seconds": getattr(w, "window_seconds", 900),
+                })
+                _sawr_ev = self.sawr.evaluate_pre_trade(
+                    side=str(proposal.side), ask=float(fill),
+                    asset=_asset_s, lane=_lane_s)
+                if _sawr_ev.get("soft_block"):
+                    return False
+                readiness_scale *= float(_sawr_ev.get("size_mult") or 1.0)
+            except Exception:  # noqa: BLE001
+                logger.exception("osmani sawr affinity failed; continuing")
+
         from engine.pulse.sizing import decide_trade_size
         size_decision = decide_trade_size(
             p_win=p_win,
@@ -7657,6 +7747,9 @@ class PulseEngine:
             "binary_intel": (self.binary_intel.report()
                              if getattr(self, "binary_intel", None) is not None
                              else {"enabled": False}),
+            "sawr": (self.sawr.report()
+                     if getattr(self, "sawr", None) is not None
+                     else {"enabled": False}),
             "late_window_entry": self._late_window_report(),
             "tradingview": self._tradingview_report(),
             "tick_reasons": self._reasons,
@@ -7737,6 +7830,9 @@ class PulseEngine:
                               "binary_intel": (self.binary_intel.to_state()
                                                if getattr(self, "binary_intel", None)
                                                is not None else {}),
+                              "sawr": (self.sawr.to_state()
+                                       if getattr(self, "sawr", None)
+                                       is not None else {}),
                               "tv_context_gate": self.tv_context_gate.to_state(),
                               "tv_down_bias_gate": self.tv_down_bias_gate.to_state(),
                               "tv_mtf_gate": self.tv_mtf_gate.to_state(),

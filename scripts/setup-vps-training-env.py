@@ -45,6 +45,9 @@ VPS_OVERRIDES = {
     "PULSE_PRE_TRADE_EXPLORATION_RATE": "0.20",
     "PULSE_BINARY_INTEL_MIN_SCORE": "0.15",
     "PULSE_BINARY_INTEL_EXPLORATION_RATE": "0.20",
+    "PULSE_SAWR_ENABLED": "1",
+    "PULSE_SAWR_TARGET_WR": "0.60",
+    "PULSE_SAWR_KILL_WR": "0.48",
     "PULSE_TRIAGE_TREND_SOURCE": "price",
     "PULSE_TRADINGVIEW_SIGNAL_GATE": "0",
     # Off during training — legacy tick path only; Osmani Discovery is price-trend authority.
