@@ -1,0 +1,135 @@
+{
+ "schema": "btc_pulse_meta_bundle/1.0",
+ "report_only": true,
+ "no_live_trading_decisions": true,
+ "candidate_lifecycle": {
+  "created": 8,
+  "feature_scored": 4,
+  "execution_costed": 0,
+  "ledgered": 0,
+  "reported": 8,
+  "terminals": {
+   "accepted": 0,
+   "rejected": 4,
+   "skipped": 0,
+   "expired": 0,
+   "missing_data": 4
+  },
+  "rejected_by_stage": {
+   "directional": 0,
+   "execution_gate": 0,
+   "tier_engine": 4
+  },
+  "skipped_by_reason": {},
+  "missing_by_reason": {
+   "no_price_or_vol": 4
+  },
+  "no_candidate_disappeared": true,
+  "reconciled": true
+ },
+ "execution_stats": {
+  "candidates": 0,
+  "accepted": 0,
+  "rejected_total": 0,
+  "rejected": {
+   "wide_spread": 0,
+   "insufficient_depth": 0,
+   "negative_ev_after_slippage": 0,
+   "too_close_to_resolution": 0,
+   "min_size_or_tick_violation": 0,
+   "partial_fill_risk": 0,
+   "missing_market_data": 0,
+   "stale_orderbook": 0,
+   "underdog_price_below_floor": 0
+  },
+  "fills": 0,
+  "reconciled": true
+ },
+ "reject_reasons": {
+  "wide_spread": 0,
+  "insufficient_depth": 0,
+  "negative_ev_after_slippage": 0,
+  "too_close_to_resolution": 0,
+  "min_size_or_tick_violation": 0,
+  "partial_fill_risk": 0,
+  "missing_market_data": 0,
+  "stale_orderbook": 0,
+  "underdog_price_below_floor": 0
+ },
+ "ev_before_after_costs": {
+  "n": 0,
+  "avg_ev_before_costs": null,
+  "avg_ev_after_costs": null
+ },
+ "calibration": {
+  "samples": 400,
+  "brier": 0.263169,
+  "log_loss": 0.830909,
+  "base_rate_up": 0.505,
+  "baseline_brier_0_5": 0.25
+ },
+ "edge_model_calibration": {
+  "0.1-0.2": {
+   "n": 5,
+   "empirical_up": 0.6
+  },
+  "0.2-0.3": {
+   "n": 13,
+   "empirical_up": 0.3846
+  },
+  "0.3-0.4": {
+   "n": 38,
+   "empirical_up": 0.4474
+  },
+  "0.4-0.5": {
+   "n": 87,
+   "empirical_up": 0.4713
+  },
+  "0.5-0.6": {
+   "n": 74,
+   "empirical_up": 0.4459
+  },
+  "0.6-0.7": {
+   "n": 31,
+   "empirical_up": 0.6129
+  },
+  "0.7-0.8": {
+   "n": 13,
+   "empirical_up": 0.4615
+  },
+  "0.8-0.9": {
+   "n": 1,
+   "empirical_up": 1.0
+  }
+ },
+ "sample_sizes": {
+  "accepted": 0,
+  "settled": 0,
+  "candidates": 8,
+  "edge_model_labeled": 262
+ },
+ "missing_data_reasons": {
+  "hurst:insufficient_returns": 4,
+  "half_life:insufficient_samples": 4,
+  "zscore:insufficient_divergence_samples": 4,
+  "kalman:insufficient_samples": 4
+ },
+ "tier_census": {
+  "A+": 0,
+  "A": 0,
+  "B": 0,
+  "C": 0,
+  "D": 0
+ },
+ "promotion_candidates": [],
+ "demotion_candidates": [],
+ "bucket_pnl": {},
+ "learning_questions": [
+  "Which Hurst regime / Markov state shows the best clean win-rate and positive PnL?",
+  "Which z-score, half-life, spread, depth, or time-to-resolution bucket is strongest?",
+  "Which reject reason dominates, and is it destroying real edge or correctly blocking noise?",
+  "Is the gap between EV-before-costs and EV-after-costs eroding edge?",
+  "Are any buckets Tier A+ / A with sufficient clean sample, or is everything still observe-only?",
+  "Where is missing data most limiting the analysis, and which feed should improve first?"
+ ]
+}

@@ -1,0 +1,275 @@
+{
+ "received": 0,
+ "valid": 0,
+ "rejected": 0,
+ "consumed": 0,
+ "reject_reasons": {},
+ "seen_ids": [],
+ "latest": null,
+ "latest_by_symbol": {},
+ "latest_by_tf": [],
+ "valid_by_symbol": {},
+ "alert_history_per_symbol": 50,
+ "alert_history_by_symbol": {},
+ "rsi_div_history_per_symbol": 20,
+ "rsi_div_history_by_symbol": {
+  "ETHUSD": [
+   {
+    "event_id": "ETHUSD-5-1783580700000-REGULAR_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783581006.596,
+    "bar_time": 1783581000.0,
+    "timeframe": "5",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BEAR_DIV",
+    "price": 1752.32,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "ETHUSD-10-1783582800000-REGULAR_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783583405.221,
+    "bar_time": 1783583400.0,
+    "timeframe": "10",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BEAR_DIV",
+    "price": 1756.14,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "ETHUSD-5-1783584000000-HIDDEN_BULL_DIV-rsidiv-bot1",
+    "received_at": 1783584306.187,
+    "bar_time": 1783584300.0,
+    "timeframe": "5",
+    "direction": "UP",
+    "strength": 0.7,
+    "signal_level": "HIDDEN_BULL_DIV",
+    "price": 1752.23,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "ETHUSD-5-1783584600000-REGULAR_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783584911.716,
+    "bar_time": 1783584900.0,
+    "timeframe": "5",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BEAR_DIV",
+    "price": 1753.07,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "ETHUSD-15-1783589400000-REGULAR_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783590307.023,
+    "bar_time": 1783590300.0,
+    "timeframe": "15",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BEAR_DIV",
+    "price": 1748.87,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "ETHUSD-10-1783594200000-REGULAR_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783594816.147,
+    "bar_time": 1783594800.0,
+    "timeframe": "10",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BEAR_DIV",
+    "price": 1745.05,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "ETHUSD-60-1783594800000-HIDDEN_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783598415.567,
+    "bar_time": 1783598400.0,
+    "timeframe": "60",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "HIDDEN_BEAR_DIV",
+    "price": 1742.89,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "ETHUSD-10-1783599000000-HIDDEN_BULL_DIV-rsidiv-bot1",
+    "received_at": 1783599606.183,
+    "bar_time": 1783599600.0,
+    "timeframe": "10",
+    "direction": "UP",
+    "strength": 0.7,
+    "signal_level": "HIDDEN_BULL_DIV",
+    "price": 1739.9,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "ETHUSD-5-1783599900000-REGULAR_BULL_DIV-rsidiv-bot1",
+    "received_at": 1783600211.79,
+    "bar_time": 1783600200.0,
+    "timeframe": "5",
+    "direction": "UP",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BULL_DIV",
+    "price": 1740.08,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "ETHUSD-5-1783600200000-HIDDEN_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783600505.125,
+    "bar_time": 1783600500.0,
+    "timeframe": "5",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "HIDDEN_BEAR_DIV",
+    "price": 1741.43,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "ETHUSD-5-1783602600000-REGULAR_BULL_DIV-rsidiv-bot1",
+    "received_at": 1783602908.813,
+    "bar_time": 1783602900.0,
+    "timeframe": "5",
+    "direction": "UP",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BULL_DIV",
+    "price": 1747.94,
+    "indicator_name": "RSI Divergence Indicator"
+   }
+  ],
+  "BTCUSD": [
+   {
+    "event_id": "BTCUSD-5-1783579800000-REGULAR_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783580105.018,
+    "bar_time": 1783580100.0,
+    "timeframe": "5",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BEAR_DIV",
+    "price": 62814.08,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "BTCUSD-5-1783584000000-HIDDEN_BULL_DIV-rsidiv-bot1",
+    "received_at": 1783584305.812,
+    "bar_time": 1783584300.0,
+    "timeframe": "5",
+    "direction": "UP",
+    "strength": 0.7,
+    "signal_level": "HIDDEN_BULL_DIV",
+    "price": 62962.1,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "BTCUSD-5-1783584900000-REGULAR_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783585205.44,
+    "bar_time": 1783585200.0,
+    "timeframe": "5",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BEAR_DIV",
+    "price": 62935.07,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "BTCUSD-5-1783585800000-HIDDEN_BULL_DIV-rsidiv-bot1",
+    "received_at": 1783586105.269,
+    "bar_time": 1783586100.0,
+    "timeframe": "5",
+    "direction": "UP",
+    "strength": 0.7,
+    "signal_level": "HIDDEN_BULL_DIV",
+    "price": 62947.84,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "BTCUSD-10-1783590600000-HIDDEN_BULL_DIV-rsidiv-bot1",
+    "received_at": 1783591212.82,
+    "bar_time": 1783591200.0,
+    "timeframe": "10",
+    "direction": "UP",
+    "strength": 0.7,
+    "signal_level": "HIDDEN_BULL_DIV",
+    "price": 62914.2,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "BTCUSD-10-1783592400000-REGULAR_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783593007.681,
+    "bar_time": 1783593000.0,
+    "timeframe": "10",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BEAR_DIV",
+    "price": 62835.04,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "BTCUSD-15-1783595700000-REGULAR_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783596610.483,
+    "bar_time": 1783596600.0,
+    "timeframe": "15",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BEAR_DIV",
+    "price": 62660.34,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "BTCUSD-55-1783594800000-HIDDEN_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783598105.115,
+    "bar_time": 1783598100.0,
+    "timeframe": "55",
+    "direction": "DOWN",
+    "strength": 0.7,
+    "signal_level": "HIDDEN_BEAR_DIV",
+    "price": 62691.49,
+    "indicator_name": "RSI Divergence Indicator"
+   },
+   {
+    "event_id": "BTCUSD-5-1783602600000-REGULAR_BULL_DIV-rsidiv-bot1",
+    "received_at": 1783602909.47,
+    "bar_time": 1783602900.0,
+    "timeframe": "5",
+    "direction": "UP",
+    "strength": 0.7,
+    "signal_level": "REGULAR_BULL_DIV",
+    "price": 62830.7,
+    "indicator_name": "RSI Divergence Indicator"
+   }
+  ],
+  "BTCUSDT": [
+   {
+    "event_id": "BTCUSDT-5-1783716600000-REGULAR_BULL_DIV-rsidiv-bot1",
+    "received_at": 1783716903.754,
+    "bar_time": 1783716900.0,
+    "timeframe": "5",
+    "direction": "UP",
+    "strength": 0.75,
+    "signal_level": "REGULAR_BULL_DIV",
+    "price": 63874.45,
+    "indicator_name": "Hermes RSI Divergence Indicator",
+    "signal_kind": "rsi_divergence",
+    "divergence_kind": "regular_bullish",
+    "rsi": 35.0746608794,
+    "close": 63874.45
+   }
+  ],
+  "ETHUSDT": [
+   {
+    "event_id": "ETHUSDT-5-1783727100000-REGULAR_BEAR_DIV-rsidiv-bot1",
+    "received_at": 1783727401.643,
+    "bar_time": 1783727400.0,
+    "timeframe": "5",
+    "direction": "DOWN",
+    "strength": 0.75,
+    "signal_level": "REGULAR_BEAR_DIV",
+    "price": 1795.75,
+    "indicator_name": "Hermes RSI Divergence Indicator",
+    "signal_kind": "rsi_divergence",
+    "divergence_kind": "regular_bearish",
+    "rsi": 58.920671151,
+    "close": 1795.75
+   }
+  ]
+ }
+}

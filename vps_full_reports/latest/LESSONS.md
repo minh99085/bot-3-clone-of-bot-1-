@@ -1,0 +1,107 @@
+# Hermes BTC Pulse — LESSONS (auto-generated, compounding + self-retracting)
+
+_Rules survive only while live evidence keeps proving them; stale rules are retracted and not fed to the maker/checker. PAPER ONLY._
+
+
+## Active
+
+- **2026-07-10 12:03** [`avoid`]: AVOID hourly_entry_bucket=h15_30m — confidently below breakeven (WR 0.35 vs 0.5764, n 20, EV/trade -3.9491).
+- **2026-07-07 20:31** [`avoid`]: AVOID confidence_tier=high — confidently below breakeven (WR 0.4048 vs 0.6501, n 84, EV/trade -2.1588).
+- **2026-07-06 11:23** [`research`]: theoretical_settled=$30 vs realized=-$3 implies $33 execution drag (entry_vwap slippage + hold bleed); prioritize tighter entry_vwap bounds before expanding volume
+- **2026-07-06 11:23** [`research`]: nested_execute=true + clock_skew=false still allows 14k rejections for mc_adverse_selection; enable clock_skew to tighten entry timing
+- **2026-07-06 11:23** [`research`]: verifier_veto_quality verdict='vetoes_costing_edge' contradicts data: vetoed trades would lose $755 at 52% win; always require verifier approval until sample proves otherwise
+- **2026-07-06 11:23** [`research`]: 60s mid_convergence_rate=1.0 does NOT imply profitable exit; -10% capture_ratio shows adverse selection or latency bleed between convergence observation and fill
+- **2026-07-06 11:03** [`research`]: Core direction bot: 113 settled, 49.6% win_rate, profit_factor=0.94, -$14.93 PnL. No directional edge detected. Do NOT go live. Focus dep-arb or collect 500+ samples for tier breakdown.
+- **2026-07-06 11:03** [`research`]: Verifier veto verdict='vetoes_costing_edge' but vetoed-would-pnl=-$754 (negative) confirms the verifier is correctly blocking bad trades. Do NOT disable verifier gate until positive vetoed-would-pnl is sample-backed (n>50).
+- **2026-07-06 11:03** [`research`]: mc_adverse_selection rejections (10k+) vastly exceed settled (180), indicating maker-checker is catching most adverse flow. If this persists post-VWAP tightening, consider gating on pre-execution mid stability (e.g., 5s rolling vol < threshold).
+- **2026-07-06 11:03** [`research`]: 60s mid_convergence=100% does NOT guarantee capture if entry VWAP is wide; capture_ratio=-0.10 vs theoretical $30 means slippage or adverse selection at entry dominates. Lower max_entry_vwap or add pre-entry timing filter.
+- **2026-07-06 10:52** [`research`]: theoretical_settled $29.96 vs realized -$3.33 = 111% bleed; mid_exit reduces window but does not solve root adverse selection or slippage issue
+- **2026-07-06 10:52** [`research`]: verifier_veto_quality verdict='vetoes_costing_edge' with 0 approved trades means gate is over-aggressive; disable PULSE_DEP_ARB_VERIFIER_REQUIRE_VERDICT until logic fixed
+- **2026-07-06 10:52** [`research`]: 60s mid_exit 100% convergence does not guarantee profit; -11% capture_ratio implies execution/adverse-selection dominates gap-decay gains
+- **2026-07-06 10:32** [`research`]: Verifier vetoes 148 trades that would lose $755 (52% win rate); approved n=0 settled with $0 PnL—require verifier verdict before execution
+- **2026-07-06 10:32** [`research`]: Mid_exit at 60s achieves 100% convergence but capture_ratio=-0.11 indicates exits crystallize losses before resolution edge; extend horizon to 120s minimum
+- **2026-07-06 10:12** [`research`]: High mc_adverse_selection rejections (9983) + negative capture_ratio indicate entry_vwap cap is too permissive; tighten max_entry_vwap when settled capture_ratio < -0.05
+- **2026-07-06 09:52** [`research`]: 49.6% win-rate on 113 settled with PF=0.94 shows no directional exploit at n<200; defer live until n≥500 with WR≥55%
+- **2026-07-06 09:52** [`research`]: Claude verifier vetoes bleed edge when mid_convergence is deterministic (100% @60s); require n>500 to override convergence signal
+- **2026-07-06 09:31** [`research`]: Core bot: 113 settled, 49.6% WR, 0.94 PF—no exploitable directional edge; focus dep-arb or halt directional
+- **2026-07-06 09:31** [`research`]: 60s mid_exit horizon achieves 100% convergence vs 94.4% at 120s; use 60s as anchor to minimize bleed
+- **2026-07-06 09:11** [`research`]: 12k mc_adverse_selection + 2k violation_magnitude_above_cap + 2k entry_vwap_below_floor = 16k rejects pre-execution; tighten max_entry_vwap or relax mc thresholds
+- **2026-07-06 09:11** [`research`]: verifier_approved_settled=0 despite 179 executed; verifier gate is terminal filter causing zero dep-arb P&L attribution to approved category
+- **2026-07-06 09:11** [`research`]: mid_exit_horizon_s=60 shows 100% convergence but -11% capture_ratio vs +$30 theoretical_settled; bleed occurs between convergence detection and actual exit
+- **2026-07-06 09:01** [`research`]: verifier vetoes with verdict=vetoes_costing_edge are actually SAVING money when vetoed trades would lose; enable PULSE_DEP_ARB_VERIFIER_REQUIRE_VERDICT
+- **2026-07-06 08:49** [`research`]: 60s mid_exit converges 100% but -10% capture; shorter horizon (30s) may limit hold-to-resolution bleed
+- **2026-07-06 08:49** [`research`]: nested_execute shows -10% capture vs theoretical; conjunction-only may reduce mid-convergence bleed
+- **2026-07-06 08:29** [`research`]: nested_execute enabled but mc_adverse_selection=9860 rejects and entry_vwap issues dominate; test nested_execute=1 + verifier=0 + mid_exit=0 to isolate nested fill quality
+- **2026-07-06 08:29** [`research`]: verifier approved n=0 settled trades (0 PnL contribution) while vetoing 144 trades that would lose -$754.68 at 53% win-rate; veto is net-negative but approved adds nothing—disable or retune gate
+- **2026-07-06 08:29** [`research`]: mid_exit 60s converges 100% but capture_ratio=-9.92% vs theoretical +$29.78; bleed from hold-to-mid exceeds convergence alpha—test 30s or deterministic-only exit
+- **2026-07-06 08:09** [`research`]: 25 rejects for bucket_bleeding (0.20-0.50 bands); flag is catching unstable buckets pre-execution
+- **2026-07-06 08:09** [`research`]: 30s horizon: 100% converged, 17% decay; 60s adds 5% decay but increases exposure window—favor 30s
+- **2026-07-06 08:09** [`research`]: vetoed trades show 53% win rate but -$754 PnL; high win rate ≠ edge when per-trade EV negative
+- **2026-07-06 08:09** [`research`]: max_entry_vwap=0.85 yields -10% capture vs theoretical; tighten to 0.75-0.80 to reduce entry slippage bleed
+- **2026-07-06 07:48** [`research`]: 113 settled at 50% win_rate, 0.94 PF; no statistically significant edge—hold report-only until 500+ sample
+- **2026-07-06 07:48** [`research`]: verifier vetoes 144 trades that would win 53% with adverse PNL—likely overfitting to noise; bypass or retrain
+- **2026-07-06 07:32** [`research`]: Dep-arb -$3.00 on 171 vs core -$14.93 on 113; combined system still net-negative—no arbitrage edge compensating for missing directional signal
+- **2026-07-06 07:32** [`research`]: 9816 mc_adverse_selection rejections vs 1987 entry_vwap_below_floor; maker-checker filtering aggressive but necessary—directional edge absent (0.50 WR core)
+- **2026-07-06 07:32** [`research`]: 143 vetoes saved -$754.72 (0.52 win_rate < 0.53 breakeven); intel.verifier_veto_quality verdict=vetoes_costing_edge is correct—enforce gate requirement
+- **2026-07-06 07:32** [`research`]: 30s mid_exit shows full convergence (100%, 0.174 decay) vs 60s (0.235 decay); capture_ratio=-0.10 means hold-to-settle costs 40% of theoretical edge—exit at first convergence
+- **2026-07-06 07:12** [`research`]: 113 settles at 49.6% win rate, PF=0.94, -$14.93 PnL confirms no exploitable directional edge in 5-min BTC
+- **2026-07-06 07:12** [`research`]: verifier vetoes 143 trades that would lose -$754.72 (wr=0.52); vetoes protect capital even when verdict=vetoes_costing_edge
+- **2026-07-06 07:12** [`research`]: mid_exit captures convergence but bleeds 76% of theoretical edge via adverse hold-to-resolution; 30s horizon may reduce bleed vs 60s
+- **2026-07-06 06:52** [`research`]: capture_ratio -0.10 vs theoretical_settled $29.77 implies $32.77 bleed (110% of theoretical); gap between mid-convergence timing and settlement dominates dep-arb PnL
+- **2026-07-06 06:52** [`research`]: vetoes_costing_edge verdict (n=143, -$754.72 at 52% WR) may reflect profitable vetoes in bleeding strategy; disable verifier to isolate entry/exit knob effects on approved-settled sample
+- **2026-07-06 06:52** [`research`]: mid-convergence 100% at 30s/60s does NOT imply profitable dep-arb if entry-vwap permits adverse fills; tighten entry cap or shrink horizon before mid-observer timing
+- **2026-07-06 06:31** [`research`]: 9709 rejected by mc_adverse_selection dominates dep-arb rejects — maker-checker correctly filters pre-trade selection bias
+- **2026-07-06 06:31** [`research`]: 113 settled directional trades show 49.6% win rate, PF=0.94, -$14.93 PnL — no statistical edge in 5-min BTC direction with current feature set
+- **2026-07-06 06:31** [`research`]: verifier_veto_quality verdict='vetoes_costing_edge' misleading when vetoed trades would lose $755 at 52% win rate — veto gate is net-protective
+- **2026-07-06 06:31** [`research`]: 60s mid-exit converges 100% but realizes -11.5% capture vs theory — early exit crystallizes adverse selection before mean reversion completes
+- **2026-07-06 06:11** [`research`]: 49.6% WR + PF=0.94 across 113 settled means no directional edge exists; dep-arb must carry entire burden and it is failing
+- **2026-07-06 06:11** [`research`]: verifier vetoes with 52% WR on vetoed set are protective when actual settled capture_ratio is negative; do not disable gate
+- **2026-07-06 06:11** [`research`]: 100% mid-convergence at 60s does NOT imply profit if entry VWAP bleeds >10% of theoretical edge before convergence starts
+- **2026-07-06 05:51** [`research`]: Dep-arb capture_ratio=-11.5% on $29.65 theoretical; hold-to-resolution bleed or adverse selection dominates nested_execute gains
+- **2026-07-06 05:51** [`research`]: mid_convergence: 30s/60s=100% converged vs 120s=75%; gap_decay peaks 60s (0.161) then bleeds; cap horizon ≤60s
+- **2026-07-06 05:51** [`research`]: Verifier vetoes 52.5% WR trades losing to 49.6% executed; intel.verifier_veto_quality='vetoes_costing_edge' warrants disabling PULSE_DEP_ARB_VERIFIER_REQUIRE_VERDICT
+- **2026-07-06 05:31** [`research`]: Directional trades show 49.6% WR, profit_factor=0.94 on 113 settled—no exploitable edge exists in base strategy
+- **2026-07-06 05:31** [`research`]: Verifier vetoes predict WORSE outcomes (vetoed=-$754 @ 52%WR vs executed=-$3.42 @ unknown WR); either bad verifier or selecting into losing variance
+- **2026-07-06 05:31** [`research`]: mc_adverse_selection (9622 rejects) >> all other reject reasons; LCMM orderbook may be stale or maker-taker flow is adversely selecting the model
+- **2026-07-06 05:16** [`research`]: verifier vetoed 142 trades that would have won 52.8% (-$754 PnL); verifier is filtering adverse selection poorly—test without verifier gate
+- **2026-07-06 05:16** [`research`]: mid_exit_enabled=true but mid_convergence_by_horizon shows n=0 for all horizons; fix mid_observer logging or confirm it is not triggering
+- **2026-07-06 04:55** [`research`]: verifier vetoes cost edge (52.8% vetoed-would-win, n=144); gate introduces adverse selection
+- **2026-07-06 04:55** [`research`]: Capture_ratio -0.10 vs +$29.54 theoretical: hold-to-resolution bleeds 110% of theoretical edge
+- **2026-07-06 04:55** [`research`]: 60s mid_exit shows 0% convergence (0/2 samples); dependency gaps not closing in 1-min window
+- **2026-07-06 04:34** [`research`]: Directional: 112 settled, 50% WR, PF=0.957, -$9.93 PnL—no exploitable edge; reject live until WR>55% and PF>1.2 over n>500
+- **2026-07-06 04:34** [`research`]: Vetoes labeled 'costing_edge' but vetoed trades would lose $754 at 53% WR; trust veto gate over win-rate heuristic until approved_settled n>30 contradicts
+- **2026-07-06 04:34** [`research`]: Mid-convergence at 60s (100% rate) != profitable settle; -9.6% capture vs +$29.51 theoretical shows resolution hold bleeds edge—exit early or don't enter
+- **2026-07-06 04:14** [`research`]: main bot 50% win rate, 0.957 profit factor, -$9.93 PnL at n=112 settled — no directional edge detected; losses from avg_loss > avg_win ($4.12 vs $3.94)
+- **2026-07-06 04:14** [`research`]: verifier vetoes (n=142) blocked trades with 52.8% win rate but -$754 PnL — vetoes correctly identify unprofitable structure despite modest win rate
+- **2026-07-06 04:14** [`research`]: mid_exit at 60s produced zero mid_convergence samples across all horizons — either clock_skew needed or feature broken; investigate before re-enabling
+- **2026-07-06 03:54** [`research`]: core directional: 111 settled, 50.5% WR, PF 0.98, -$4.93 PnL; no statistical edge at n=111, do not proceed to live
+- **2026-07-06 03:54** [`research`]: verifier_veto_quality verdict=vetoes_costing_edge but vetoed trades would have lost $754; trust PnL over win_rate for veto assessment
+- **2026-07-06 03:54** [`research`]: mid_convergence_by_horizon shows n=0 for all horizons despite mid_exit_enabled=true at 60s; instrument mid_observer or disable mid_exit to diagnose
+- **2026-07-06 03:54** [`research`]: dep-arb capture_ratio -8.7% vs theoretical $29.39 indicates hold-to-resolution bleed exceeds any convergence edge; do not scale until capture >50%
+- **2026-07-06 03:31** [`research`]: win-rate 50.5%, profit-factor 0.98, PnL -$4.93 over 111 settled; 5-min BTC efficient—no directional exploit until signal lift proven
+- **2026-07-06 03:31** [`research`]: mid_exit_horizon_s=60 shows 100% convergence (n=8) with 27% avg gap decay; 60s is reliable exit floor vs hold-to-resolution
+- **2026-07-06 03:31** [`research`]: verifier vetoes 53% win-rate trades (-$754 PnL) but approved n=0; gate adds no predictive value—bypass until convergence accuracy scored
+- **2026-07-06 03:11** [`research`]: mc_adverse_selection=9411 rejections is largest reject reason; clock_skew_enabled=false may be causing stale timing; enable clock_skew to align entry with market state
+- **2026-07-06 03:11** [`research`]: capture_ratio=-8.7% vs theoretical_settled_usd=$29.39 means hold-to-resolution bleed dominates; tighten max_entry_vwap or enable clock_skew to reduce adverse selection
+- **2026-07-06 03:11** [`research`]: mid_exit_enabled=true but mid_convergence_by_horizon shows 0 samples at all horizons (30/60/120s); mid-observer is either not running or not detecting convergence; investigate mid_observer logging before trusting mid_exit
+- **2026-07-06 03:11** [`research`]: verifier vetoes 142 trades that would win 52.8% and lose -$754; disable PULSE_DEP_ARB_VERIFIER_REQUIRE_VERDICT to recover edge
+- **2026-07-06 02:51** [`research`]: nested_execute=true but no A/B data vs conjunction-only in experiments block; next experiment: compare nested vs conjunction realized PnL on matched opps
+- **2026-07-06 02:51** [`research`]: 60s mid_exit shows 100% convergence (5/5) yet capture_ratio=-0.0866; convergence ≠ profit when hold-to-resolution bleeds theoretical edge; next: measure mid_exit PnL vs hold PnL on same sample
+- **2026-07-06 02:30** [`research`]: Main strategy shows 50.45% win rate, PF=0.98 on 111 settled; no bucket dimension (hurst/zscore/ttc/confidence/spread/depth/markov/edge_quality/stale_divergence) shows exploitable signal—5min BTC direction remains near-efficient
+- **2026-07-06 02:30** [`research`]: 9352 mc_adverse_selection rejections (67% of all rejects) indicate entry_vwap_above_cap=0.85 allows toxic flow; tighten to 0.75 and measure reject/fill quality shift
+- **2026-07-06 02:30** [`research`]: 60s mid_exit shows 100% convergence but -8.7% capture vs +$29 theoretical; mid-exit timing may crystallize loss before favorable resolution—test disable
+- **2026-07-06 02:06** [`research`]: 1987 rejects for entry_vwap_below_floor; adverse selection pressure at loose entry caps
+- **2026-07-06 02:06** [`research`]: Capture_ratio=-11% despite perfect convergence implies entry_vwap slippage or adverse selection dominating hold-to-resolution; audit entry fill quality
+- **2026-07-06 02:06** [`research`]: mid_exit_horizon_s=60 yields 0 convergence samples; early-exit logic not engaging
+- **2026-07-06 02:06** [`research`]: Disable verifier veto gate when verdict=vetoes_costing_edge and vetoed_would_have_win_rate > 0.50
+- **2026-07-06 01:48** [`research`]: verifier_veto_quality=vetoes_costing_edge but approved_settled n=0; gate logic sound but not yet empirically validated on approved subset
+- **2026-07-06 01:48** [`research`]: mid_exit@60s bleeds -7.2% capture vs theoretical; 60s insufficient for convergence gains despite 72% converged_rate
+- **2026-07-06 01:31** [`research`]: 9298 mc_adverse_selection rejections dwarf other reasons; maker-checker correctly blocks toxic flow
+- **2026-07-06 01:31** [`research`]: convergence plateaus at 30s (68.75%); no benefit holding to 60s+ given -6.7% capture
+- **2026-07-06 01:31** [`research`]: verifier vetoes prevent -$754 loss at 54% WR; keep verifier_require_verdict=true
+- **2026-07-06 01:10** [`research`]: capture_ratio=-6.5% with theoretical=$29 implies hold-to-resolution bleeds $30; exit discipline failure not entry
+- **2026-07-06 01:10** [`research`]: verifier WR>50% but negative counterfactual PnL indicates edge-destroying selection bias; gate on PnL not accuracy
+- **2026-07-06 01:10** [`research`]: disable mid-exit when 60s converged_rate=0% over n≥5; gap decay <0 indicates divergence acceleration not mean-reversion
+- **2026-07-06 00:46** [`research`]: 30s mid_exit: 100% converged, 20.4% gap_decay vs 60s 15.9%; faster exit may preserve spread
+- **2026-07-06 00:46** [`research`]: theoretical_settled=$29 vs realized=-$1.90; capture_ratio=-6.5% implies hold-to-resolution bleeds edge
+- **2026-07-06 00:46** [`research`]: verifier approved_settled=0 samples despite vetoes_costing_edge verdict; no proof verifier adds alpha

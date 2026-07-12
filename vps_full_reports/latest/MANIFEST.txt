@@ -1,0 +1,40 @@
+Hermes BTC 5-min Pulse — PROVENANCE MANIFEST
+paper_only=true live_trading_enabled=false
+generated_utc=2026-07-11 02:41:14 UTC
+
+[git]
+commit=unknown
+dirty=None
+
+[docker]
+hostname=2db0270107d0
+image=None
+compose_project=None
+
+[env_flags]
+PULSE_GROK_DECIDER_MODE=shadow
+PULSE_VERIFIER_ENABLED=0
+PULSE_DIRECTIONAL_ENABLED=1
+PULSE_DIRECTIONAL_REQUIRE_WINNING=0
+PULSE_LEARNING_ENABLED=1
+GROK_OVERLAY_ENABLED=0
+PULSE_TV_CONTEXT_GATE=0
+
+[runtime]
+ticks=2
+global_reconciled=True
+settled=0
+
+[artifacts]
+btc_pulse_status.json
+btc_pulse_ledger.json
+btc_pulse_light_report.json
+btc_pulse_meta_bundle.json
+report.md
+report.docx
+btc_pulse_score_history.json
+LESSONS.md
+STATE.md
+MANIFEST.txt
+validation_full.txt
+validation_light.txt

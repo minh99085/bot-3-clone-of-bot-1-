@@ -1,0 +1,23 @@
+---
+description: Git + VPS deploy workflow — main only, full rebuild always
+alwaysApply: true
+---
+
+# Ship workflow (operator mandate 2026-07-07)
+
+**Do NOT create feature branches or PRs.** Work on `main` only.
+
+Every code/config change is incomplete until this full pipeline finishes:
+
+1. `git checkout main` (if needed) → edit → test
+2. `git commit` → `git push origin main`
+3. Sync VPS (`.\scripts\sync-vps.ps1` or bash equivalent in `CLAUDE.md`)
+4. On VPS plugin dir:
+   `docker compose down --remove-orphans`
+   `docker compose build`
+   `docker compose up -d --force-recreate --remove-orphans`
+5. Verify (`.\scripts\verify-sync.ps1`)
+
+Never `-SkipRebuild` or `docker compose restart` unless the operator explicitly requests code-only sync in the current message.
+
+Full detail: `.grok/rules/vps-deploy-mandatory.md`, `AGENTS.md`, `CLAUDE.md`.

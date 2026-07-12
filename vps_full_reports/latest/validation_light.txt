@@ -1,0 +1,7 @@
+validation_light — integrity smoke checks
+global_reconciled=True
+failed_checks=[]
+paper_only=True
+settled=0
+accepted=0
+payoff_guards={"rejected_tiny_upside": 0, "rejected_bad_reward_to_risk": 0, "rejected_high_entry_insufficient_margin": 0}

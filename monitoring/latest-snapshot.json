@@ -1,0 +1,96 @@
+{
+  "schema": "timeline/1.0",
+  "ts_utc": "2026-07-11T02:41:24.245091+00:00",
+  "source": "local_latest",
+  "repo_sha": "6434a6f9883f",
+  "config_fingerprint": "2a1e1f13bed38ef8",
+  "runtime": {
+    "ticks": 2,
+    "status_age_s": null,
+    "paper_only": true,
+    "halted": false,
+    "reconciled": true
+  },
+  "design": {
+    "series": null,
+    "down_only": null,
+    "green_path": false,
+    "ttc_band_15m_s": [
+      450.0,
+      720.0
+    ],
+    "tick_s": 15.0,
+    "max_price": 0.85,
+    "min_edge": 0.03,
+    "min_rr": 0.25,
+    "grok_mode": "shadow",
+    "require_high_edge": false,
+    "require_strong_cex": false
+  },
+  "tv": {
+    "alerts_valid": 0,
+    "alerts_rejected": 0,
+    "mtf_verdict": "none",
+    "trend_fresh": 0,
+    "mtf_count": 12,
+    "signal_gate": false,
+    "mtf_gate": false,
+    "by_tf": {
+      "2m": {
+        "dir": null,
+        "strength": null,
+        "age_s": null
+      },
+      "3m": {
+        "dir": null,
+        "strength": null,
+        "age_s": null
+      },
+      "4m": {
+        "dir": null,
+        "strength": null,
+        "age_s": null
+      }
+    }
+  },
+  "oracle": {
+    "btc_usd": 64064.610765,
+    "source": "rtds_chainlink",
+    "rtds_connected": true,
+    "oracle_age_s": 0.86
+  },
+  "ledger": {
+    "trades": 0,
+    "settled": 0,
+    "win_rate": null,
+    "profit_factor": null,
+    "pnl_usd": 0.0,
+    "on_hand_usd": 2000.0,
+    "open_positions": 0
+  },
+  "funnel": {
+    "top_rejects": {
+      "tier_engine": 4,
+      "directional": 0,
+      "execution_gate": 0
+    },
+    "cohort_session_blocks": 0,
+    "cohort_block_reasons": {},
+    "exec_candidates": 0,
+    "exec_accepted": 0,
+    "exec_rejected": 0
+  },
+  "grok_verifier": {
+    "decided": 3648,
+    "abstains": 965,
+    "errors": 175,
+    "verifier_approvals": null,
+    "verifier_vetoes": null
+  },
+  "recent_evals": {
+    "no_price_or_vol": 4,
+    "tier_below_tier_thresholds|cell_observe": 4
+  },
+  "by_series": {},
+  "config_changed": true
+}

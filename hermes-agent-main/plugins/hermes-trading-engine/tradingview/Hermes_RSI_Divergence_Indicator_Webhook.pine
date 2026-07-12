@@ -1,0 +1,212 @@
+//@version=6
+// =====================================================================================
+// Hermes RSI Divergence Indicator — YOUR standard TV script + JSON webhook to Bot-1
+// =====================================================================================
+// Paste this entire file into TradingView Pine Editor (replaces built-in library copy).
+// RSI math + plots are unchanged from RSI Divergence Indicator.txt.
+//
+// Charts: BINANCE:BTCUSDT + BINANCE:ETHUSDT · 5m (alerts 3 & 4 in 4-chart setup)
+//
+// Alert (CRITICAL — while THIS indicator is selected on chart):
+//   Condition = Any alert() function call
+//   Message   = {{message}}
+//   Webhook   = http://144.202.122.120/webhooks/tradingview
+//   Inputs → Hermes webhook secret = VPS TRADINGVIEW_WEBHOOK_SECRET
+//
+// Do NOT use alertcondition titles (Regular Bullish Divergence, etc.) — those send
+// English text, not JSON, and the bot will reject them.
+// =====================================================================================
+// NOTE: Do NOT pass timeframe/timeframe_gaps to indicator() — Pine CE10080 blocks
+// alert() side effects when a timeframe argument is present.
+indicator(title="Hermes RSI Divergence Indicator", shorttitle="HermesRSIDiv",
+     format=format.price)
+
+secretInput   = input.string("PASTE_YOUR_HERMES_WEBHOOK_SECRET", "Hermes webhook secret")
+webhookUrl    = input.string("http://144.202.122.120/webhooks/tradingview", "Hermes webhook URL (paste into Alert → Webhook URL)")
+botName       = input.string("hermes", "Bot name")
+indicatorName = input.string("Hermes RSI Divergence Indicator", "Indicator name")
+webhookRegularOnly = input.bool(true, "Webhook regular bull/bear only (hidden = plot only)")
+webhookBandHeartbeat = input.bool(true, "Webhook RSI 30/70 band heartbeat (every bar close)")
+osThreshold = input.int(30, "Oversold threshold", minval=1, maxval=49)
+obThreshold = input.int(70, "Overbought threshold", minval=51, maxval=99)
+
+len = input.int(title="RSI Period", minval=1, defval=14)
+src = input(title="RSI Source", defval=close)
+lbR = input(title="Pivot Lookback Right", defval=5, display=display.none)
+lbL = input(title="Pivot Lookback Left", defval=5, display=display.none)
+rangeUpper = input(title="Max of Lookback Range", defval=60, display=display.none)
+rangeLower = input(title="Min of Lookback Range", defval=5, display=display.none)
+plotBull = input(title="Plot Bullish", defval=true, display=display.none)
+plotHiddenBull = input(title="Plot Hidden Bullish", defval=false, display=display.none)
+plotBear = input(title="Plot Bearish", defval=true, display=display.none)
+plotHiddenBear = input(title="Plot Hidden Bearish", defval=false, display=display.none)
+bearColor = color.red
+bullColor = color.green
+hiddenBullColor = color.new(color.green, 80)
+hiddenBearColor = color.new(color.red, 80)
+textColor = color.white
+noneColor = color.new(color.white, 100)
+
+jsonNum(x) => na(x) ? "null" : str.tostring(x)
+
+osc = ta.rsi(src, len)
+
+plot(osc, title="RSI", linewidth=2, color=#2962FF)
+hline(50, title="Middle Line", color=#787B86, linestyle=hline.style_dotted)
+obLevel = hline(70, title="Overbought", color=#787B86, linestyle=hline.style_dotted)
+osLevel = hline(30, title="Oversold", color=#787B86, linestyle=hline.style_dotted)
+fill(obLevel, osLevel, title="Background", color=color.rgb(33, 150, 243, 90))
+
+plFound = na(ta.pivotlow(osc, lbL, lbR)) ? false : true
+phFound = na(ta.pivothigh(osc, lbL, lbR)) ? false : true
+_inRange(cond) =>
+    bars = ta.barssince(cond == true)
+    rangeLower <= bars and bars <= rangeUpper
+
+//------------------------------------------------------------------------------
+// Regular Bullish
+inRangePl = _inRange(plFound[1])
+oscHL = osc[lbR] > ta.valuewhen(plFound, osc[lbR], 1) and inRangePl
+priceLL = low[lbR] < ta.valuewhen(plFound, low[lbR], 1)
+bullCondAlert = priceLL and oscHL and plFound
+bullCond = plotBull and bullCondAlert
+
+plot(plFound ? osc[lbR] : na, offset=-lbR, title="Regular Bullish", linewidth=2,
+     color=(bullCond ? bullColor : noneColor), display=display.pane, editable=plotBull)
+plotshape(bullCond ? osc[lbR] : na, offset=-lbR, title="Regular Bullish Label", text=" Bull ",
+     style=shape.labelup, location=location.absolute, color=bullColor, textcolor=textColor,
+     editable=plotBull)
+
+//------------------------------------------------------------------------------
+// Hidden Bullish
+oscLL = osc[lbR] < ta.valuewhen(plFound, osc[lbR], 1) and inRangePl
+priceHL = low[lbR] > ta.valuewhen(plFound, low[lbR], 1)
+hiddenBullCondAlert = priceHL and oscLL and plFound
+hiddenBullCond = plotHiddenBull and hiddenBullCondAlert
+
+plot(plFound ? osc[lbR] : na, offset=-lbR, title="Hidden Bullish", linewidth=2,
+     color=(hiddenBullCond ? hiddenBullColor : noneColor), display=display.pane,
+     editable=plotHiddenBull)
+plotshape(hiddenBullCond ? osc[lbR] : na, offset=-lbR, title="Hidden Bullish Label",
+     text=" H Bull ", style=shape.labelup, location=location.absolute, color=bullColor,
+     textcolor=textColor, editable=plotHiddenBull)
+
+//------------------------------------------------------------------------------
+// Regular Bearish
+inRangePh = _inRange(phFound[1])
+oscLH = osc[lbR] < ta.valuewhen(phFound, osc[lbR], 1) and inRangePh
+priceHH = high[lbR] > ta.valuewhen(phFound, high[lbR], 1)
+bearCondAlert = priceHH and oscLH and phFound
+bearCond = plotBear and bearCondAlert
+
+plot(phFound ? osc[lbR] : na, offset=-lbR, title="Regular Bearish", linewidth=2,
+     color=(bearCond ? bearColor : noneColor), display=display.pane, editable=plotBear)
+plotshape(bearCond ? osc[lbR] : na, offset=-lbR, title="Regular Bearish Label", text=" Bear ",
+     style=shape.labeldown, location=location.absolute, color=bearColor, textcolor=textColor,
+     editable=plotBear)
+
+//------------------------------------------------------------------------------
+// Hidden Bearish
+oscHH = osc[lbR] > ta.valuewhen(phFound, osc[lbR], 1) and inRangePh
+priceLH = high[lbR] < ta.valuewhen(phFound, high[lbR], 1)
+hiddenBearCondAlert = priceLH and oscHH and phFound
+hiddenBearCond = plotHiddenBear and hiddenBearCondAlert
+
+plot(phFound ? osc[lbR] : na, offset=-lbR, title="Hidden Bearish", linewidth=2,
+     color=(hiddenBearCond ? hiddenBearColor : noneColor), display=display.pane,
+     editable=plotHiddenBear)
+plotshape(hiddenBearCond ? osc[lbR] : na, offset=-lbR, title="Hidden Bearish Label",
+     text=" H Bear ", style=shape.labeldown, location=location.absolute, color=bearColor,
+     textcolor=textColor, editable=plotHiddenBear)
+
+//------------------------------------------------------------------------------
+// Hermes JSON webhook (regular divergences → bot RSI overlay FIFO)
+f_hermes_msg(string direction, string signalLevel, string divKind, float rsiVal, float strength) =>
+    eventId = syminfo.ticker + "-" + timeframe.period + "-" + str.tostring(time) + "-" + signalLevel + "-rsidiv-bot1"
+    msg = "{"
+    msg := msg + "\"secret\":\""          + secretInput + "\","
+    msg := msg + "\"bot_name\":\""         + botName + "\","
+    msg := msg + "\"source\":\"tradingview\","
+    msg := msg + "\"symbol\":\""           + syminfo.ticker + "\","
+    msg := msg + "\"timeframe\":\""        + timeframe.period + "\","
+    msg := msg + "\"direction\":\""        + direction + "\","
+    msg := msg + "\"signal_level\":\""     + signalLevel + "\","
+    msg := msg + "\"strength\":"           + jsonNum(strength) + ","
+    msg := msg + "\"indicator_name\":\""   + indicatorName + "\","
+    msg := msg + "\"signal_kind\":\"rsi_divergence\","
+    msg := msg + "\"divergence_kind\":\""  + divKind + "\","
+    msg := msg + "\"event_id\":\""         + eventId + "\","
+    msg := msg + "\"bar_time\":\""         + str.tostring(time_close) + "\","
+    msg := msg + "\"price\":"              + jsonNum(close) + ","
+    msg := msg + "\"rsi\":"                + jsonNum(rsiVal) + ","
+    msg := msg + "\"composite_version\":\"rsi_div_indicator_webhook_v1\","
+    msg := msg + "\"observe_only\":true"
+    msg := msg + "}"
+    msg
+
+alertcondition(bullCondAlert, title="Regular Bullish Divergence", message="Use Any alert() function call — not this condition")
+alertcondition(hiddenBullCondAlert, title="Hidden Bullish Divergence", message="Use Any alert() function call")
+alertcondition(bearCondAlert, title="Regular Bearish Divergence", message="Use Any alert() function call — not this condition")
+alertcondition(hiddenBearCondAlert, title="Hidden Bearish Divergence", message="Use Any alert() function call")
+
+if barstate.isconfirmed and bullCondAlert and webhookRegularOnly
+    alert(f_hermes_msg("UP", "REGULAR_BULL_DIV", "regular_bullish", osc[lbR], 0.75),
+          alert.freq_once_per_bar_close)
+if barstate.isconfirmed and bearCondAlert and webhookRegularOnly
+    alert(f_hermes_msg("DOWN", "REGULAR_BEAR_DIV", "regular_bearish", osc[lbR], 0.75),
+          alert.freq_once_per_bar_close)
+
+//------------------------------------------------------------------------------
+// RSI 30/70 band heartbeat (every bar close → bot rsi_band FIFO for Grok)
+f_rsi_zone(float rsiVal) =>
+    rsiVal <= osThreshold ? "oversold" : (rsiVal >= obThreshold ? "overbought" : "neutral")
+
+f_band_event(string prevZ, string currZ) =>
+    ev = "none"
+    if currZ == "oversold" and prevZ != "oversold"
+        ev := "enter_oversold"
+    else if prevZ == "oversold" and currZ != "oversold"
+        ev := "exit_oversold"
+    else if currZ == "overbought" and prevZ != "overbought"
+        ev := "enter_overbought"
+    else if prevZ == "overbought" and currZ != "overbought"
+        ev := "exit_overbought"
+    ev
+
+f_band_direction(string zone) =>
+    zone == "oversold" ? "UP" : (zone == "overbought" ? "DOWN" : "FLAT")
+
+f_band_level(string zone) =>
+    zone == "oversold" ? "RSI_OVERSOLD" : (zone == "overbought" ? "RSI_OVERBOUGHT" : "RSI_NEUTRAL")
+
+f_hermes_band_msg(float rsiVal, string zone, string bandEv) =>
+    eventId = syminfo.ticker + "-" + timeframe.period + "-" + str.tostring(time) + "-RSI_BAND-bot1"
+    msg = "{"
+    msg := msg + "\"secret\":\""          + secretInput + "\","
+    msg := msg + "\"bot_name\":\""         + botName + "\","
+    msg := msg + "\"source\":\"tradingview\","
+    msg := msg + "\"symbol\":\""           + syminfo.ticker + "\","
+    msg := msg + "\"timeframe\":\""        + timeframe.period + "\","
+    msg := msg + "\"direction\":\""       + f_band_direction(zone) + "\","
+    msg := msg + "\"signal_level\":\""     + f_band_level(zone) + "\","
+    msg := msg + "\"strength\":"           + jsonNum(zone == "neutral" ? 0.35 : 0.65) + ","
+    msg := msg + "\"indicator_name\":\""   + indicatorName + "\","
+    msg := msg + "\"signal_kind\":\"rsi_band\","
+    msg := msg + "\"rsi\":"                + jsonNum(rsiVal) + ","
+    msg := msg + "\"rsi_zone\":\""         + zone + "\","
+    msg := msg + "\"band_event\":\""       + bandEv + "\","
+    msg := msg + "\"rsi_os_threshold\":"   + jsonNum(osThreshold) + ","
+    msg := msg + "\"rsi_ob_threshold\":"   + jsonNum(obThreshold) + ","
+    msg := msg + "\"event_id\":\""         + eventId + "\","
+    msg := msg + "\"bar_time\":\""         + str.tostring(time_close) + "\","
+    msg := msg + "\"price\":"              + jsonNum(close) + ","
+    msg := msg + "\"composite_version\":\"rsi_band_webhook_v1\","
+    msg := msg + "\"observe_only\":true"
+    msg := msg + "}"
+    msg
+
+if barstate.isconfirmed and webhookBandHeartbeat
+    prevZone = f_rsi_zone(osc[1])
+    currZone = f_rsi_zone(osc)
+    bandEv = f_band_event(prevZone, currZone)
+    alert(f_hermes_band_msg(osc, currZone, bandEv), alert.freq_once_per_bar_close)

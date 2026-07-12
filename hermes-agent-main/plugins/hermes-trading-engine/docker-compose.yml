@@ -1,0 +1,428 @@
+# BTC 5-minute "Up or Down" pulse PAPER engine.
+#
+# Two services share one data volume:
+#   * hermes-trading-engine — slim read-only API (health + pulse status/ledger) on :8800.
+#   * hermes-training       — the pulse loop (scripts/run_btc_pulse.py), PAPER ONLY.
+#
+# HARD SAFETY: paper only. The loop refuses to start if any live-execution flag is set;
+# there is no order-placement / wallet code path anywhere in engine/pulse.
+services:
+  hermes-trading-engine:
+    build: .
+    container_name: hermes-trading-engine
+    # Public dashboard/API. On VPS set PULSE_DASHBOARD_PUBLISH=0.0.0.0:80 so the URL is
+    # http://<host>/dashboard (Vultr/cloud firewalls usually allow 80, not 8800).
+    ports:
+      - "${PULSE_DASHBOARD_PUBLISH:-0.0.0.0:8800}:8800"
+    volumes:
+      - hte_data:/data
+    env_file:
+      - .env
+    environment:
+      HTE_DATA_DIR: "/data"
+      # TradingView delivers HTTP webhooks on port 80 only — proxy to hermes-training:8787.
+      TRADINGVIEW_WEBHOOK_UPSTREAM: "${TRADINGVIEW_WEBHOOK_UPSTREAM:-http://hermes-training:8787}"
+      TRADINGVIEW_WEBHOOK_PATH: "${TRADINGVIEW_WEBHOOK_PATH:-/webhooks/tradingview}"
+      PULSE_DASHBOARD_BOT_LABEL: "${PULSE_DASHBOARD_BOT_LABEL:-}"
+      TRADINGVIEW_WEBHOOK_MIRROR_URL: "${TRADINGVIEW_WEBHOOK_MIRROR_URL:-}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8800/api/health').status==200 else 1)"]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+
+  hermes-training:
+    build: .
+    container_name: hermes-training
+    depends_on:
+      - hermes-trading-engine
+    volumes:
+      - hte_data:/data
+    # OBSERVE-ONLY TradingView webhook publish. DEFAULT = host loopback only (private; nothing
+    # reachable from the internet). To receive external TradingView alerts, set in .env:
+    #   TRADINGVIEW_WEBHOOK_PUBLISH=0.0.0.0:80   (and open the host firewall for that port)
+    #   TRADINGVIEW_WEBHOOK_HOST=0.0.0.0         (so the in-container listener binds all ifaces)
+    # The shared-secret + symbol/bot/dedupe checks still gate every alert; it stays observe-only.
+    ports:
+      # ALWAYS publish the listener to host loopback :8787 so `curl 127.0.0.1:8787/...` works for
+      # local admin/testing on the VPS (the documented default port).
+      - "127.0.0.1:8787:8787"
+      # OPTIONAL public publish for external TradingView delivery. On the VPS set
+      # TRADINGVIEW_WEBHOOK_PUBLISH=0.0.0.0:80 (Vultr only exposes 22/80). Default = harmless 2nd
+      # loopback so the repo default never exposes anything.
+      - "${TRADINGVIEW_WEBHOOK_PUBLISH:-127.0.0.1:18787}:8787"
+    command: python scripts/run_btc_pulse.py
+    # Full loop-arch keys from apply-loop-arch-env.py; explicit `environment` overrides env_file.
+    env_file:
+      - .env
+    environment:
+      HTE_DATA_DIR: "/data"
+      # xAI/Grok key (from the project .env) for the OFF-hot-path event-risk overlay only.
+      # If absent, the overlay stays disabled (fail-open to pure quant). Never used for trading.
+      XAI_API_KEY: "${XAI_API_KEY:-}"
+      # Grok event-risk overlay: slow advisory worker (OFF — not wired into learning loop).
+      GROK_OVERLAY_ENABLED: "${GROK_OVERLAY_ENABLED:-0}"
+      GROK_OVERLAY_INTERVAL_S: "${GROK_OVERLAY_INTERVAL_S:-180}"
+      GROK_OVERLAY_MAX_CALLS_PER_HOUR: "${GROK_OVERLAY_MAX_CALLS_PER_HOUR:-20}"
+      # Grok signal-intelligence OFF (not in self-learning loop; council member grades separately).
+      GROK_SIGNAL_ANALYST_ENABLED: "${GROK_SIGNAL_ANALYST_ENABLED:-0}"
+      GROK_SIGNAL_PREDICTOR_ENABLED: "${GROK_SIGNAL_PREDICTOR_ENABLED:-0}"
+      GROK_ANALYST_INTERVAL_S: "${GROK_ANALYST_INTERVAL_S:-1800}"
+      GROK_BUDGET_DAILY_USD: "${GROK_BUDGET_DAILY_USD:-50}"
+      GROK_EST_USD_PER_CALL: "${GROK_EST_USD_PER_CALL:-0.02}"
+      GROK_PREDICTOR_MAX_CALLS_PER_HOUR: "${GROK_PREDICTOR_MAX_CALLS_PER_HOUR:-90}"
+      GROK_ANALYST_MAX_CALLS_PER_HOUR: "${GROK_ANALYST_MAX_CALLS_PER_HOUR:-8}"
+      # ---- Grok DECISION ENGINE ("Grok decides, bot executes"; PAPER ONLY) ----
+      # off | shadow (decide+grade only, NO trade — safe default) | follow (engine follows Grok
+      # direction/size, subject to the deterministic floor: execution realism, risk caps, freshness).
+      # observe-only by default: "shadow" = Grok grades/decides but NEVER affects trading (it cannot
+      # approve, veto, resize, block or bypass the execution gate). The directional edge must come
+      # from proven-winning buckets + risk-free arb, not an LLM opinion. Set to "follow" to let it act.
+      PULSE_GROK_DECIDER_MODE: "${PULSE_GROK_DECIDER_MODE:-shadow}"
+      PULSE_GROK_DECIDER_MODEL: "${PULSE_GROK_DECIDER_MODEL:-grok-4.3}"
+      PULSE_GROK_DECIDER_TIMEOUT_S: "${PULSE_GROK_DECIDER_TIMEOUT_S:-12}"
+      PULSE_GROK_DECIDER_USE_SEARCH: "${PULSE_GROK_DECIDER_USE_SEARCH:-0}"
+      PULSE_GROK_DECIDER_MIN_CONFIDENCE: "${PULSE_GROK_DECIDER_MIN_CONFIDENCE:-0.55}"
+      PULSE_GROK_DECIDER_TTL_S: "${PULSE_GROK_DECIDER_TTL_S:-240}"
+      PULSE_GROK_DECIDER_MAX_CALLS_PER_HOUR: "${PULSE_GROK_DECIDER_MAX_CALLS_PER_HOUR:-200}"
+      PULSE_GROK_TIERED_COMPUTE: "${PULSE_GROK_TIERED_COMPUTE:-1}"
+      PULSE_GROK_TIER_FULL_DIVERGENCE_MIN: "${PULSE_GROK_TIER_FULL_DIVERGENCE_MIN:-0.025}"
+      PULSE_GROK_TIER_DEEP_DIVERGENCE_MIN: "${PULSE_GROK_TIER_DEEP_DIVERGENCE_MIN:-0.04}"
+      # A/B canary: fraction of windows to FOLLOW Grok (rest = baseline control arm). 1.0 = full.
+      PULSE_GROK_DECIDER_FOLLOW_FRACTION: "${PULSE_GROK_DECIDER_FOLLOW_FRACTION:-0}"
+      # FOLLOW circuit breakers: trip -> stop following (fall back to baseline) for the cooldown.
+      PULSE_GROK_DECIDER_MAX_CONSECUTIVE_LOSSES: "${PULSE_GROK_DECIDER_MAX_CONSECUTIVE_LOSSES:-4}"
+      PULSE_GROK_DECIDER_DAILY_LOSS_CAP_USD: "${PULSE_GROK_DECIDER_DAILY_LOSS_CAP_USD:-30}"
+      PULSE_GROK_DECIDER_MAX_LATENCY_S: "${PULSE_GROK_DECIDER_MAX_LATENCY_S:-20}"
+      PULSE_GROK_DECIDER_COOLDOWN_S: "${PULSE_GROK_DECIDER_COOLDOWN_S:-1800}"
+      # FOLLOW exploration: when Grok abstains, trade its view at this rate (paper data-gathering).
+      PULSE_GROK_DECIDER_EXPLORE_RATE: "${PULSE_GROK_DECIDER_EXPLORE_RATE:-0}"
+      PULSE_GROK_DECIDER_EXPLORE_MIN_VIEW_MARGIN: "${PULSE_GROK_DECIDER_EXPLORE_MIN_VIEW_MARGIN:-0.08}"
+      PULSE_GROK_DECIDER_EXPLORE_SIZE_FRACTION: "${PULSE_GROK_DECIDER_EXPLORE_SIZE_FRACTION:-0.5}"
+      # adaptive self-improvement loop: exploit proven-edge contexts, avoid proven-losing ones.
+      PULSE_GROK_DECIDER_ADAPTIVE: "${PULSE_GROK_DECIDER_ADAPTIVE:-1}"
+      # ---- #1 maker-checker VERIFIER (independent Claude) + #4 research meta-loop ----
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      CLAUDE_API_KEY: "${CLAUDE_API_KEY:-}"
+      CLAUDE_MODEL: "${CLAUDE_MODEL:-claude-sonnet-4-5}"
+      PULSE_VERIFIER_ENABLED: "${PULSE_VERIFIER_ENABLED:-1}"
+      PULSE_VERIFIER_FAIL_OPEN: "${PULSE_VERIFIER_FAIL_OPEN:-1}"
+      PULSE_VERIFIER_MAX_CALLS_PER_HOUR: "${PULSE_VERIFIER_MAX_CALLS_PER_HOUR:-120}"
+      PULSE_RESEARCH_LOOP_ENABLED: "${PULSE_RESEARCH_LOOP_ENABLED:-0}"
+      # research meta-loop is EVENT-triggered (new edge / breaker / new lesson / fresh samples) with
+      # this idle floor + min-gap between event runs; cadence matches the rate of meaningful change.
+      PULSE_RESEARCH_INTERVAL_S: "${PULSE_RESEARCH_INTERVAL_S:-1800}"
+      PULSE_RESEARCH_EVENT_MIN_GAP_S: "${PULSE_RESEARCH_EVENT_MIN_GAP_S:-600}"
+      # self-improving loop: bounded auto-apply of the Claude research loop's avoid-contexts as hard
+      # blocks (only-more-selective, capped, deduplicated; never loosens/sizes/goes live).
+      PULSE_RESEARCH_AUTO_APPLY: "${PULSE_RESEARCH_AUTO_APPLY:-0}"
+      PULSE_RESEARCH_AVOID_MAX: "${PULSE_RESEARCH_AVOID_MAX:-14}"
+      # EXPLOIT side (dual of avoid): evidence-gated size-up of proven-winning contexts
+      PULSE_RESEARCH_EXPLOIT_MAX: "${PULSE_RESEARCH_EXPLOIT_MAX:-10}"
+      PULSE_RESEARCH_EXPLOIT_SIZE_MULT: "${PULSE_RESEARCH_EXPLOIT_SIZE_MULT:-1.5}"
+      PULSE_RESEARCH_MAX_CALLS_PER_HOUR: "${PULSE_RESEARCH_MAX_CALLS_PER_HOUR:-6}"
+      CLAUDE_BUDGET_DAILY_USD: "${CLAUDE_BUDGET_DAILY_USD:-10}"
+      CLAUDE_EST_USD_PER_CALL: "${CLAUDE_EST_USD_PER_CALL:-0.01}"
+      PULSE_GROK_NEWS_ENABLED: "${PULSE_GROK_NEWS_ENABLED:-0}"
+      PULSE_GROK_NEWS_REFRESH_S: "${PULSE_GROK_NEWS_REFRESH_S:-300}"
+      # ---- BTC 5-min pulse engine (LOOSENED quality gates; PAPER ONLY) ----
+      # Loose edge/depth so it actively takes PAPER trades on btc-up-or-down-5m windows.
+      # The only hard limits left are paper-only safety + don't trade a window whose open
+      # we couldn't capture + don't trade into the settlement second.
+      PULSE_TICK_SECONDS: "${PULSE_TICK_SECONDS:-4}"
+      PULSE_SIZE_USD: "${PULSE_SIZE_USD:-5}"
+      HERMES_SIZING_ENABLED: "${HERMES_SIZING_ENABLED:-1}"
+      HERMES_SIZING_HARD_CAP_USD: "${HERMES_SIZING_HARD_CAP_USD:-10}"
+      HERMES_SIZING_BANKROLL_USD: "${HERMES_SIZING_BANKROLL_USD:-1000}"
+      HERMES_SIZING_DAILY_LOSS_CAP_USD: "${HERMES_SIZING_DAILY_LOSS_CAP_USD:-50}"
+      PULSE_OSMANI_AUTONOMOUS_SIZING: "${PULSE_OSMANI_AUTONOMOUS_SIZING:-1}"
+      PULSE_OSMANI_SIZING_MIN_USD: "${PULSE_OSMANI_SIZING_MIN_USD:-1}"
+      # notional starting capital for the dashboard "on-hand capital" display (paper; on_hand=start+pnl)
+      PULSE_STARTING_CAPITAL_USD: "${PULSE_STARTING_CAPITAL_USD:-500}"
+      PULSE_MIN_EDGE: "${PULSE_MIN_EDGE:-0.02}"
+      PULSE_EDGE_BUFFER: "${PULSE_EDGE_BUFFER:-0.01}"
+      PULSE_MIN_DEPTH_USD: "${PULSE_MIN_DEPTH_USD:-1}"
+      PULSE_MIN_SECONDS_TO_CLOSE: "${PULSE_MIN_SECONDS_TO_CLOSE:-4}"
+      PULSE_MAX_PRICE: "${PULSE_MAX_PRICE:-0.97}"
+      # Min reward-to-risk for an entry: (1-price)/price. 0=off. e.g. 0.25 skips entries above ~0.80
+      # (which win < ~$1.25 per $5 risked) so one loss can't wipe ~10 tiny wins.
+      PULSE_MIN_REWARD_RISK: "${PULSE_MIN_REWARD_RISK:-0.35}"
+      PULSE_MAX_OPEN_LAG_S: "${PULSE_MAX_OPEN_LAG_S:-3}"
+      PULSE_MAX_OPEN_LAG_15M_S: "${PULSE_MAX_OPEN_LAG_15M_S:-3}"
+      PULSE_VOL_WINDOW_S: "${PULSE_VOL_WINDOW_S:-900}"
+      PULSE_SETTLE_GRACE_S: "${PULSE_SETTLE_GRACE_S:-180}"
+      # ---- trade-quality / expectancy gates (trade fewer, better, calibrated entries) ----
+      PULSE_MIN_SECONDS_SINCE_OPEN: "${PULSE_MIN_SECONDS_SINCE_OPEN:-30}"
+      PULSE_MIN_VOL_SAMPLES: "${PULSE_MIN_VOL_SAMPLES:-12}"
+      PULSE_SIGMA_TRUST_FLOOR: "${PULSE_SIGMA_TRUST_FLOOR:-0.000002}"
+      PULSE_BASIS_BUFFER: "${PULSE_BASIS_BUFFER:-0.02}"
+      # ---- strict execution-quality gate (orderbook-reality EV after VWAP/slippage) ----
+      # Every paper trade is re-priced from the live ask LADDER (VWAP), never the midpoint;
+      # rejected on wide_spread / insufficient_depth / negative_ev_after_slippage /
+      # too_close_to_resolution / min_size_or_tick_violation / partial_fill_risk.
+      PULSE_EXEC_MAX_SPREAD: "${PULSE_EXEC_MAX_SPREAD:-0.04}"
+      PULSE_EXEC_MIN_ORDER_USD: "${PULSE_EXEC_MIN_ORDER_USD:-1}"
+      PULSE_EXEC_MAX_DEPTH_CONSUME_FRAC: "${PULSE_EXEC_MAX_DEPTH_CONSUME_FRAC:-0.5}"
+      PULSE_EXEC_MIN_EV: "${PULSE_EXEC_MIN_EV:-0.015}"
+      # don't BUY the underdog side (VWAP fill below this) on opinion paths — the price is the best
+      # probability estimate and the bot's model has negative edge on cheap/tail sides. Proven edge
+      # sources (CEX-lead) are exempt. Live data: underdog buys ~28% win = the entire net loss.
+      PULSE_MIN_ENTRY_PRICE: "${PULSE_MIN_ENTRY_PRICE:-0.50}"
+      # ---- price feed (fastest available) ----
+      # 'auto' uses Chainlink Data Streams (the EXACT feed this market resolves on, sub-second,
+      # zero basis) when credentials are set, else the Coinbase proxy. A ~1s background sampler
+      # keeps the price fresh between trade ticks. To enable the exact feed, create free
+      # credentials at https://docs.chain.link/data-streams/sign-up and set the 3 vars below
+      # (as Cloud Agent secrets) + the BTC/USD feed id; then set PULSE_PRICE_SOURCE=auto.
+      PULSE_PRICE_SOURCE: "${PULSE_PRICE_SOURCE:-auto}"
+      PULSE_PRICE_SAMPLER_INTERVAL_S: "${PULSE_PRICE_SAMPLER_INTERVAL_S:-1}"
+      # ---- oracle reference model (CORRECT): Chainlink Data Streams ref price via Polymarket
+      # RTDS crypto_prices_chainlink (btc/usd). Binance/Coinbase are LEAD predictors only.
+      # Settlement: official Polymarket resolution first, then RTDS Chainlink open/close proxy
+      # (only when the close snapshot lag is within threshold). Classic Chainlink Data Feed /
+      # AggregatorV3 is rejected as a primary settlement feed.
+      HERMES_ORACLE_FEED_TYPE: "${HERMES_ORACLE_FEED_TYPE:-chainlink_data_streams_refprice}"
+      HERMES_ORACLE_SYMBOL: "${HERMES_ORACLE_SYMBOL:-btc/usd}"
+      HERMES_FAST_FEEDS: "${HERMES_FAST_FEEDS:-binance_btcusdt,coinbase_btcusd}"
+      HERMES_SETTLEMENT_SOURCE_PRIORITY: "${HERMES_SETTLEMENT_SOURCE_PRIORITY:-polymarket_resolution}"
+      HERMES_PROXY_MAX_CLOSE_LAG_S: "${HERMES_PROXY_MAX_CLOSE_LAG_S:-30}"
+      HERMES_RTDS_ENABLED: "${HERMES_RTDS_ENABLED:-1}"
+      # OBSERVE-ONLY EP Chan research features (Hurst regime, half-life/ADF, z-score, Kalman).
+      # Logged per candidate + grouped PnL/calibration by regime/z-bucket. NEVER trades/vetoes.
+      HERMES_RESEARCH_FEATURES_ENABLED: "${HERMES_RESEARCH_FEATURES_ENABLED:-1}"
+      # OBSERVE-ONLY BTC Pulse Edge Signal (CEX basket momentum + Polymarket stale-price divergence
+      # + orderbook pressure + pulse_edge_score). Never trades/vetoes/bypasses the gate. Kraken+
+      # Bitstamp are opt-in (extra REST) to protect the hot path; Binance+Coinbase are the default.
+      HERMES_EDGE_SIGNAL_ENABLED: "${HERMES_EDGE_SIGNAL_ENABLED:-1}"
+      HERMES_EDGE_EXTRA_CEX_ENABLED: "${HERMES_EDGE_EXTRA_CEX_ENABLED:-0}"
+      HERMES_EDGE_PROMOTION_ALLOWED: "${HERMES_EDGE_PROMOTION_ALLOWED:-0}"
+      HERMES_EDGE_PROMOTION_MIN_SAMPLES: "${HERMES_EDGE_PROMOTION_MIN_SAMPLES:-50}"
+      HERMES_EDGE_PROMOTION_MIN_WIN_RATE: "${HERMES_EDGE_PROMOTION_MIN_WIN_RATE:-0.80}"
+      # CEX-lead OFF (shadow never drove entries; not in learning auto-apply path).
+      PULSE_CEX_LEAD_ENABLED: "${PULSE_CEX_LEAD_ENABLED:-0}"
+      PULSE_CEX_LEAD_MODE: "${PULSE_CEX_LEAD_MODE:-shadow}"
+      PULSE_CEX_LEAD_MIN_SAMPLES: "${PULSE_CEX_LEAD_MIN_SAMPLES:-60}"
+      PULSE_CEX_LEAD_MIN_DIVERGENCE: "${PULSE_CEX_LEAD_MIN_DIVERGENCE:-0.04}"
+      PULSE_CEX_LEAD_CONFIDENCE_Z: "${PULSE_CEX_LEAD_CONFIDENCE_Z:-1.64}"
+      PULSE_CEX_LEAD_MIN_EDGE_VS_MARKET: "${PULSE_CEX_LEAD_MIN_EDGE_VS_MARKET:-0}"
+      # v3: orderflow + TradingView confirmation, late-window nowcast, edge-scaled (Kelly) sizing
+      PULSE_CEX_LEAD_TV_STRENGTH_THR: "${PULSE_CEX_LEAD_TV_STRENGTH_THR:-0.5}"
+      PULSE_CEX_LEAD_DECISIVE_THR: "${PULSE_CEX_LEAD_DECISIVE_THR:-0.35}"
+      PULSE_CEX_LEAD_LATE_TTC_S: "${PULSE_CEX_LEAD_LATE_TTC_S:-90}"
+      PULSE_CEX_LEAD_KELLY_SCALE: "${PULSE_CEX_LEAD_KELLY_SCALE:-0.5}"
+      PULSE_CEX_LEAD_MAX_SIZE_FRAC: "${PULSE_CEX_LEAD_MAX_SIZE_FRAC:-2.0}"
+      # Grok-follow mispricing stack: CEX-lead alignment + edge/TTC + executable margin
+      PULSE_MISPRICING_GATE_ENABLED: "${PULSE_MISPRICING_GATE_ENABLED:-0}"
+      PULSE_MISPRICING_TTC_MIN_S: "${PULSE_MISPRICING_TTC_MIN_S:-180}"
+      PULSE_MISPRICING_TTC_MAX_S: "${PULSE_MISPRICING_TTC_MAX_S:-240}"
+      PULSE_MISPRICING_REQUIRE_CONFIRMED: "${PULSE_MISPRICING_REQUIRE_CONFIRMED:-1}"
+      PULSE_MISPRICING_REQUIRE_STALE_DOWN: "${PULSE_MISPRICING_REQUIRE_STALE_DOWN:-1}"
+      PULSE_MISPRICING_MIN_EXECUTABLE_MARGIN: "${PULSE_MISPRICING_MIN_EXECUTABLE_MARGIN:-0.03}"
+      PULSE_EDGE_TTC_GATE_ENABLED: "${PULSE_EDGE_TTC_GATE_ENABLED:-0}"
+      PULSE_MISPRICING_FOLLOW_ON_ABSTAIN: "${PULSE_MISPRICING_FOLLOW_ON_ABSTAIN:-0}"
+      PULSE_MISPRICING_FOLLOW_SIZE_FRACTION: "${PULSE_MISPRICING_FOLLOW_SIZE_FRACTION:-0.5}"
+      # Directional lanes only (1h up/down + above strike). PAPER ONLY.
+      PULSE_BREGMAN_PROJECTION_ENABLED: "${PULSE_BREGMAN_PROJECTION_ENABLED:-1}"
+      PULSE_ETH_SERIES_ENABLED: "${PULSE_ETH_SERIES_ENABLED:-1}"
+      PULSE_RESEARCH_FORBID_SIZE_INCREASE: "${PULSE_RESEARCH_FORBID_SIZE_INCREASE:-1}"
+      PULSE_SIZING_PROMOTION_GATED: "${PULSE_SIZING_PROMOTION_GATED:-1}"
+      # Directional de-risk: the directional model is structurally negative-EV in a near-efficient
+      # market. Keep it enabled but, when REQUIRE_WINNING=1, only take a directional trade in a
+      # Wilson-PROVEN-winning bucket (pre-execution block, never advisory). Arb runs standalone.
+      PULSE_DIRECTIONAL_ENABLED: "${PULSE_DIRECTIONAL_ENABLED:-1}"
+      # ON: the directional model is negative-EV, so only trade Wilson-proven-winning buckets +
+      # a small exploration fraction (below) to keep learning. This STOPS the directional bleed
+      # without freezing (the carve-out guarantees EXPLORE_RATE of eligible candidates still flow).
+      PULSE_DIRECTIONAL_REQUIRE_WINNING: "${PULSE_DIRECTIONAL_REQUIRE_WINNING:-1}"
+      PULSE_DIRECTIONAL_WINNING_MIN_SAMPLES: "${PULSE_DIRECTIONAL_WINNING_MIN_SAMPLES:-30}"
+      # cold-start carve-out so the allowlist does NOT freeze the bot: without proven-winning
+      # buckets it would block every directional trade forever (no trades => nothing to prove).
+      # This lets a small capped fraction through as exploration to keep learning. 0=block-all.
+      PULSE_DIRECTIONAL_EXPLORE_RATE: "${PULSE_DIRECTIONAL_EXPLORE_RATE:-0.05}"
+      PULSE_DIRECTIONAL_DOWN_ONLY: "${PULSE_DIRECTIONAL_DOWN_ONLY:-1}"
+      PULSE_DIRECTIONAL_BLOCK_UP_UNTIL_PROMOTED: "${PULSE_DIRECTIONAL_BLOCK_UP_UNTIL_PROMOTED:-1}"
+      PULSE_DIRECTIONAL_UP_RESTRICTIONS_ENABLED: "${PULSE_DIRECTIONAL_UP_RESTRICTIONS_ENABLED:-1}"
+      PULSE_DIRECTIONAL_MAX_BANKROLL_FRAC: "${PULSE_DIRECTIONAL_MAX_BANKROLL_FRAC:-0.10}"
+      PULSE_MIN_REWARD_RISK_UP_PREMIUM: "${PULSE_MIN_REWARD_RISK_UP_PREMIUM:-0.28}"
+      PULSE_GROK_UP_MIN_P_WIN: "${PULSE_GROK_UP_MIN_P_WIN:-0.58}"
+      PULSE_PRIMARY_EDGE_SOURCE: "${PULSE_PRIMARY_EDGE_SOURCE:-directional}"
+      PULSE_BASELINE_COHORT_GATE_ENABLED: "${PULSE_BASELINE_COHORT_GATE_ENABLED:-1}"
+      PULSE_BASELINE_COHORT_TTC_MIN_S: "${PULSE_BASELINE_COHORT_TTC_MIN_S:-180}"
+      PULSE_BASELINE_COHORT_TTC_MAX_S: "${PULSE_BASELINE_COHORT_TTC_MAX_S:-240}"
+      PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE: "${PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE:-1}"
+      PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX: "${PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX:-1}"
+      PULSE_BASELINE_COHORT_15M_FAST_LANE: "${PULSE_BASELINE_COHORT_15M_FAST_LANE:-1}"
+      PULSE_BASELINE_COHORT_15M_TTC_MIN_S: "${PULSE_BASELINE_COHORT_15M_TTC_MIN_S:-180}"
+      PULSE_BASELINE_COHORT_15M_TTC_MAX_S: "${PULSE_BASELINE_COHORT_15M_TTC_MAX_S:-240}"
+      PULSE_BASELINE_UP_TV_GATE_ENABLED: "${PULSE_BASELINE_UP_TV_GATE_ENABLED:-1}"
+      PULSE_BASELINE_DOWN_TV_GATE_ENABLED: "${PULSE_BASELINE_DOWN_TV_GATE_ENABLED:-1}"
+      PULSE_BASELINE_DOWN_BLOCK_BULLISH_RANGE: "${PULSE_BASELINE_DOWN_BLOCK_BULLISH_RANGE:-1}"
+      PULSE_BASELINE_DOWN_BLOCK_UP_STRONG_BULLISH: "${PULSE_BASELINE_DOWN_BLOCK_UP_STRONG_BULLISH:-1}"
+      PULSE_BASELINE_DOWN_BLOCK_VOLUME_ACTIVE: "${PULSE_BASELINE_DOWN_BLOCK_VOLUME_ACTIVE:-1}"
+      PULSE_BASELINE_DOWN_BLOCK_UP_STRONG_RANGE_TOP: "${PULSE_BASELINE_DOWN_BLOCK_UP_STRONG_RANGE_TOP:-1}"
+      PULSE_SELECTIVITY_MIN_PROFIT_FACTOR: "${PULSE_SELECTIVITY_MIN_PROFIT_FACTOR:-0.85}"
+      PULSE_SELECTIVITY_FDR_Q: "${PULSE_SELECTIVITY_FDR_Q:-0.10}"
+      # SURGICAL capital reset: set to a NEW unique token to zero P&L/ledger/arbitrage/reconciliation
+      # back to a fresh $500 while KEEPING all learning (models, selectivity evidence, lessons,
+      # gradings). Applies exactly once per new token (idempotent). Empty = no reset.
+      PULSE_RESET_CAPITAL_TOKEN: "${PULSE_RESET_CAPITAL_TOKEN:-}"
+      # Learned Selectivity Gate v1: reject proven-losing buckets (live evidence) between decision
+      # and execution. Only makes the bot MORE selective; never trades/resizes/bypasses the gate.
+      PULSE_SELECTIVITY_GATE_ENABLED: "${PULSE_SELECTIVITY_GATE_ENABLED:-1}"
+      PULSE_SELECTIVITY_MIN_SAMPLES: "${PULSE_SELECTIVITY_MIN_SAMPLES:-30}"
+      PULSE_SELECTIVITY_MIN_WIN_RATE: "${PULSE_SELECTIVITY_MIN_WIN_RATE:-0.52}"
+      # one-sided z for the "confidently below breakeven" reject test (1.64 ~= 95%). Higher = the
+      # gate must be MORE sure a bucket loses before rejecting (fewer rejects of coin-flip buckets).
+      PULSE_SELECTIVITY_CONFIDENCE_Z: "${PULSE_SELECTIVITY_CONFIDENCE_Z:-1.64}"
+      PULSE_SELECTIVITY_EXPLORATION_RATE: "${PULSE_SELECTIVITY_EXPLORATION_RATE:-0.05}"
+      PULSE_HOURLY_ENTRY_GATE_ENABLED: "${PULSE_HOURLY_ENTRY_GATE_ENABLED:-1}"
+      PULSE_HOURLY_MIN_SECONDS_SINCE_OPEN: "${PULSE_HOURLY_MIN_SECONDS_SINCE_OPEN:-900}"
+      PULSE_HOURLY_MAX_SECONDS_SINCE_OPEN: "${PULSE_HOURLY_MAX_SECONDS_SINCE_OPEN:-2700}"
+      PULSE_HOURLY_ENTRY_MIN_SAMPLES: "${PULSE_HOURLY_ENTRY_MIN_SAMPLES:-20}"
+      PULSE_HOURLY_ENTRY_EXPLORATION_RATE: "${PULSE_HOURLY_ENTRY_EXPLORATION_RATE:-0.08}"
+      PULSE_HOURLY_ENTRY_MIN_PROFIT_FACTOR: "${PULSE_HOURLY_ENTRY_MIN_PROFIT_FACTOR:-0.85}"
+      PULSE_HOURLY_ENTRY_FDR_Q: "${PULSE_HOURLY_ENTRY_FDR_Q:-0.10}"
+      PULSE_HOURLY_ENTRY_CONFIDENCE_Z: "${PULSE_HOURLY_ENTRY_CONFIDENCE_Z:-1.64}"
+      PULSE_TV_STRONG_FADE_ENABLED: "${PULSE_TV_STRONG_FADE_ENABLED:-1}"
+      PULSE_CALIB_MIN_SAMPLES: "${PULSE_CALIB_MIN_SAMPLES:-30}"
+      PULSE_CALIB_MAX_SHRINK: "${PULSE_CALIB_MAX_SHRINK:-0.5}"
+      # ---- closed-loop learning: blend the bot's own calibrated edge model into the DIRECTIONAL
+      # decision so it improves as it trades. PAPER ONLY. Influence is earned (ramps with sample
+      # count), gated (only when calibrated), and self-disabling (drops to 0 if calibration error
+      # exceeds the cap). The execution gate / paper-realism / reconciliation are UNCHANGED and
+      # still veto every trade — learning can never bypass them. Default OFF.
+      PULSE_LEARNING_ENABLED: "${PULSE_LEARNING_ENABLED:-0}"
+      PULSE_LEARNING_MIN_SAMPLES: "${PULSE_LEARNING_MIN_SAMPLES:-60}"
+      PULSE_LEARNING_MAX_WEIGHT: "${PULSE_LEARNING_MAX_WEIGHT:-0.5}"
+      PULSE_LEARNING_RAMP_SAMPLES: "${PULSE_LEARNING_RAMP_SAMPLES:-300}"
+      PULSE_LEARNING_MAX_CALIB_ERROR: "${PULSE_LEARNING_MAX_CALIB_ERROR:-0.15}"
+      # OBSERVE-ONLY TradingView indicator webhook intake. DISABLED unless a secret is set, and
+      # bound to 127.0.0.1 INSIDE this container by default (no port published here on purpose —
+      # expose deliberately via SSH tunnel / authenticated reverse proxy). TradingView alerts are
+      # candidate signals only; they can NEVER place/resize/bypass a paper trade or override the
+      # execution gate. To receive alerts on the host, run the listener on the host loopback (or
+      # add your own proxy) — topology is intentionally left unchanged.
+      TRADINGVIEW_WEBHOOK_SECRET: "${TRADINGVIEW_WEBHOOK_SECRET:-}"
+      TRADINGVIEW_ALLOWED_SYMBOLS: "${TRADINGVIEW_ALLOWED_SYMBOLS:-BTCUSD,INDEX:BTCUSD,BTC/USD,BTC,XBTUSD}"
+      BOT_NAME: "${BOT_NAME:-hermes}"
+      TRADINGVIEW_BOT_NAME: "${TRADINGVIEW_BOT_NAME:-hermes}"
+      TRADINGVIEW_WEBHOOK_HOST: "${TRADINGVIEW_WEBHOOK_HOST:-0.0.0.0}"
+      TRADINGVIEW_WEBHOOK_PORT: "${TRADINGVIEW_WEBHOOK_PORT:-8787}"
+      TRADINGVIEW_WEBHOOK_PATH: "${TRADINGVIEW_WEBHOOK_PATH:-/webhooks/tradingview}"
+      TRADINGVIEW_MAX_AGE_S: "${TRADINGVIEW_MAX_AGE_S:-180}"
+      # Hourly + 15m BTC/ETH directional lanes (15m has its own feed + strategy learner).
+      PULSE_SERIES_SLUGS: "${PULSE_SERIES_SLUGS:-btc-up-or-down-hourly,eth-up-or-down-hourly,btc-up-or-down-15m,eth-up-or-down-15m}"
+      PULSE_DIRECTIONAL_SERIES_SLUGS: "${PULSE_DIRECTIONAL_SERIES_SLUGS:-btc-up-or-down-hourly,eth-up-or-down-hourly,btc-up-or-down-15m,eth-up-or-down-15m}"
+      PULSE_DIRECTIONAL_15M_DISCOVER: "${PULSE_DIRECTIONAL_15M_DISCOVER:-1}"
+      PULSE_LANE_15M_LEARN_ENABLED: "${PULSE_LANE_15M_LEARN_ENABLED:-0}"
+      PULSE_LANE_15M_TARGET_WR: "${PULSE_LANE_15M_TARGET_WR:-0.60}"
+      PULSE_LANE_15M_KILL_WR: "${PULSE_LANE_15M_KILL_WR:-0.45}"
+      PULSE_LANE_15M_MIN_SAMPLES: "${PULSE_LANE_15M_MIN_SAMPLES:-10}"
+      PULSE_OSMANI_LOOP_ENABLED: "${PULSE_OSMANI_LOOP_ENABLED:-1}"
+      PULSE_OSMANI_DISCOVERY_INTERVAL_S: "${PULSE_OSMANI_DISCOVERY_INTERVAL_S:-60}"
+      PULSE_OSMANI_TRIAGE_SKILL_ENABLED: "${PULSE_OSMANI_TRIAGE_SKILL_ENABLED:-1}"
+      PULSE_TRIAGE_MIN_DEPTH_USD: "${PULSE_TRIAGE_MIN_DEPTH_USD:-50}"
+      PULSE_TRIAGE_MAX_SLIPPAGE_PCT: "${PULSE_TRIAGE_MAX_SLIPPAGE_PCT:-2}"
+      PULSE_TRIAGE_MIN_SHARES: "${PULSE_TRIAGE_MIN_SHARES:-5}"
+      PULSE_TRIAGE_BTC_MIN_DEPTH_USD: "${PULSE_TRIAGE_BTC_MIN_DEPTH_USD:-50}"
+      PULSE_TRIAGE_BTC_MAX_SLIPPAGE_PCT: "${PULSE_TRIAGE_BTC_MAX_SLIPPAGE_PCT:-2}"
+      PULSE_TRIAGE_BTC_MIN_SHARES: "${PULSE_TRIAGE_BTC_MIN_SHARES:-5}"
+      PULSE_TRIAGE_ETH_MIN_DEPTH_USD: "${PULSE_TRIAGE_ETH_MIN_DEPTH_USD:-50}"
+      PULSE_TRIAGE_ETH_MAX_SLIPPAGE_PCT: "${PULSE_TRIAGE_ETH_MAX_SLIPPAGE_PCT:-2}"
+      PULSE_TRIAGE_ETH_MIN_SHARES: "${PULSE_TRIAGE_ETH_MIN_SHARES:-5}"
+      PULSE_DIRECTIONAL_LEGACY_TICK: "${PULSE_DIRECTIONAL_LEGACY_TICK:-0}"
+      PULSE_LOOP_CIRCUIT_BREAKER_ENABLED: "${PULSE_LOOP_CIRCUIT_BREAKER_ENABLED:-1}"
+      PULSE_LOOP_MAX_DAILY_TOKEN_USD: "${PULSE_LOOP_MAX_DAILY_TOKEN_USD:-50}"
+      PULSE_LOOP_EST_USD_PER_CALL: "${PULSE_LOOP_EST_USD_PER_CALL:-0.02}"
+      PULSE_LOOP_MAX_API_CALLS_PER_HOUR: "${PULSE_LOOP_MAX_API_CALLS_PER_HOUR:-500}"
+      PULSE_LOOP_MIN_ON_HAND_USD: "${PULSE_LOOP_MIN_ON_HAND_USD:-50}"
+      PULSE_LOOP_MAX_DRAWDOWN_PCT: "${PULSE_LOOP_MAX_DRAWDOWN_PCT:-40}"
+      PULSE_LOOP_MAX_LANE_RETRIES: "${PULSE_LOOP_MAX_LANE_RETRIES:-5}"
+      PULSE_LOOP_MAX_CONSECUTIVE_ERRORS: "${PULSE_LOOP_MAX_CONSECUTIVE_ERRORS:-20}"
+      PULSE_TV_FEATURE_SYMBOL: "${PULSE_TV_FEATURE_SYMBOL:-BTCUSD}"
+      PULSE_TV_MTF_TIMEFRAMES: "${PULSE_TV_MTF_TIMEFRAMES:-5,10,15,20,25,30,35,40,45,50,55,60}"
+      PULSE_TV_DROP_TIMEFRAMES: "${PULSE_TV_DROP_TIMEFRAMES:-2,3,4}"
+      PULSE_TV_MTF_CONFIRM_WINDOW_2M_S: "${PULSE_TV_MTF_CONFIRM_WINDOW_2M_S:-300}"
+      PULSE_TV_MTF_CONFIRM_WINDOW_3M_S: "${PULSE_TV_MTF_CONFIRM_WINDOW_3M_S:-450}"
+      PULSE_TV_MTF_CONFIRM_WINDOW_4M_S: "${PULSE_TV_MTF_CONFIRM_WINDOW_4M_S:-600}"
+      PULSE_TV_MTF_CONFIRM_WINDOW_S: "${PULSE_TV_MTF_CONFIRM_WINDOW_S:-750}"
+      PULSE_TV_MTF_CONFIRM_WINDOW_10M_S: "${PULSE_TV_MTF_CONFIRM_WINDOW_10M_S:-1500}"
+      PULSE_TV_MTF_CONFIRM_WINDOW_15M_S: "${PULSE_TV_MTF_CONFIRM_WINDOW_15M_S:-2250}"
+      PULSE_TV_MTF_CONFIRM_WINDOW_30M_S: "${PULSE_TV_MTF_CONFIRM_WINDOW_30M_S:-4500}"
+      PULSE_TV_MTF_CONFIRM_WINDOW_45M_S: "${PULSE_TV_MTF_CONFIRM_WINDOW_45M_S:-6750}"
+      PULSE_TV_MTF_CONFIRM_WINDOW_55M_S: "${PULSE_TV_MTF_CONFIRM_WINDOW_55M_S:-8250}"
+      # Use TradingView as the DIRECTIONAL INDICATION SIGNAL (restrict-only): trade only when a
+      # fresh TradingView signal agrees with the side. Can only PREVENT trades, never force/bypass.
+      PULSE_TRADINGVIEW_SIGNAL_GATE: "${PULSE_TRADINGVIEW_SIGNAL_GATE:-0}"
+      PULSE_TV_MIN_SIGNAL_STRENGTH: "${PULSE_TV_MIN_SIGNAL_STRENGTH:-0}"
+      # how long a TradingView signal stays usable as a fresh feature/gate input (s). Higher = the
+      # signal gate trades more often between alerts (e.g. 600 = a 5m alert covers until the next).
+      PULSE_TV_SIGNAL_MAX_FEATURE_AGE_S: "${PULSE_TV_SIGNAL_MAX_FEATURE_AGE_S:-3600}"
+      # forward-return horizon (s) for learning whether EVERY TradingView signal predicted the
+      # subsequent BTC move (builds the prediction from the full signal history). Observe-only.
+      PULSE_TV_SIGNAL_HORIZON_S: "${PULSE_TV_SIGNAL_HORIZON_S:-300}"
+      # TradingView signal-bucket promotion diagnostics (observe-only). Promotion to trading
+      # authority requires this flag AND explicit wiring; default OFF.
+      PULSE_TV_PROMOTION_ALLOWED: "${PULSE_TV_PROMOTION_ALLOWED:-0}"
+      PULSE_TV_PROMOTION_MIN_SAMPLES: "${PULSE_TV_PROMOTION_MIN_SAMPLES:-50}"
+      PULSE_TV_PROMOTION_MIN_WIN_RATE: "${PULSE_TV_PROMOTION_MIN_WIN_RATE:-0.80}"
+      # 2h TV trend review — observe-only context for hourly windows (pretrade/council default OFF).
+      PULSE_TV_ALERT_HISTORY_PER_SYMBOL: "${PULSE_TV_ALERT_HISTORY_PER_SYMBOL:-60}"
+      PULSE_TV_2H_REVIEW_ENABLED: "${PULSE_TV_2H_REVIEW_ENABLED:-1}"
+      PULSE_TV_2H_LOOKBACK_S: "${PULSE_TV_2H_LOOKBACK_S:-7200}"
+      PULSE_TV_2H_ALERT_HISTORY_CAP: "${PULSE_TV_2H_ALERT_HISTORY_CAP:-60}"
+      PULSE_TV_2H_REVIEW_PRETRADE: "${PULSE_TV_2H_REVIEW_PRETRADE:-1}"
+      PULSE_TV_2H_COUNCIL_GRADE: "${PULSE_TV_2H_COUNCIL_GRADE:-1}"
+      # TradingView CONTEXT GATE (hard prior, restrict-only): blocks proven-losing entry contexts
+      # (volume spikes / noise regime / far-from-resolution) before the learned selectivity gate
+      # has samples. Can only PREVENT trades; never forces/sizes/bypasses the execution gate.
+      PULSE_TV_CONTEXT_GATE: "${PULSE_TV_CONTEXT_GATE:-1}"
+      PULSE_TV_CONTEXT_BLOCK_LIQUIDATION: "${PULSE_TV_CONTEXT_BLOCK_LIQUIDATION:-1}"
+      PULSE_TV_CONTEXT_BLOCK_EVENT_BLACKOUT: "${PULSE_TV_CONTEXT_BLOCK_EVENT_BLACKOUT:-1}"
+      PULSE_TV_CONTEXT_BLOCK_GROK_EVENT_RISK: "${PULSE_TV_CONTEXT_BLOCK_GROK_EVENT_RISK:-1}"
+      PULSE_TV_CONTEXT_BLOCK_VOLUME: "${PULSE_TV_CONTEXT_BLOCK_VOLUME:-spike}"
+      PULSE_TV_CONTEXT_BLOCK_HURST: "${PULSE_TV_CONTEXT_BLOCK_HURST:-noise}"
+      PULSE_TV_CONTEXT_MAX_TTC_S: "${PULSE_TV_CONTEXT_MAX_TTC_S:-240}"
+      PULSE_TV_CONTEXT_EXPLORATION_RATE: "${PULSE_TV_CONTEXT_EXPLORATION_RATE:-0}"
+      # DOWN-bias gate (Townhall P3): block proven-losing UP / bullish_aligned stacks
+      PULSE_TV_DOWN_BIAS_GATE: "${PULSE_TV_DOWN_BIAS_GATE:-1}"
+      PULSE_TV_DOWN_BIAS_EXPLORE_RATE: "${PULSE_TV_DOWN_BIAS_EXPLORE_RATE:-0}"
+      PULSE_TV_DOWN_BIAS_BLOCK_UP_ON_BEARISH_DOWN_STACK: "${PULSE_TV_DOWN_BIAS_BLOCK_UP_ON_BEARISH_DOWN_STACK:-1}"
+      PULSE_TV_DOWN_BIAS_BLOCK_UP_AGAINST_CONFIRMED_DOWN: "${PULSE_TV_DOWN_BIAS_BLOCK_UP_AGAINST_CONFIRMED_DOWN:-1}"
+      PULSE_TV_DOWN_BIAS_BLOCK_MIXED_MTF_UP: "${PULSE_TV_DOWN_BIAS_BLOCK_MIXED_MTF_UP:-1}"
+      PULSE_TV_DOWN_BIAS_BLOCK_BULLISH_SUPERTREND_UP: "${PULSE_TV_DOWN_BIAS_BLOCK_BULLISH_SUPERTREND_UP:-1}"
+      PULSE_TV_DOWN_BIAS_BLOCK_UP_RANGE_TOP: "${PULSE_TV_DOWN_BIAS_BLOCK_UP_RANGE_TOP:-1}"
+      PULSE_TV_DOWN_BIAS_BLOCK_UP_MARKOV_CHOP_NOISE: "${PULSE_TV_DOWN_BIAS_BLOCK_UP_MARKOV_CHOP_NOISE:-1}"
+      # MTF gate: block 4m/5m fast-pair conflict; require confirmed_up/down + side alignment
+      PULSE_TV_MTF_CONFLICT_GATE: "${PULSE_TV_MTF_CONFLICT_GATE:-1}"
+      PULSE_TV_MTF_REQUIRE_CONFIRM: "${PULSE_TV_MTF_REQUIRE_CONFIRM:-0}"
+      PULSE_TV_MTF_REQUIRE_ALL_CONFIRM: "${PULSE_TV_MTF_REQUIRE_ALL_CONFIRM:-0}"
+      PULSE_TV_MTF_REQUIRE_SIDE_ALIGN: "${PULSE_TV_MTF_REQUIRE_SIDE_ALIGN:-0}"
+      PULSE_TV_MTF_CONFLICT_EXPLORE_RATE: "${PULSE_TV_MTF_CONFLICT_EXPLORE_RATE:-0}"
+      # Late-window high-conviction entry mode (time-decay edge). Restrict-only; edge always measured
+      # observe-only. Can only PREVENT trades; never forces/sizes/bypasses the execution gate.
+      PULSE_LATE_WINDOW_ENTRY: "${PULSE_LATE_WINDOW_ENTRY:-0}"
+      PULSE_LATE_WINDOW_MAX_TTC_S: "${PULSE_LATE_WINDOW_MAX_TTC_S:-120}"
+      PULSE_LATE_WINDOW_MIN_CONVICTION: "${PULSE_LATE_WINDOW_MIN_CONVICTION:-0.40}"
+      # Verifiable stop conditions (agent-independent kill switches)
+      PULSE_STOP_ENABLED: "${PULSE_STOP_ENABLED:-1}"
+      PULSE_STOP_ROLLING_N: "${PULSE_STOP_ROLLING_N:-50}"
+      PULSE_STOP_MIN_SAMPLES: "${PULSE_STOP_MIN_SAMPLES:-30}"
+      PULSE_STOP_MIN_PROFIT_FACTOR: "${PULSE_STOP_MIN_PROFIT_FACTOR:-0.85}"
+      PULSE_STOP_MAX_DRAWDOWN_PCT: "${PULSE_STOP_MAX_DRAWDOWN_PCT:-25.0}"
+      CHAINLINK_DATA_STREAMS_API_KEY: "${CHAINLINK_DATA_STREAMS_API_KEY:-}"
+      CHAINLINK_DATA_STREAMS_SECRET: "${CHAINLINK_DATA_STREAMS_SECRET:-}"
+      CHAINLINK_BTC_FEED_ID: "${CHAINLINK_BTC_FEED_ID:-}"
+      CHAINLINK_DATA_STREAMS_REST: "${CHAINLINK_DATA_STREAMS_REST:-https://api.dataengine.chain.link}"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os,sys,time; p=os.path.join(os.environ.get('HTE_DATA_DIR','/data'),'btc_pulse_status.json'); sys.exit(0 if os.path.exists(p) and (time.time()-os.path.getmtime(p))<120 else 1)\""]
+      interval: 60s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  hte_data:

@@ -1,0 +1,84 @@
+{
+  "schema": "bot_design_manifest/1.0",
+  "updated": "2026-06-27",
+  "roan_bregman_phase": 0,
+  "roan_bregman_doc": "docs/roan-bregman-architecture.md",
+  "architecture": {
+    "name": "BTC Pulse — 5m brain, 15m hands",
+    "summary": "Engineered on 5m BTC up/down microstructure; executes on 15m windows. Roan Lane A dutch book + Lane B LCMM/Bregman (phased). TV observe-only. 15m DOWN directional for learning. Paper only.",
+    "series_split": {
+      "brain": "btc-up-or-down-5m",
+      "hands": "btc-up-or-down-15m",
+      "directional_trades_on": "hands only"
+    },
+    "trade_authority": [
+      "baseline_cohort_gate",
+      "strategy_edge_and_reward_risk",
+      "execution_gate",
+      "verifier"
+    ],
+    "observe_only": [
+      "tradingview_webhooks",
+      "grok_decider_shadow",
+      "signal_engine",
+      "factor_model",
+      "markov_regime",
+      "edge_model",
+      "research_meta"
+    ],
+    "locked_operator_rules": [
+      ".grok/rules/soak-learning-lock.md",
+      ".grok/rules/tv-observe-only-lock.md",
+      "scripts/pulse-babysit/frozen-env-keys.json",
+      "PULSE_TRADINGVIEW_SIGNAL_GATE=0",
+      "PULSE_TV_MTF_* trade gates=0",
+      "PULSE_TV_CONTEXT_GATE=0",
+      "PULSE_BASELINE_*_TV_GATE_ENABLED=0"
+    ],
+    "learning_collection_mode": {
+      "active": true,
+      "priority": "trade_rate_and_ledger_continuity",
+      "soak_minutes_default": 120,
+      "wr_target_deferred": true
+    }
+  },
+  "entry_design": {
+    "series": "btc-up-or-down-15m",
+    "side": "DOWN only",
+    "green_path": "15m DOWN skips stacked opinion gates; cohort still authoritative",
+    "ttc_band_base_s": [160, 220],
+    "ttc_band_15m_scaled_s": [480, 660],
+    "tick_seconds": 15,
+    "max_entry_price": 0.70,
+    "min_edge": 0.015,
+    "min_reward_risk": 0.55,
+    "size_usd": 5
+  },
+  "data_sources": {
+    "settlement": ["polymarket_resolution", "rtds_chainlink_proxy"],
+    "oracle": "chainlink via Polymarket RTDS",
+    "lead_feeds": ["binance_btcusdt", "coinbase_btcusd"],
+    "markets": "gamma-api.polymarket.com",
+    "orderbooks": "clob.polymarket.com",
+    "tv_webhook": "http://<vps>/webhooks/tradingview",
+    "tv_charts": "INDEX:BTCUSD 2m/3m/4m"
+  },
+  "monitoring_layers": {
+    "live_dashboard": "http://144.202.122.120/",
+    "latest_full_artifacts": "vps_full_reports/latest/",
+    "timeline_log": "monitoring/timeline.jsonl",
+    "babysit_state": "scripts/pulse-babysit/state.json",
+    "score_history_vps": "btc_pulse_score_history.json (on VPS /data)",
+    "cycle_summary": "vps_full_reports/latest/CYCLE_SUMMARY.md"
+  },
+  "env_source_of_truth": "scripts/apply-loop-arch-env.py",
+  "roan_bregman": {
+    "phase": 0,
+    "architecture": "docs/roan-bregman-architecture.md",
+    "promotion_scorecard": "scripts/pulse-babysit/roan-bregman-promotion-scorecard.json",
+    "fixtures": [
+      "hermes-agent-main/plugins/hermes-trading-engine/tests/fixtures/roan_nested_implication_violation.json",
+      "hermes-agent-main/plugins/hermes-trading-engine/tests/fixtures/roan_dutch_book_opportunity.json"
+    ]
+  }
+}

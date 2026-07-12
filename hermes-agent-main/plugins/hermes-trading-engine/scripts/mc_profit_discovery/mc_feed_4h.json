@@ -1,0 +1,693 @@
+{
+  "schema": "mc_profit_discovery_feed/1.1-4h",
+  "prepared_at_utc": "2026-07-11 05:02:49 UTC",
+  "paper_only": true,
+  "assets": {
+    "btc": {
+      "s_now": 64095.185429634534,
+      "sigma_per_sec": 1.607178257819053e-05,
+      "vol_samples": 711,
+      "price_source": "rtds_chainlink"
+    },
+    "eth": {
+      "s_now": 1794.715,
+      "sigma_per_sec": 6.454246122272403e-05,
+      "vol_samples": 660,
+      "price_source": "rtds_chainlink_eth"
+    }
+  },
+  "windows": {
+    "15m": {
+      "window_seconds": 900,
+      "lanes": [
+        "btc_15m",
+        "eth_15m"
+      ]
+    },
+    "1h": {
+      "window_seconds": 3600,
+      "lanes": [
+        "btc_1h",
+        "eth_1h"
+      ]
+    },
+    "4h": {
+      "window_seconds": 14400,
+      "lanes": [
+        "btc_4h",
+        "eth_4h"
+      ]
+    }
+  },
+  "lane_charts": {
+    "btc_1h": {
+      "symbol": "BTCUSDT",
+      "bar_close_n": 26,
+      "short_lean": {
+        "lean": "up",
+        "up_n": 5,
+        "down_n": 3,
+        "n": 8,
+        "delta_pct": 0.0031,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 64152.0
+      },
+      "regime_lean": {
+        "lean": "up",
+        "up_n": 14,
+        "down_n": 12,
+        "n": 26,
+        "delta_pct": 0.01,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 64152.0
+      },
+      "rsi_band": {
+        "lean": null,
+        "zone": "neutral",
+        "rsi": 51.3325216549,
+        "band_event": "none"
+      },
+      "rsi_divergence": {
+        "lean": "up",
+        "kind": "regular_bullish",
+        "signal_level": "REGULAR_BULL_DIV"
+      }
+    },
+    "eth_1h": {
+      "symbol": "ETHUSDT",
+      "bar_close_n": 26,
+      "short_lean": {
+        "lean": "up",
+        "up_n": 5,
+        "down_n": 3,
+        "n": 8,
+        "delta_pct": -0.0406,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 1796.53
+      },
+      "regime_lean": {
+        "lean": "up",
+        "up_n": 16,
+        "down_n": 10,
+        "n": 26,
+        "delta_pct": 0.1036,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 1796.53
+      },
+      "rsi_band": {
+        "lean": null,
+        "zone": "neutral",
+        "rsi": 50.5818931419,
+        "band_event": "none"
+      },
+      "rsi_divergence": {
+        "lean": "down",
+        "kind": "regular_bearish",
+        "signal_level": "REGULAR_BEAR_DIV"
+      }
+    },
+    "btc_15m": {
+      "symbol": "BTCUSD",
+      "bar_close_n": 15,
+      "short_lean": {
+        "lean": "up",
+        "up_n": 5,
+        "down_n": 3,
+        "n": 8,
+        "delta_pct": -0.0174,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 64116.56
+      },
+      "regime_lean": {
+        "lean": "up",
+        "up_n": 8,
+        "down_n": 7,
+        "n": 15,
+        "delta_pct": -0.0449,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 64116.56
+      },
+      "rsi_band": {
+        "lean": null,
+        "zone": "neutral",
+        "rsi": 50.6483256339,
+        "band_event": "none"
+      },
+      "rsi_divergence": {
+        "lean": "up",
+        "kind": "regular_bull_div",
+        "signal_level": "REGULAR_BULL_DIV"
+      }
+    },
+    "eth_15m": {
+      "symbol": "ETHUSD",
+      "bar_close_n": 16,
+      "short_lean": {
+        "lean": "up",
+        "up_n": 5,
+        "down_n": 3,
+        "n": 8,
+        "delta_pct": -0.0462,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 1795.44
+      },
+      "regime_lean": {
+        "lean": null,
+        "up_n": 8,
+        "down_n": 8,
+        "n": 16,
+        "delta_pct": 0.0613,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 1795.44
+      },
+      "rsi_band": {
+        "lean": null,
+        "zone": "neutral",
+        "rsi": 50.2557455414,
+        "band_event": "none"
+      },
+      "rsi_divergence": {
+        "lean": "up",
+        "kind": "regular_bull_div",
+        "signal_level": "REGULAR_BULL_DIV"
+      }
+    },
+    "btc_4h": {
+      "symbol": "BTCUSDT",
+      "settlement_symbol": "BTCUSD",
+      "bar_close_n": 26,
+      "short_lean": {
+        "lean": "up",
+        "up_n": 7,
+        "down_n": 5,
+        "n": 12,
+        "delta_pct": 0.0491,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 64152.0
+      },
+      "regime_lean": {
+        "lean": "up",
+        "up_n": 14,
+        "down_n": 12,
+        "n": 26,
+        "delta_pct": 0.01,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 64152.0
+      },
+      "index_regime_lean": {
+        "lean": "up",
+        "up_n": 8,
+        "down_n": 7,
+        "n": 15,
+        "delta_pct": -0.0449,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 64116.56
+      },
+      "rsi_band": {
+        "lean": null,
+        "zone": "neutral",
+        "rsi": 51.3325216549,
+        "band_event": "none"
+      },
+      "rsi_divergence": {
+        "lean": "up",
+        "kind": "regular_bullish",
+        "signal_level": "REGULAR_BULL_DIV"
+      },
+      "note": "4h lane: USDT regime for lead; INDEX for settlement alignment"
+    },
+    "eth_4h": {
+      "symbol": "ETHUSDT",
+      "settlement_symbol": "ETHUSD",
+      "bar_close_n": 26,
+      "short_lean": {
+        "lean": "up",
+        "up_n": 8,
+        "down_n": 4,
+        "n": 12,
+        "delta_pct": -0.0033,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 1796.53
+      },
+      "regime_lean": {
+        "lean": "up",
+        "up_n": 16,
+        "down_n": 10,
+        "n": 26,
+        "delta_pct": 0.1036,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 1796.53
+      },
+      "index_regime_lean": {
+        "lean": null,
+        "up_n": 8,
+        "down_n": 8,
+        "n": 16,
+        "delta_pct": 0.0613,
+        "streak_dir": "up",
+        "streak_len": 1,
+        "last_price": 1795.44
+      },
+      "rsi_band": {
+        "lean": null,
+        "zone": "neutral",
+        "rsi": 50.5818931419,
+        "band_event": "none"
+      },
+      "rsi_divergence": {
+        "lean": "down",
+        "kind": "regular_bearish",
+        "signal_level": "REGULAR_BEAR_DIV"
+      },
+      "note": "4h lane: USDT regime for lead; INDEX for settlement alignment"
+    }
+  },
+  "lane_routing": {
+    "1h": "binance_usdt (*USDT)",
+    "15m": "chainlink_index_usd (*USD)",
+    "4h": "binance_usdt lead (*USDT) + chainlink index settle (*USD)"
+  },
+  "tv_signal_learning": {
+    "settled_with_signal": 96,
+    "by_signal_level": {
+      "DOWN_STRONG": {
+        "n": 9,
+        "win_rate": 0.3333,
+        "pnl_usd": -16.7861
+      },
+      "DOWN_WEAK": {
+        "n": 14,
+        "win_rate": 0.5,
+        "pnl_usd": 4.1567
+      },
+      "UP_STRONG": {
+        "n": 27,
+        "win_rate": 0.4815,
+        "pnl_usd": 94.5051
+      },
+      "FLAT": {
+        "n": 5,
+        "win_rate": 0.2,
+        "pnl_usd": -6.5685
+      },
+      "UP_WEAK": {
+        "n": 11,
+        "win_rate": 0.6364,
+        "pnl_usd": 2.8254
+      },
+      "REGULAR_BEAR_DIV": {
+        "n": 1,
+        "win_rate": 0.0,
+        "pnl_usd": -21.25
+      },
+      "HIDDEN_BULL_DIV": {
+        "n": 1,
+        "win_rate": 0.0,
+        "pnl_usd": -21.25
+      },
+      "HIDDEN_BEAR_DIV": {
+        "n": 2,
+        "win_rate": 0.5,
+        "pnl_usd": -3.0192
+      },
+      "REGULAR_BULL_DIV": {
+        "n": 1,
+        "win_rate": 1.0,
+        "pnl_usd": 20.4167
+      },
+      "BAR_BULL": {
+        "n": 13,
+        "win_rate": 0.3846,
+        "pnl_usd": -20.1384
+      },
+      "BAR_BEAR": {
+        "n": 12,
+        "win_rate": 0.5,
+        "pnl_usd": -14.3798
+      }
+    },
+    "by_direction": {
+      "DOWN": {
+        "n": 38,
+        "win_rate": 0.4474,
+        "pnl_usd": -51.2785
+      },
+      "UP": {
+        "n": 53,
+        "win_rate": 0.4906,
+        "pnl_usd": 76.3587
+      },
+      "FLAT": {
+        "n": 5,
+        "win_rate": 0.2,
+        "pnl_usd": -6.5685
+      }
+    },
+    "by_indicator_name": {
+      "Hermes BTC Pulse Lite": {
+        "n": 47,
+        "win_rate": 0.4468,
+        "pnl_usd": -10.3113
+      },
+      "Hermes BTC MeanRev 3m v1": {
+        "n": 3,
+        "win_rate": 0.6667,
+        "pnl_usd": 1.8946
+      },
+      "Hermes Crypto RSI 1h v1": {
+        "n": 16,
+        "win_rate": 0.5,
+        "pnl_usd": 86.5493
+      },
+      "RSI Divergence Indicator": {
+        "n": 5,
+        "win_rate": 0.4,
+        "pnl_usd": -25.1026
+      },
+      "Hermes BarClose 15m": {
+        "n": 24,
+        "win_rate": 0.4583,
+        "pnl_usd": -26.0182
+      },
+      "Hermes BarClose 5m": {
+        "n": 1,
+        "win_rate": 0.0,
+        "pnl_usd": -8.5
+      }
+    },
+    "keep_levels": [
+      "DOWN_WEAK",
+      "UP_STRONG",
+      "UP_WEAK"
+    ],
+    "avoid_levels": [
+      "BAR_BEAR",
+      "BAR_BULL",
+      "DOWN_STRONG",
+      "FLAT"
+    ]
+  },
+  "council": {
+    "tv_5m": {
+      "n": 93,
+      "accuracy": 0.4624,
+      "faded": false,
+      "stance": "ignore",
+      "weight": 0.1
+    },
+    "tv_10m": {
+      "n": 1,
+      "accuracy": 0.0,
+      "faded": false,
+      "stance": "cold",
+      "weight": 0.1
+    },
+    "tv_2h_trend": {
+      "n": 149,
+      "accuracy": 0.604,
+      "faded": false,
+      "stance": "follow",
+      "weight": 0.3963
+    },
+    "tv_mtf": {
+      "n": 255,
+      "accuracy": 0.4118,
+      "faded": true,
+      "stance": "fade",
+      "weight": 0.3962
+    },
+    "tv_60m": {
+      "n": 6,
+      "accuracy": 0.5,
+      "faded": false,
+      "stance": "cold",
+      "weight": 0.1
+    },
+    "quant": {
+      "n": 1072,
+      "accuracy": 0.4674,
+      "faded": true,
+      "stance": "fade",
+      "weight": 0.1609
+    },
+    "tv_15m": {
+      "n": 229,
+      "accuracy": 0.4323,
+      "faded": true,
+      "stance": "fade",
+      "weight": 0.2081
+    },
+    "tv_45m": {
+      "n": 32,
+      "accuracy": 0.125,
+      "faded": true,
+      "stance": "fade",
+      "weight": 2.0948
+    },
+    "tv_240m": {
+      "n": 4,
+      "accuracy": 0.25,
+      "faded": false,
+      "stance": "cold",
+      "weight": 0.1
+    },
+    "tv_55m": {
+      "n": 1,
+      "accuracy": 1.0,
+      "faded": false,
+      "stance": "cold",
+      "weight": 0.1
+    },
+    "tv_30m": {
+      "n": 122,
+      "accuracy": 0.3443,
+      "faded": true,
+      "stance": "fade",
+      "weight": 0.7601
+    }
+  },
+  "lane_15m_policy": {
+    "side_mode": "both",
+    "min_sso": 180.0,
+    "max_sso": 480.0,
+    "prefer_ttc": [
+      420.0,
+      720.0
+    ],
+    "sweet": [
+      0.5183192999999999,
+      0.71008387
+    ],
+    "min_edge": 0.06999999999999999,
+    "min_entry_price": 0.5000000000000001,
+    "probe_enabled": false
+  },
+  "lane_15m_rolling": {
+    "n": 48,
+    "win_rate": 0.5417,
+    "pnl_usd": -23.7136,
+    "by_side": {
+      "up": {
+        "n": 29,
+        "wins": 15,
+        "pnl_usd": -29.1415,
+        "win_rate": 0.5172,
+        "wilson_lb": 0.3702
+      },
+      "down": {
+        "n": 19,
+        "wins": 11,
+        "pnl_usd": 5.428,
+        "win_rate": 0.5789,
+        "wilson_lb": 0.395
+      }
+    },
+    "by_asset": {
+      "eth": {
+        "n": 13,
+        "wins": 6,
+        "pnl_usd": -6.7244,
+        "win_rate": 0.4615,
+        "wilson_lb": 0.2616
+      },
+      "btc": {
+        "n": 35,
+        "wins": 20,
+        "pnl_usd": -16.9891,
+        "win_rate": 0.5714,
+        "wilson_lb": 0.434
+      }
+    },
+    "by_ttc": {
+      "ttc_420_plus": {
+        "n": 44,
+        "wins": 25,
+        "pnl_usd": -13.7721,
+        "win_rate": 0.5682,
+        "wilson_lb": 0.4453
+      },
+      "ttc_240_420": {
+        "n": 2,
+        "wins": 0,
+        "pnl_usd": -9.54,
+        "win_rate": 0.0,
+        "wilson_lb": 0.0
+      },
+      "ttc_0_120": {
+        "n": 1,
+        "wins": 1,
+        "pnl_usd": 3.8186,
+        "win_rate": 1.0,
+        "wilson_lb": 0.271
+      },
+      "ttc_120_240": {
+        "n": 1,
+        "wins": 0,
+        "pnl_usd": -4.22,
+        "win_rate": 0.0,
+        "wilson_lb": 0.0
+      }
+    },
+    "by_price": {
+      "p_45_55": {
+        "n": 21,
+        "wins": 9,
+        "pnl_usd": -27.5245,
+        "win_rate": 0.4286,
+        "wilson_lb": 0.2697
+      },
+      "p_55_70": {
+        "n": 19,
+        "wins": 12,
+        "pnl_usd": 9.1383,
+        "win_rate": 0.6316,
+        "wilson_lb": 0.4446
+      },
+      "p_70_plus": {
+        "n": 8,
+        "wins": 5,
+        "pnl_usd": -5.3273,
+        "win_rate": 0.625,
+        "wilson_lb": 0.3487
+      }
+    },
+    "by_chart_lean": {
+      "lean_aligned": {
+        "n": 7,
+        "wins": 4,
+        "pnl_usd": 2.6263,
+        "win_rate": 0.5714,
+        "wilson_lb": 0.2901
+      },
+      "lean_opposed": {
+        "n": 7,
+        "wins": 5,
+        "pnl_usd": 11.0004,
+        "win_rate": 0.7143,
+        "wilson_lb": 0.4095
+      }
+    },
+    "by_chart_alignment": {
+      "aligned": {
+        "n": 7,
+        "wins": 3,
+        "pnl_usd": -11.0484,
+        "win_rate": 0.4286,
+        "wilson_lb": 0.1869
+      },
+      "divergent": {
+        "n": 7,
+        "wins": 6,
+        "pnl_usd": 24.6751,
+        "win_rate": 0.8571,
+        "wilson_lb": 0.5487
+      }
+    },
+    "by_short_pattern": {
+      "choppy": {
+        "n": 5,
+        "wins": 3,
+        "pnl_usd": -0.1559,
+        "win_rate": 0.6,
+        "wilson_lb": 0.2732
+      },
+      "mixed": {
+        "n": 4,
+        "wins": 2,
+        "pnl_usd": -7.1632,
+        "win_rate": 0.5,
+        "wilson_lb": 0.183
+      },
+      "downtrend": {
+        "n": 3,
+        "wins": 3,
+        "pnl_usd": 18.9286,
+        "win_rate": 1.0,
+        "wilson_lb": 0.5273
+      },
+      "uptrend_bias": {
+        "n": 1,
+        "wins": 0,
+        "pnl_usd": -2.42,
+        "win_rate": 0.0,
+        "wilson_lb": 0.0
+      },
+      "uptrend": {
+        "n": 1,
+        "wins": 1,
+        "pnl_usd": 4.4372,
+        "win_rate": 1.0,
+        "wilson_lb": 0.271
+      }
+    }
+  },
+  "calibration": {
+    "samples": 402,
+    "brier": 0.263295,
+    "base_rate_up": 0.505,
+    "baseline_brier_0_5": 0.25
+  },
+  "capital": {
+    "paper_only": true,
+    "starting_capital_usd": 2000.0,
+    "realized_pnl_usd": -10.5,
+    "on_hand_capital_usd": 1989.5,
+    "return_pct": -0.53,
+    "total_realized_pnl_usd": -10.5,
+    "total_on_hand_usd": 1989.5,
+    "total_return_pct": -0.53,
+    "open_exposure_usd": 8.5,
+    "directional_bankroll_cap_usd": 700.0,
+    "directional_cap_remaining_usd": 691.5,
+    "primary_edge_source": "arbitrage",
+    "open_positions": 1
+  },
+  "execution_assumptions": {
+    "size_usd": 5.0,
+    "min_entry_price": 0.5,
+    "max_entry_price": 0.75,
+    "fee_frac": 0.0,
+    "slippage_abs": 0.01
+  },
+  "scenario_priors": {
+    "tv_2h_accuracy": 0.604,
+    "bar_close_continuation": 0.52,
+    "streak3_fade_rate": 0.75,
+    "neutral_sigma_btc": 7e-05,
+    "note": "4h: prefer tv_2h follow; tv_240m historically anti-predictive \u2192 fade candidate",
+    "tv_240m_accuracy": 0.25
+  }
+}

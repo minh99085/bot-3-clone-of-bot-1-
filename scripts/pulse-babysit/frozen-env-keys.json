@@ -1,0 +1,50 @@
+{
+  "schema": "pulse_frozen_manifest/2.0",
+  "mode": "loop_autonomous_learning",
+  "locked_at": "2026-06-27",
+  "locks_lifted_at": "2026-07-01",
+  "soak_removed_at": "2026-07-06",
+  "soak_removed_note": "Operator 2026-07-06 (current message): 'remove all the soak.' The soak concept is removed entirely — no soak-wait discipline, no learning-collection freeze, no soak timer. The closed loop runs continuously and governs gates/sizing/authority from live settled evidence. .grok/rules/soak-learning-lock.md and scripts/pulse-babysit/set-soak.ps1 were deleted.",
+  "locks_lifted_note": "Operator 2026-07-01 (current message): 'deep scan bot and remove all locks you can find, make sure loop engineering is learning and adjusting.' The soak-learning lock, TradingView observe-only lock, and the authority freeze are LIFTED. The closed loop now governs gates/sizing/authority from live settled evidence: research auto-apply, dep-arb experiment auto-apply, calibration + bucket_bleeding auto-halt, selectivity gate, maker-checker verifier, learning blend, edge model, Bregman + Grok trade authority. Agents/loop may tune freely.",
+  "retained_invariants_never_lifted": {
+    "paper_only": "PAPER ONLY forever. live_trading_enabled must stay false; no env may route real money. Enabling live/real-money requires an explicit operator instruction in the current message (CLAUDE.md non-negotiable #3/#4).",
+    "honest_accounting": "No fake/inflated performance (CLAUDE.md non-negotiable #1): dep-arb stays outcome-settled (real losses booked), within-window arb epsilon stays >= fees floor 0.003 (no booking risk-free edge that non-atomic fills would erase), no no-loss heuristic.",
+    "reconciliation": "Ledger/decision-lifecycle reconciliation must stay true; fix reconciliation bugs, never fake them."
+  },
+  "roan_bregman_phase": 4,
+  "source_of_truth": "scripts/apply-loop-arch-env.py",
+  "rules_doc": null,
+  "tv_lock_doc": ".grok/rules/tv-observe-only-lock.md",
+  "architecture_doc": "docs/roan-bregman-architecture.md",
+  "promotion_scorecard": "scripts/pulse-babysit/roan-bregman-promotion-scorecard.json",
+  "series_architecture": {
+    "design": "directional-only (BTC/ETH 1h+15m); arb + dep-arb execution OFF (2026-07-11)",
+    "brain_slug": "btc-up-or-down-5m",
+    "hands_slug": "btc-up-or-down-15m",
+    "directional_series": "btc-up-or-down-15m"
+  },
+  "required_nonempty": [
+    "XAI_API_KEY",
+    "TRADINGVIEW_WEBHOOK_SECRET"
+  ],
+  "authority_frozen": {},
+  "learning_collection_frozen": {},
+  "forbidden_enable": [],
+  "forbidden_tighten_to_one": [],
+  "tunable_bounds": {},
+  "frozen_code_paths_advisory": [
+    "engine/pulse/price.py",
+    "engine/pulse/engine.py",
+    "engine/pulse/executor.py",
+    "tests/test_open_snapshot_persist.py"
+  ],
+  "frozen_code_paths_note": "ADVISORY ONLY (not an enforced lock): take care not to break open-snapshot persistence, the executor paper ledger, or reconciliation when editing these — correctness, not a behavior freeze.",
+  "eval_defaults": {
+    "eval_starvation_min_hours": 6,
+    "eval_starvation_flat_streak": 2
+  },
+  "runtime_checks": {
+    "paper_only": true,
+    "live_trading_enabled": false
+  }
+}

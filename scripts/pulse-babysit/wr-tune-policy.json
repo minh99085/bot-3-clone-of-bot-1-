@@ -1,0 +1,56 @@
+{
+  "schema": "wr_tune_policy/1.0",
+  "mode": "real_money_discipline",
+  "lookback_hours": 24,
+  "side": "down",
+  "min_entry_price_floor": 0.45,
+  "max_price_floor": 0.58,
+  "max_price_ceiling": 0.75,
+  "bands": {
+    "cheap": { "label": "<0.45", "max_exclusive": 0.45 },
+    "sweet": { "label": "0.45-0.55", "min_inclusive": 0.45, "max_inclusive": 0.55 },
+    "expensive": { "label": ">0.55", "min_exclusive": 0.55 }
+  },
+  "triggers": {
+    "cheap_down_bleed": {
+      "issue_code": "cheap_down_bleed",
+      "min_samples": 2,
+      "max_win_rate": 0.40,
+      "action": "raise_min_entry_price",
+      "step": 0.01,
+      "cap": 0.48
+    },
+    "expensive_down_bleed": {
+      "issue_code": "expensive_down_bleed",
+      "min_samples": 5,
+      "max_win_rate": 0.58,
+      "max_pnl_usd": 0,
+      "action": "lower_max_price",
+      "step": 0.02,
+      "floor": 0.58
+    },
+    "sweet_spot_underuse": {
+      "issue_code": "sweet_spot_underuse",
+      "min_sweet_wr": 0.70,
+      "min_sweet_samples": 5,
+      "max_sweet_share": 0.50,
+      "action": "tighten_to_sweet_band",
+      "min_entry_target": 0.45,
+      "max_price_target": 0.55
+    }
+  },
+  "starvation_guard": {
+    "never_lower_min_entry_price_below": 0.45,
+    "skip_when_directional_disabled": true,
+    "skip_wr_tune_issue_codes": [
+      "trade_starvation",
+      "trade_starvation_streak"
+    ]
+  },
+  "priority": [
+    "cheap_down_bleed",
+    "expensive_down_bleed",
+    "sweet_spot_underuse"
+  ],
+  "max_fixes_per_cycle": 2
+}

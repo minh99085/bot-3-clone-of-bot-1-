@@ -1,0 +1,23 @@
+{
+  "_README": "Copy this file to .laptop_agent.json (git-ignored) and fill it in. NEVER commit the real file. All VPS host/user/key values stay local and are never printed by the tools (laptop_agent.py and laptop_agent_coordinator.py).",
+
+  "runtime_data_dir": "runtime_data",
+  "inspection_output_dir": "inspection_reports",
+
+  "git_remote": "origin",
+  "git_main_branch": "main",
+
+  "vps_host": "144.202.122.120",
+  "vps_user": "root",
+  "vps_port": 22,
+  "vps_ssh_key": "C:\\Users\\you\\.ssh\\bot1_grok_temp",
+
+  "runtime_source": "root@144.202.122.120:/opt/Bot-1/hermes-agent-main/plugins/hermes-trading-engine/runtime_data/",
+
+  "_coordinator_README": "Fields below are used by scripts/laptop_agent_coordinator.py (Phase 2 operator handoff).",
+  "repo_root": "C:\\hermes-agent\\hermes-agent-main\\plugins\\hermes-trading-engine",
+  "plugin_path": "C:\\hermes-agent\\hermes-agent-main\\plugins\\hermes-trading-engine",
+  "vps_remote_plugin_path": "/opt/Bot-1/hermes-agent-main/plugins/hermes-trading-engine",
+  "local_artifact_dir": "inspection_reports_artifacts",
+  "hermes_training_container": "hermes-training"
+}

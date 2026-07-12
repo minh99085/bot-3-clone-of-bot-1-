@@ -1,0 +1,44 @@
+# Repo-root .gitignore.
+#
+# The laptop coordinator (scripts/laptop_agent_coordinator.py) writes generated outputs
+# relative to repo_root (the git toplevel): Cursor handoff files, the local artifact /
+# report directory, and collected VPS report exports. These are LOCAL-ONLY and must never
+# be committed — otherwise they dirty `git status` and the safe `git pull --ff-only` in
+# `mission-control` / `sync-main` refuses to pull ("uncommitted changes"), blocking the
+# operator workflow. Ignore them here so the working tree stays clean.
+
+# Laptop coordinator config (operator-local; contains the VPS host/user/key path —
+# never commit it). The coordinator already treats it as git-ignored.
+.laptop_agent.json
+
+# Cursor handoff markdown the coordinator writes on a blocker
+cursor_handoffs/
+
+# Local artifact / report collection dirs (default local_artifact_dir + report exports)
+inspection_reports_artifacts/
+vps_reports/
+
+# Collected report bundles / validation outputs that may land at the repo root
+vps_light_report_*.zip
+vps_full_report_*.zip
+vps_full_issue_report_*.zip
+vps_issue_report_*.zip
+validation_light_latest.txt
+.report_venv/
+
+# Committed full reports for ChatGPT inspection live here and OVERRIDE the ignore
+# patterns above (extracted text/JSON, not binary zips). See vps_full_reports/README.md.
+!vps_full_reports/
+!vps_full_reports/**
+
+vps_full_reports/baseline_p1/
+
+# Bot design timeline (committed); archives are local-only full copies
+!monitoring/
+!monitoring/**
+monitoring/archives/
+
+# Python bytecode caches (never commit compiled artifacts)
+__pycache__/
+*.pyc
+LOGS.txt

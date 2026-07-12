@@ -1,0 +1,8 @@
+fastapi>=0.110,<1
+uvicorn[standard]>=0.27,<1
+httpx>=0.27,<1
+aiohttp>=3.9,<4
+py-clob-client>=0.34,<1
+websockets>=12             # Polymarket RTDS (crypto_prices_chainlink) oracle client
+ortools>=9.10,<10          # Roan Frank-Wolfe IP oracle (optional fallback to closed-form)
+python-docx>=1.1,<2        # human-readable Word performance report (report.docx)

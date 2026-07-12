@@ -1,0 +1,51 @@
+
+post_canary_artifacts/
+micro_live_artifacts/
+production_review_artifacts/
+production_review_dossier/
+shadow_artifacts/
+replay_artifacts/
+guarded_live_artifacts/
+polymarket_training_reports/
+inspection_reports/
+*.sqlite3
+# Secrets / local config — NEVER commit real API keys. The training engine loads
+# these at startup via engine/env_loader.py (.env preferred, .env.env fallback).
+.env
+.env.*
+!.env.example
+metrics/
+reports/
+# Laptop operator layer (scripts/laptop_agent.py): real local config + collected
+# runtime artifacts stay local. The .example.json IS committed as a template.
+.laptop_agent.local.json
+.laptop_agent.json
+.env.laptop_agent
+runtime_data/
+# coordinator copies VPS report zips here (local artifacts; never committed)
+inspection_reports_artifacts/
+# coordinator Phase 5: saved Cursor handoff prompts (local operator artifacts)
+cursor_handoffs/
+# fresh-package archives any prior inspection_reports here before regenerating
+_stale_inspection_reports_*/
+# Generated VPS/light report artifacts — local only, NEVER committed (they otherwise
+# pollute git status and block `git pull` on the VPS).
+validation_light_latest.txt
+vps_light_report_latest.zip
+vps_light_report_*.zip
+hermes_light_report_*.zip
+report_logs/
+.report_venv/
+runtime_data_light_*/
+inspection_reports_light_*/
+**light_report**.zip
+git_commit_proof.txt
+# full-diagnostic report exports (canonical vps_generate_full_report.sh + ad-hoc)
+vps_full_report_*.zip
+vps_full_report_*/
+vps_full_issue_report_*.zip
+vps_full_issue_report_*/
+vps_issue_report_*.zip
+vps_issue_report_*/
+# generated read-only dashboard snapshot (scripts/vps_dashboard.py --once)
+vps_dashboard.html

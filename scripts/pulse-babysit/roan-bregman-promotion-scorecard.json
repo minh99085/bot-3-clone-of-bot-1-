@@ -1,0 +1,60 @@
+{
+  "schema": "roan_bregman_promotion/1.0",
+  "strategy": "dependency_arb_lane_b",
+  "architecture_doc": "docs/roan-bregman-architecture.md",
+  "description": "Promotion gates before PULSE_DEPENDENCY_ARB_EXECUTE=1 or PULSE_BREGMAN_TRADE_AUTHORITY=1 become defaults.",
+  "phases": {
+    "phase_1_dual_scan": {
+      "required": [
+        "PULSE_SERIES_SLUGS includes btc-up-or-down-5m and btc-up-or-down-15m",
+        "PULSE_DIRECTIONAL_SERIES_SLUGS remains btc-up-or-down-15m only",
+        "arb_graph.nested_pairs length >= 1 over 120m soak",
+        "global_reconciled true",
+        "directional settled count increases OR unchanged with documented starvation fix"
+      ]
+    },
+    "phase_2_bregman_observe": {
+      "required": [
+        "bregman_projection.samples non-empty when nested violation detected",
+        "projection_distance correlates with violation_magnitude on fixtures",
+        "solver_status in (brute_force_lcmm, converged, scaffold_only)"
+      ]
+    },
+    "phase_3_frank_wolfe": {
+      "required": [
+        "test_frank_wolfe_fixture_converges passes",
+        "ip_oracle_backend ortools or pulp",
+        "fw_time_budget_ms respected per tick"
+      ]
+    },
+    "phase_4_execute_authority": {
+      "required": [
+        "dependency_arb paper executed >= 1 with entry_mode dependency_bregman or lcmm",
+        "dependency_arb ledger segregated from directional WR/PF",
+        "global_reconciled true after execute",
+        "no directional series slug expansion to 5m"
+      ],
+      "metrics": {
+        "min_settled_trades": 30,
+        "min_profit_factor": 1.0,
+        "min_wilson_lb_vs_breakeven": true,
+        "max_reconciliation_drift": 0,
+        "min_global_reconciled_streak_hours": 24
+      }
+    }
+  },
+  "forbidden_before_promotion": [
+    "PULSE_GROK_DECIDER_MODE=follow",
+    "live_trading_enabled=true",
+    "blend dependency_arb PnL into directional win_rate",
+    "Bregman trade authority on single 2-outcome windows"
+  ],
+  "report_fields_required": [
+    "dependency_arbitrage.realized_profit_usd",
+    "dependency_arbitrage.violations_detected",
+    "bregman_projection.enabled",
+    "arb_graph.nested_pairs",
+    "capital.primary_edge_source",
+    "global_reconciled"
+  ]
+}

@@ -1,0 +1,10 @@
+# Hermes Trading Engine - development/test-only dependencies.
+# Installed into the container image (Dockerfile) ON TOP of requirements.txt so
+# the test suite can run hermetically inside `hermes-training`:
+#   docker compose exec hermes-training python -m pytest
+# Runtime behavior is unchanged — these packages are not imported by the engine.
+#
+# No async tests (no @pytest.mark.asyncio / async def test_*) and no coverage
+# config exist in this plugin, so pytest-asyncio / pytest-cov are intentionally
+# omitted. Add them here if/when those are introduced.
+pytest>=8,<10

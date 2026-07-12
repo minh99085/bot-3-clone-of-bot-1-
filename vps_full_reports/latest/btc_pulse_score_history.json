@@ -1,0 +1,42 @@
+{
+ "schema": "btc_pulse_score_history/1.0",
+ "entries": [
+  {
+   "ts": 1783737651.5444903,
+   "utc": "2026-07-11 02:40:51 UTC",
+   "ticks": 0,
+   "settled": 0,
+   "scores": {
+    "trading_performance": 52.5,
+    "operation": 82.1,
+    "external_signals": 40.4,
+    "overall": 56.9,
+    "grades": {
+     "trading_performance": "F",
+     "operation": "B",
+     "external_signals": "F",
+     "overall": "F"
+    }
+   }
+  },
+  {
+   "ts": 1783737651.9074259,
+   "utc": "2026-07-11 02:40:51 UTC",
+   "ticks": 1,
+   "settled": 0,
+   "scores": {
+    "trading_performance": 52.5,
+    "operation": 80.6,
+    "external_signals": 25.4,
+    "overall": 52.8,
+    "grades": {
+     "trading_performance": "F",
+     "operation": "B",
+     "external_signals": "F",
+     "overall": "F"
+    }
+   }
+  }
+ ],
+ "epoch_scoped": true
+}

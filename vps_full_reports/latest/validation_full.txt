@@ -1,0 +1,13 @@
+validation_full — extended integrity + stop conditions
+validation_light — integrity smoke checks
+global_reconciled=True
+failed_checks=[]
+paper_only=True
+settled=0
+accepted=0
+payoff_guards={"rejected_tiny_upside": 0, "rejected_bad_reward_to_risk": 0, "rejected_high_entry_insufficient_margin": 0}
+
+stop_conditions={"paper_only": true, "agent_independent": true, "any_halted": false, "strategies": {"directional": {"strategy": "directional", "enabled": true, "halted": false, "verifiable": true, "reasons": ["insufficient_samples"], "metrics": {"n": 0, "wins": 0, "win_rate": null, "wilson_lower": null, "breakeven_wr": null, "profit_factor": null, "pnl_usd": 0.0, "max_drawdown_usd": 0.0, "max_drawdown_pct": 0.0}, "min_samples": 60}}, "note": "quantitative kill switches checked each tick from settled ledger evidence; NOT the LLM's opinion. Halting blocks NEW entries only."}
+directional_allowlist={"enabled": false, "explore_rate": 0.25, "explored": 0, "blocked": 0}
+learning={"active": true, "weight": 0.5, "reason": "active", "market_benchmark": {"n": 0, "model_brier": null, "market_brier": null, "fair_brier": null, "model_beats_market": null}}
+kl_observe_only={"observe_only": true, "latest_model_p": null, "latest_market_p": null, "kl": null, "market_benchmark_n": 0, "model_beats_market": null}

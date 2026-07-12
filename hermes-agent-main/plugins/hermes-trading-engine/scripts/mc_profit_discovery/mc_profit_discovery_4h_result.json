@@ -1,0 +1,1040 @@
+{
+  "schema": "mc_profit_discovery_result/1.0-4h",
+  "market": "polymarket_btc_eth_up_or_down_4h",
+  "window_seconds": 14400,
+  "n_paths_requested": 1000000,
+  "n_paths_simulated": 1000000,
+  "paths_per_scenario": 500000,
+  "n_scenarios": 2,
+  "n_policies_ranked": 11340,
+  "elapsed_s": 77.35,
+  "seed": 42,
+  "size_usd": 5.0,
+  "slippage_abs": 0.01,
+  "top_20_policies": [
+    {
+      "key": "btc|4h|ttc300|down|ask0.50|fade_tv240|p_ge_0.60",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "fade_tv240",
+      "gate": "p_ge_0.60",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": -4.735194352830974e-08,
+      "n_trades": 313749,
+      "win_rate": 0.9744,
+      "total_pnl_usd": 1428470.69,
+      "ev_per_trade_usd": 4.5529
+    },
+    {
+      "key": "eth|4h|ttc300|down|ask0.50|fade_tv240|p_ge_0.60",
+      "asset": "eth",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "fade_tv240",
+      "gate": "p_ge_0.60",
+      "symbol": "ETHUSDT",
+      "sigma": 6.454246122272403e-05,
+      "mu": -1.901600500210748e-07,
+      "n_trades": 313324,
+      "win_rate": 0.9739,
+      "total_pnl_usd": 1425085.88,
+      "ev_per_trade_usd": 4.5483
+    },
+    {
+      "key": "btc|4h|ttc300|down|ask0.50|fade_tv240|edge_ge_0.08",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "fade_tv240",
+      "gate": "edge_ge_0.08",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": -4.735194352830974e-08,
+      "n_trades": 315181,
+      "win_rate": 0.9727,
+      "total_pnl_usd": 1429732.25,
+      "ev_per_trade_usd": 4.5362
+    },
+    {
+      "key": "eth|4h|ttc300|down|ask0.50|fade_tv240|edge_ge_0.08",
+      "asset": "eth",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "fade_tv240",
+      "gate": "edge_ge_0.08",
+      "symbol": "ETHUSDT",
+      "sigma": 6.454246122272403e-05,
+      "mu": -1.901600500210748e-07,
+      "n_trades": 314746,
+      "win_rate": 0.9723,
+      "total_pnl_usd": 1426417.06,
+      "ev_per_trade_usd": 4.532
+    },
+    {
+      "key": "btc|4h|ttc300|up|ask0.50|up_weak_only|p_ge_0.60",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "up",
+      "ask": 0.5,
+      "lean_mode": "up_weak_only",
+      "gate": "p_ge_0.60",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": 2.57594572794005e-08,
+      "n_trades": 281419,
+      "win_rate": 0.9709,
+      "total_pnl_usd": 1271503.04,
+      "ev_per_trade_usd": 4.5182
+    },
+    {
+      "key": "eth|4h|ttc300|up|ask0.50|up_weak_only|p_ge_0.60",
+      "asset": "eth",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "up",
+      "ask": 0.5,
+      "lean_mode": "up_weak_only",
+      "gate": "p_ge_0.60",
+      "symbol": "ETHUSDT",
+      "sigma": 6.454246122272403e-05,
+      "mu": 1.0344706721146469e-07,
+      "n_trades": 280353,
+      "win_rate": 0.9704,
+      "total_pnl_usd": 1265519.31,
+      "ev_per_trade_usd": 4.514
+    },
+    {
+      "key": "btc|4h|ttc300|down|ask0.50|fade_tv240|edge_ge_0.05",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "fade_tv240",
+      "gate": "edge_ge_0.05",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": -4.735194352830974e-08,
+      "n_trades": 317278,
+      "win_rate": 0.97,
+      "total_pnl_usd": 1430864.9,
+      "ev_per_trade_usd": 4.5098
+    },
+    {
+      "key": "btc|4h|ttc300|down|ask0.50|fade_tv240|p_ge_0.55",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "fade_tv240",
+      "gate": "p_ge_0.55",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": -4.735194352830974e-08,
+      "n_trades": 317278,
+      "win_rate": 0.97,
+      "total_pnl_usd": 1430864.9,
+      "ev_per_trade_usd": 4.5098
+    },
+    {
+      "key": "btc|4h|ttc300|up|ask0.50|follow_tv2h_edge|p_ge_0.60",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "up",
+      "ask": 0.5,
+      "lean_mode": "follow_tv2h_edge",
+      "gate": "p_ge_0.60",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": 1.9698408507776846e-08,
+      "n_trades": 272108,
+      "win_rate": 0.9699,
+      "total_pnl_usd": 1226793.33,
+      "ev_per_trade_usd": 4.5085
+    },
+    {
+      "key": "eth|4h|ttc300|up|ask0.50|follow_tv2h_edge|p_ge_0.60",
+      "asset": "eth",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "up",
+      "ask": 0.5,
+      "lean_mode": "follow_tv2h_edge",
+      "gate": "p_ge_0.60",
+      "symbol": "ETHUSDT",
+      "sigma": 6.454246122272403e-05,
+      "mu": 7.91065808087671e-08,
+      "n_trades": 271770,
+      "win_rate": 0.9698,
+      "total_pnl_usd": 1224993.14,
+      "ev_per_trade_usd": 4.5075
+    },
+    {
+      "key": "eth|4h|ttc300|down|ask0.50|fade_tv240|edge_ge_0.05",
+      "asset": "eth",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "fade_tv240",
+      "gate": "edge_ge_0.05",
+      "symbol": "ETHUSDT",
+      "sigma": 6.454246122272403e-05,
+      "mu": -1.901600500210748e-07,
+      "n_trades": 316803,
+      "win_rate": 0.9697,
+      "total_pnl_usd": 1427857.55,
+      "ev_per_trade_usd": 4.5071
+    },
+    {
+      "key": "eth|4h|ttc300|down|ask0.50|fade_tv240|p_ge_0.55",
+      "asset": "eth",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "fade_tv240",
+      "gate": "p_ge_0.55",
+      "symbol": "ETHUSDT",
+      "sigma": 6.454246122272403e-05,
+      "mu": -1.901600500210748e-07,
+      "n_trades": 316803,
+      "win_rate": 0.9697,
+      "total_pnl_usd": 1427857.55,
+      "ev_per_trade_usd": 4.5071
+    },
+    {
+      "key": "btc|4h|ttc300|up|ask0.50|up_weak_only|edge_ge_0.08",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "up",
+      "ask": 0.5,
+      "lean_mode": "up_weak_only",
+      "gate": "edge_ge_0.08",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": 2.57594572794005e-08,
+      "n_trades": 282971,
+      "win_rate": 0.9688,
+      "total_pnl_usd": 1272831.27,
+      "ev_per_trade_usd": 4.4981
+    },
+    {
+      "key": "btc|4h|ttc300|up|ask0.50|follow_short_1h|p_ge_0.60",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "up",
+      "ask": 0.5,
+      "lean_mode": "follow_short_1h",
+      "gate": "p_ge_0.60",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": 1.5152621929059117e-08,
+      "n_trades": 265876,
+      "win_rate": 0.9688,
+      "total_pnl_usd": 1195943.53,
+      "ev_per_trade_usd": 4.4981
+    },
+    {
+      "key": "eth|4h|ttc300|up|ask0.50|follow_short_1h|p_ge_0.60",
+      "asset": "eth",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "up",
+      "ask": 0.5,
+      "lean_mode": "follow_short_1h",
+      "gate": "p_ge_0.60",
+      "symbol": "ETHUSDT",
+      "sigma": 6.454246122272403e-05,
+      "mu": 6.085121600674394e-08,
+      "n_trades": 264535,
+      "win_rate": 0.9688,
+      "total_pnl_usd": 1189864.22,
+      "ev_per_trade_usd": 4.4979
+    },
+    {
+      "key": "eth|4h|ttc300|up|ask0.50|up_weak_only|edge_ge_0.08",
+      "asset": "eth",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "up",
+      "ask": 0.5,
+      "lean_mode": "up_weak_only",
+      "gate": "edge_ge_0.08",
+      "symbol": "ETHUSDT",
+      "sigma": 6.454246122272403e-05,
+      "mu": 1.0344706721146469e-07,
+      "n_trades": 281784,
+      "win_rate": 0.9686,
+      "total_pnl_usd": 1266795.69,
+      "ev_per_trade_usd": 4.4956
+    },
+    {
+      "key": "btc|4h|ttc300|up|ask0.50|follow_tv2h_edge|edge_ge_0.08",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "up",
+      "ask": 0.5,
+      "lean_mode": "follow_tv2h_edge",
+      "gate": "edge_ge_0.08",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": 1.9698408507776846e-08,
+      "n_trades": 273682,
+      "win_rate": 0.9679,
+      "total_pnl_usd": 1228501.76,
+      "ev_per_trade_usd": 4.4888
+    },
+    {
+      "key": "btc|4h|ttc300|up|ask0.50|follow_regime|p_ge_0.60",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "up",
+      "ask": 0.5,
+      "lean_mode": "follow_regime",
+      "gate": "p_ge_0.60",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": 9.470388705661948e-09,
+      "n_trades": 256732,
+      "win_rate": 0.9678,
+      "total_pnl_usd": 1152398.82,
+      "ev_per_trade_usd": 4.4887
+    },
+    {
+      "key": "btc|4h|ttc300|down|ask0.50|fade_regime|p_ge_0.60",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "fade_regime",
+      "gate": "p_ge_0.60",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": -7.576310964529558e-09,
+      "n_trades": 254097,
+      "win_rate": 0.9676,
+      "total_pnl_usd": 1139936.57,
+      "ev_per_trade_usd": 4.4862
+    },
+    {
+      "key": "eth|4h|ttc300|up|ask0.50|follow_tv2h_edge|edge_ge_0.08",
+      "asset": "eth",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "up",
+      "ask": 0.5,
+      "lean_mode": "follow_tv2h_edge",
+      "gate": "edge_ge_0.08",
+      "symbol": "ETHUSDT",
+      "sigma": 6.454246122272403e-05,
+      "mu": 7.91065808087671e-08,
+      "n_trades": 273259,
+      "win_rate": 0.9676,
+      "total_pnl_usd": 1225842.25,
+      "ev_per_trade_usd": 4.486
+    }
+  ],
+  "best_positive_by_asset": {
+    "btc": {
+      "key": "btc|4h|ttc300|down|ask0.50|fade_tv240|p_ge_0.60",
+      "asset": "btc",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "fade_tv240",
+      "gate": "p_ge_0.60",
+      "symbol": "BTCUSDT",
+      "sigma": 1.607178257819053e-05,
+      "mu": -4.735194352830974e-08,
+      "n_trades": 313749,
+      "win_rate": 0.9744,
+      "total_pnl_usd": 1428470.69,
+      "ev_per_trade_usd": 4.5529
+    },
+    "eth": {
+      "key": "eth|4h|ttc300|down|ask0.50|fade_tv240|p_ge_0.60",
+      "asset": "eth",
+      "window": "4h",
+      "ttc_s": 300,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "fade_tv240",
+      "gate": "p_ge_0.60",
+      "symbol": "ETHUSDT",
+      "sigma": 6.454246122272403e-05,
+      "mu": -1.901600500210748e-07,
+      "n_trades": 313324,
+      "win_rate": 0.9739,
+      "total_pnl_usd": 1425085.88,
+      "ev_per_trade_usd": 4.5483
+    }
+  },
+  "summary_by_lean_mode": [
+    {
+      "lean_mode": "up_weak_only",
+      "n_trades": 227773774,
+      "win_rate": 0.8056,
+      "total_pnl_usd": 424520405.64,
+      "ev_per_trade_usd": 1.8638
+    },
+    {
+      "lean_mode": "fade_tv240",
+      "n_trades": 403012083,
+      "win_rate": 0.7706,
+      "total_pnl_usd": 630674759.75,
+      "ev_per_trade_usd": 1.5649
+    },
+    {
+      "lean_mode": "follow_tv2h_edge",
+      "n_trades": 398829720,
+      "win_rate": 0.765,
+      "total_pnl_usd": 606028560.73,
+      "ev_per_trade_usd": 1.5195
+    },
+    {
+      "lean_mode": "follow_short_1h",
+      "n_trades": 398491156,
+      "win_rate": 0.7646,
+      "total_pnl_usd": 604147064.8,
+      "ev_per_trade_usd": 1.5161
+    },
+    {
+      "lean_mode": "fade_regime",
+      "n_trades": 398187399,
+      "win_rate": 0.7642,
+      "total_pnl_usd": 602567947.26,
+      "ev_per_trade_usd": 1.5133
+    },
+    {
+      "lean_mode": "follow_regime",
+      "n_trades": 398148223,
+      "win_rate": 0.7641,
+      "total_pnl_usd": 601959588.45,
+      "ev_per_trade_usd": 1.5119
+    },
+    {
+      "lean_mode": "fade_streak3",
+      "n_trades": 397926301,
+      "win_rate": 0.764,
+      "total_pnl_usd": 601533974.27,
+      "ev_per_trade_usd": 1.5117
+    },
+    {
+      "lean_mode": "neutral",
+      "n_trades": 397867525,
+      "win_rate": 0.7638,
+      "total_pnl_usd": 600694563.38,
+      "ev_per_trade_usd": 1.5098
+    }
+  ],
+  "summary_by_gate": [
+    {
+      "gate": "edge_ge_0.08",
+      "n_trades": 384210163,
+      "win_rate": 0.9079,
+      "total_pnl_usd": 1064834377.54,
+      "ev_per_trade_usd": 2.7715
+    },
+    {
+      "gate": "edge_ge_0.05",
+      "n_trades": 401260942,
+      "win_rate": 0.897,
+      "total_pnl_usd": 1072786669.74,
+      "ev_per_trade_usd": 2.6735
+    },
+    {
+      "gate": "edge_ge_0.02",
+      "n_trades": 418300468,
+      "win_rate": 0.8858,
+      "total_pnl_usd": 1076406146.34,
+      "ev_per_trade_usd": 2.5733
+    },
+    {
+      "gate": "p_ge_0.60",
+      "n_trades": 421533721,
+      "win_rate": 0.8865,
+      "total_pnl_usd": 1066366115.71,
+      "ev_per_trade_usd": 2.5297
+    },
+    {
+      "gate": "p_ge_0.55",
+      "n_trades": 449930887,
+      "win_rate": 0.8668,
+      "total_pnl_usd": 1063011506.94,
+      "ev_per_trade_usd": 2.3626
+    },
+    {
+      "gate": "always",
+      "n_trades": 945000000,
+      "win_rate": 0.505,
+      "total_pnl_usd": -671277951.99,
+      "ev_per_trade_usd": -0.7103
+    }
+  ],
+  "summary_by_side": [
+    {
+      "side": "down",
+      "n_trades": 1408926112,
+      "win_rate": 0.7683,
+      "total_pnl_usd": 2180032109.77,
+      "ev_per_trade_usd": 1.5473
+    },
+    {
+      "side": "up",
+      "n_trades": 1611310069,
+      "win_rate": 0.7682,
+      "total_pnl_usd": 2492094754.51,
+      "ev_per_trade_usd": 1.5466
+    }
+  ],
+  "summary_by_asset": [
+    {
+      "asset": "btc",
+      "n_trades": 1510250035,
+      "win_rate": 0.7683,
+      "total_pnl_usd": 2336476605.16,
+      "ev_per_trade_usd": 1.5471
+    },
+    {
+      "asset": "eth",
+      "n_trades": 1509986146,
+      "win_rate": 0.7682,
+      "total_pnl_usd": 2335650259.12,
+      "ev_per_trade_usd": 1.5468
+    }
+  ],
+  "summary_by_ttc": [
+    {
+      "ttc_s": 300,
+      "n_trades": 361487224,
+      "win_rate": 0.8334,
+      "total_pnl_usd": 753160771.57,
+      "ev_per_trade_usd": 2.0835
+    },
+    {
+      "ttc_s": 600,
+      "n_trades": 357790827,
+      "win_rate": 0.8219,
+      "total_pnl_usd": 711592025.18,
+      "ev_per_trade_usd": 1.9888
+    },
+    {
+      "ttc_s": 900,
+      "n_trades": 354882962,
+      "win_rate": 0.8129,
+      "total_pnl_usd": 679385590.02,
+      "ev_per_trade_usd": 1.9144
+    },
+    {
+      "ttc_s": 1800,
+      "n_trades": 347894730,
+      "win_rate": 0.792,
+      "total_pnl_usd": 605606020.68,
+      "ev_per_trade_usd": 1.7408
+    },
+    {
+      "ttc_s": 2700,
+      "n_trades": 342084001,
+      "win_rate": 0.7748,
+      "total_pnl_usd": 547107650.49,
+      "ev_per_trade_usd": 1.5993
+    },
+    {
+      "ttc_s": 3600,
+      "n_trades": 336597927,
+      "win_rate": 0.7595,
+      "total_pnl_usd": 495665389.27,
+      "ev_per_trade_usd": 1.4726
+    },
+    {
+      "ttc_s": 5400,
+      "n_trades": 325736485,
+      "win_rate": 0.7316,
+      "total_pnl_usd": 404972273.04,
+      "ev_per_trade_usd": 1.2433
+    },
+    {
+      "ttc_s": 7200,
+      "n_trades": 313874702,
+      "win_rate": 0.7046,
+      "total_pnl_usd": 321200072.49,
+      "ev_per_trade_usd": 1.0233
+    },
+    {
+      "ttc_s": 10800,
+      "n_trades": 279887323,
+      "win_rate": 0.6458,
+      "total_pnl_usd": 153437071.54,
+      "ev_per_trade_usd": 0.5482
+    }
+  ],
+  "honest_tv_alpha": {
+    "ask": 0.55,
+    "slippage": 0.01,
+    "by_signal": [
+      {
+        "signal": "TV240_FADE",
+        "hist_edge": 0.25,
+        "mean_wr": 0.634,
+        "mean_ev": 0.6607,
+        "n_paths": 25000,
+        "verdict": "USE"
+      },
+      {
+        "signal": "UP_WEAK",
+        "hist_edge": 0.1364,
+        "mean_wr": 0.5813,
+        "mean_ev": 0.1904,
+        "n_paths": 25000,
+        "verdict": "USE"
+      },
+      {
+        "signal": "TV2H_FOLLOW",
+        "hist_edge": 0.104,
+        "mean_wr": 0.5503,
+        "mean_ev": -0.0868,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      },
+      {
+        "signal": "DOWN_WEAK",
+        "hist_edge": 0.0,
+        "mean_wr": 0.5019,
+        "mean_ev": -0.519,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      },
+      {
+        "signal": "BAR_BEAR",
+        "hist_edge": 0.0,
+        "mean_wr": 0.4958,
+        "mean_ev": -0.5732,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      },
+      {
+        "signal": "UP_STRONG",
+        "hist_edge": -0.0185,
+        "mean_wr": 0.4929,
+        "mean_ev": -0.5997,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      },
+      {
+        "signal": "BAR_BULL",
+        "hist_edge": -0.1154,
+        "mean_wr": 0.4382,
+        "mean_ev": -1.0875,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      },
+      {
+        "signal": "DOWN_STRONG",
+        "hist_edge": -0.1667,
+        "mean_wr": 0.4131,
+        "mean_ev": -1.3121,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      }
+    ],
+    "detail": [
+      {
+        "asset": "eth",
+        "signal": "TV240_FADE",
+        "hist_edge": 0.25,
+        "side": "down",
+        "n": 12500,
+        "win_rate": 0.6362,
+        "ev_per_trade_usd": 0.6807,
+        "total_pnl_usd": 8508.93
+      },
+      {
+        "asset": "btc",
+        "signal": "TV240_FADE",
+        "hist_edge": 0.25,
+        "side": "down",
+        "n": 12500,
+        "win_rate": 0.6318,
+        "ev_per_trade_usd": 0.6407,
+        "total_pnl_usd": 8008.93
+      },
+      {
+        "asset": "btc",
+        "signal": "UP_WEAK",
+        "hist_edge": 0.1364,
+        "side": "up",
+        "n": 12500,
+        "win_rate": 0.5847,
+        "ev_per_trade_usd": 0.2207,
+        "total_pnl_usd": 2758.93
+      },
+      {
+        "asset": "eth",
+        "signal": "UP_WEAK",
+        "hist_edge": 0.1364,
+        "side": "up",
+        "n": 12500,
+        "win_rate": 0.5779,
+        "ev_per_trade_usd": 0.16,
+        "total_pnl_usd": 2000.0
+      },
+      {
+        "asset": "btc",
+        "signal": "TV2H_FOLLOW",
+        "hist_edge": 0.104,
+        "side": "up",
+        "n": 12500,
+        "win_rate": 0.555,
+        "ev_per_trade_usd": -0.0443,
+        "total_pnl_usd": -553.57
+      },
+      {
+        "asset": "eth",
+        "signal": "TV2H_FOLLOW",
+        "hist_edge": 0.104,
+        "side": "up",
+        "n": 12500,
+        "win_rate": 0.5455,
+        "ev_per_trade_usd": -0.1293,
+        "total_pnl_usd": -1616.07
+      },
+      {
+        "asset": "btc",
+        "signal": "DOWN_WEAK",
+        "hist_edge": 0.0,
+        "side": "down",
+        "n": 12500,
+        "win_rate": 0.5029,
+        "ev_per_trade_usd": -0.51,
+        "total_pnl_usd": -6375.0
+      },
+      {
+        "asset": "eth",
+        "signal": "DOWN_WEAK",
+        "hist_edge": 0.0,
+        "side": "down",
+        "n": 12500,
+        "win_rate": 0.5009,
+        "ev_per_trade_usd": -0.5279,
+        "total_pnl_usd": -6598.21
+      },
+      {
+        "asset": "eth",
+        "signal": "BAR_BEAR",
+        "hist_edge": 0.0,
+        "side": "down",
+        "n": 12500,
+        "win_rate": 0.4995,
+        "ev_per_trade_usd": -0.54,
+        "total_pnl_usd": -6750.0
+      },
+      {
+        "asset": "btc",
+        "signal": "UP_STRONG",
+        "hist_edge": -0.0185,
+        "side": "up",
+        "n": 12500,
+        "win_rate": 0.4941,
+        "ev_per_trade_usd": -0.5886,
+        "total_pnl_usd": -7357.14
+      },
+      {
+        "asset": "btc",
+        "signal": "BAR_BEAR",
+        "hist_edge": 0.0,
+        "side": "down",
+        "n": 12500,
+        "win_rate": 0.4921,
+        "ev_per_trade_usd": -0.6064,
+        "total_pnl_usd": -7580.36
+      },
+      {
+        "asset": "eth",
+        "signal": "UP_STRONG",
+        "hist_edge": -0.0185,
+        "side": "up",
+        "n": 12500,
+        "win_rate": 0.4916,
+        "ev_per_trade_usd": -0.6107,
+        "total_pnl_usd": -7633.93
+      },
+      {
+        "asset": "btc",
+        "signal": "BAR_BULL",
+        "hist_edge": -0.1154,
+        "side": "up",
+        "n": 12500,
+        "win_rate": 0.4457,
+        "ev_per_trade_usd": -1.0207,
+        "total_pnl_usd": -12758.93
+      },
+      {
+        "asset": "eth",
+        "signal": "BAR_BULL",
+        "hist_edge": -0.1154,
+        "side": "up",
+        "n": 12500,
+        "win_rate": 0.4307,
+        "ev_per_trade_usd": -1.1543,
+        "total_pnl_usd": -14428.57
+      },
+      {
+        "asset": "btc",
+        "signal": "DOWN_STRONG",
+        "hist_edge": -0.1667,
+        "side": "down",
+        "n": 12500,
+        "win_rate": 0.4136,
+        "ev_per_trade_usd": -1.3071,
+        "total_pnl_usd": -16339.29
+      },
+      {
+        "asset": "eth",
+        "signal": "DOWN_STRONG",
+        "hist_edge": -0.1667,
+        "side": "down",
+        "n": 12500,
+        "win_rate": 0.4125,
+        "ev_per_trade_usd": -1.3171,
+        "total_pnl_usd": -16464.29
+      }
+    ]
+  },
+  "recommendation": {
+    "market": "btc/eth-up-or-down-4h",
+    "edge_found": true,
+    "honest_use_signals": [
+      {
+        "signal": "TV240_FADE",
+        "hist_edge": 0.25,
+        "mean_wr": 0.634,
+        "mean_ev": 0.6607,
+        "n_paths": 25000,
+        "verdict": "USE"
+      },
+      {
+        "signal": "UP_WEAK",
+        "hist_edge": 0.1364,
+        "mean_wr": 0.5813,
+        "mean_ev": 0.1904,
+        "n_paths": 25000,
+        "verdict": "USE"
+      }
+    ],
+    "honest_avoid_signals": [
+      {
+        "signal": "TV2H_FOLLOW",
+        "hist_edge": 0.104,
+        "mean_wr": 0.5503,
+        "mean_ev": -0.0868,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      },
+      {
+        "signal": "DOWN_WEAK",
+        "hist_edge": 0.0,
+        "mean_wr": 0.5019,
+        "mean_ev": -0.519,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      },
+      {
+        "signal": "BAR_BEAR",
+        "hist_edge": 0.0,
+        "mean_wr": 0.4958,
+        "mean_ev": -0.5732,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      },
+      {
+        "signal": "UP_STRONG",
+        "hist_edge": -0.0185,
+        "mean_wr": 0.4929,
+        "mean_ev": -0.5997,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      },
+      {
+        "signal": "BAR_BULL",
+        "hist_edge": -0.1154,
+        "mean_wr": 0.4382,
+        "mean_ev": -1.0875,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      },
+      {
+        "signal": "DOWN_STRONG",
+        "hist_edge": -0.1667,
+        "mean_wr": 0.4131,
+        "mean_ev": -1.3121,
+        "n_paths": 25000,
+        "verdict": "AVOID"
+      }
+    ],
+    "best_sweep_policies": [
+      {
+        "key": "btc|4h|ttc300|down|ask0.50|fade_tv240|p_ge_0.60",
+        "asset": "btc",
+        "window": "4h",
+        "ttc_s": 300,
+        "side": "down",
+        "ask": 0.5,
+        "lean_mode": "fade_tv240",
+        "gate": "p_ge_0.60",
+        "symbol": "BTCUSDT",
+        "sigma": 1.607178257819053e-05,
+        "mu": -4.735194352830974e-08,
+        "n_trades": 313749,
+        "win_rate": 0.9744,
+        "total_pnl_usd": 1428470.69,
+        "ev_per_trade_usd": 4.5529
+      },
+      {
+        "key": "eth|4h|ttc300|down|ask0.50|fade_tv240|p_ge_0.60",
+        "asset": "eth",
+        "window": "4h",
+        "ttc_s": 300,
+        "side": "down",
+        "ask": 0.5,
+        "lean_mode": "fade_tv240",
+        "gate": "p_ge_0.60",
+        "symbol": "ETHUSDT",
+        "sigma": 6.454246122272403e-05,
+        "mu": -1.901600500210748e-07,
+        "n_trades": 313324,
+        "win_rate": 0.9739,
+        "total_pnl_usd": 1425085.88,
+        "ev_per_trade_usd": 4.5483
+      },
+      {
+        "key": "btc|4h|ttc300|down|ask0.50|fade_tv240|edge_ge_0.08",
+        "asset": "btc",
+        "window": "4h",
+        "ttc_s": 300,
+        "side": "down",
+        "ask": 0.5,
+        "lean_mode": "fade_tv240",
+        "gate": "edge_ge_0.08",
+        "symbol": "BTCUSDT",
+        "sigma": 1.607178257819053e-05,
+        "mu": -4.735194352830974e-08,
+        "n_trades": 315181,
+        "win_rate": 0.9727,
+        "total_pnl_usd": 1429732.25,
+        "ev_per_trade_usd": 4.5362
+      },
+      {
+        "key": "eth|4h|ttc300|down|ask0.50|fade_tv240|edge_ge_0.08",
+        "asset": "eth",
+        "window": "4h",
+        "ttc_s": 300,
+        "side": "down",
+        "ask": 0.5,
+        "lean_mode": "fade_tv240",
+        "gate": "edge_ge_0.08",
+        "symbol": "ETHUSDT",
+        "sigma": 6.454246122272403e-05,
+        "mu": -1.901600500210748e-07,
+        "n_trades": 314746,
+        "win_rate": 0.9723,
+        "total_pnl_usd": 1426417.06,
+        "ev_per_trade_usd": 4.532
+      },
+      {
+        "key": "btc|4h|ttc300|up|ask0.50|up_weak_only|p_ge_0.60",
+        "asset": "btc",
+        "window": "4h",
+        "ttc_s": 300,
+        "side": "up",
+        "ask": 0.5,
+        "lean_mode": "up_weak_only",
+        "gate": "p_ge_0.60",
+        "symbol": "BTCUSDT",
+        "sigma": 1.607178257819053e-05,
+        "mu": 2.57594572794005e-08,
+        "n_trades": 281419,
+        "win_rate": 0.9709,
+        "total_pnl_usd": 1271503.04,
+        "ev_per_trade_usd": 4.5182
+      }
+    ],
+    "best_by_asset": {
+      "btc": {
+        "key": "btc|4h|ttc300|down|ask0.50|fade_tv240|p_ge_0.60",
+        "asset": "btc",
+        "window": "4h",
+        "ttc_s": 300,
+        "side": "down",
+        "ask": 0.5,
+        "lean_mode": "fade_tv240",
+        "gate": "p_ge_0.60",
+        "symbol": "BTCUSDT",
+        "sigma": 1.607178257819053e-05,
+        "mu": -4.735194352830974e-08,
+        "n_trades": 313749,
+        "win_rate": 0.9744,
+        "total_pnl_usd": 1428470.69,
+        "ev_per_trade_usd": 4.5529
+      },
+      "eth": {
+        "key": "eth|4h|ttc300|down|ask0.50|fade_tv240|p_ge_0.60",
+        "asset": "eth",
+        "window": "4h",
+        "ttc_s": 300,
+        "side": "down",
+        "ask": 0.5,
+        "lean_mode": "fade_tv240",
+        "gate": "p_ge_0.60",
+        "symbol": "ETHUSDT",
+        "sigma": 6.454246122272403e-05,
+        "mu": -1.901600500210748e-07,
+        "n_trades": 313324,
+        "win_rate": 0.9739,
+        "total_pnl_usd": 1425085.88,
+        "ev_per_trade_usd": 4.5483
+      }
+    },
+    "always_neutral_baseline": {
+      "key": "eth|4h|ttc10800|down|ask0.50|neutral|always",
+      "asset": "eth",
+      "window": "4h",
+      "ttc_s": 10800,
+      "side": "down",
+      "ask": 0.5,
+      "lean_mode": "neutral",
+      "gate": "always",
+      "symbol": "ETHUSDT",
+      "sigma": 6.454246122272403e-05,
+      "mu": 0.0,
+      "n_trades": 500000,
+      "win_rate": 0.5031,
+      "total_pnl_usd": -33725.49,
+      "ev_per_trade_usd": -0.0675
+    },
+    "symbols": {
+      "btc_4h": "BTCUSDT (lead) / BTCUSD (settle)",
+      "eth_4h": "ETHUSDT (lead) / ETHUSD (settle)"
+    },
+    "note": "Honest edge = TV hist tilt vs fair ask 0.55. Sweep edge_ge_* rows need real book mispricing. tv_240m is anti-predictive \u2014 fade, don't follow."
+  }
+}

@@ -1,0 +1,9 @@
+{
+ "schema": "btc_pulse_report_epoch/1.0",
+ "ts": 1783737651.4814894,
+ "utc": "2026-07-11 02:40:51 UTC",
+ "token": "2026-07-11-btc-eth-cleanup",
+ "starting_capital_usd": 2000.0,
+ "note": "Capital reset \u2014 reports count trading from this point only.",
+ "backfilled": false
+}

@@ -1,0 +1,18 @@
+{
+  "schema": "grok_bot_profile/1.0",
+  "bot_id": "bot1",
+  "strategy_id": "arb_first_perfect_wr_v1",
+  "github": "https://github.com/minh99085/Bot-1",
+  "local_workspace": "C:\\Users\\tieut\\Bot-1",
+  "vps_host": "144.202.122.120",
+  "vps_user": "root",
+  "vps_repo": "/opt/Bot-1",
+  "ssh_alias": "bot1",
+  "ssh_key": "bot1_grok_temp",
+  "plugin_path": "/opt/Bot-1/hermes-agent-main/plugins/hermes-trading-engine",
+  "dashboard": "http://144.202.122.120/",
+  "bundle_name": "grok-bot1-sync.bundle",
+  "scheduled_task": null,
+  "babysit_autopilot": false,
+  "standalone": true
+}
