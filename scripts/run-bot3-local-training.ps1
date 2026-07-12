@@ -5,12 +5,6 @@ $Root = Split-Path -Parent $PSScriptRoot
 $Plugin = Join-Path $Root "hermes-agent-main\plugins\hermes-trading-engine"
 $Project = "bot3-local"
 $DashboardPort = 8810
-$Compose = @("-p", $Project, "-f", "docker-compose.yml", "-f", "docker-compose.local.yml")
-
-function Invoke-Compose([string[]]$Args) {
-    & docker compose @Compose @Args
-    return $LASTEXITCODE
-}
 
 Set-Location $Root
 Write-Host "==> Preparing .env (Bot 3 local training)..."
@@ -26,27 +20,27 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Set-Location $Plugin
 
 Write-Host "==> Stopping old Bot 3 containers..."
-Invoke-Compose @("down", "--remove-orphans") | Out-Null
+docker compose -p $Project -f docker-compose.yml -f docker-compose.local.yml down --remove-orphans
 
 Write-Host "==> Building images (first run can take 10-15 min)..."
-$buildCode = Invoke-Compose @("build")
-if ($buildCode -ne 0) {
-    Write-Host "BUILD FAILED (exit $buildCode). See errors above." -ForegroundColor Red
-    exit $buildCode
+docker compose -p $Project -f docker-compose.yml -f docker-compose.local.yml build
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "BUILD FAILED (exit $LASTEXITCODE). See errors above." -ForegroundColor Red
+    exit $LASTEXITCODE
 }
 
 Write-Host "==> Starting bot3-hermes-training + bot3-hermes-trading-engine..."
-$upCode = Invoke-Compose @("up", "-d", "--force-recreate", "--remove-orphans")
-if ($upCode -ne 0) {
-    Write-Host "START FAILED (exit $upCode). Common causes:" -ForegroundColor Red
-    Write-Host "  - Port 8810 or 18787 already in use (stop other bots or change ports in docker-compose.local.yml)"
-    Write-Host "  - Invalid .env line (re-run setup-local-training-env.py after git pull)"
+docker compose -p $Project -f docker-compose.yml -f docker-compose.local.yml up -d --force-recreate --remove-orphans
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "START FAILED (exit $LASTEXITCODE). Common causes:" -ForegroundColor Red
+    Write-Host "  - Port 8810 or 18787 already in use"
+    Write-Host "  - Invalid .env (re-run: python scripts\setup-local-training-env.py)"
     Write-Host "Retrying in foreground to show the exact error..."
-    Invoke-Compose @("up", "--force-recreate", "--remove-orphans")
-    exit $upCode
+    docker compose -p $Project -f docker-compose.yml -f docker-compose.local.yml up --force-recreate --remove-orphans
+    exit $LASTEXITCODE
 }
 
-Invoke-Compose @("ps") | Out-Null
+docker compose -p $Project -f docker-compose.yml -f docker-compose.local.yml ps
 
 $dashUrl = "http://127.0.0.1:$DashboardPort/dashboard"
 $healthUrl = "http://127.0.0.1:$DashboardPort/api/health"
