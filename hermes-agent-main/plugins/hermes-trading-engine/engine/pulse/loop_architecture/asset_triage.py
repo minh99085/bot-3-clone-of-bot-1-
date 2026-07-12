@@ -140,6 +140,15 @@ def _asset_key(symbol: Optional[str], window=None) -> str:
     return "btc"
 
 
+def _exploration_allows(env_key: str, default: str = "0") -> bool:
+    """True when a Bernoulli probe at the configured rate should proceed (learning only)."""
+    try:
+        rate = float(os.getenv(env_key, default) or 0)
+    except (TypeError, ValueError):
+        return False
+    return rate > 0 and random.random() < rate
+
+
 def _trend_side_ok(trend: Optional[str], side: str) -> bool:
     from engine.pulse.price_action_trend import trend_aligns_side
     return trend_aligns_side(trend, side)
@@ -277,12 +286,7 @@ class AssetTriageSkill:
                     detail="no_trend",
                 )
             if trend == "flat":
-                try:
-                    flat_explore = float(
-                        os.getenv("PULSE_TRIAGE_FLAT_EXPLORATION_RATE", "0") or 0)
-                except (TypeError, ValueError):
-                    flat_explore = 0.0
-                if flat_explore <= 0 or random.random() >= flat_explore:
+                if not _exploration_allows("PULSE_TRIAGE_FLAT_EXPLORATION_RATE"):
                     self._bump_reject(TriageReject.TREND_MISALIGNED.value)
                     return TriageVerdict(
                         status=TriageReject.TREND_MISALIGNED.value,
@@ -291,13 +295,14 @@ class AssetTriageSkill:
                         detail="trend=flat",
                     )
             elif not _trend_side_ok(trend, side):
-                self._bump_reject(TriageReject.TREND_MISALIGNED.value)
-                return TriageVerdict(
-                    status=TriageReject.TREND_MISALIGNED.value,
-                    side=side, ask_price=ask_price, token_id=token_id,
-                    symbol=symbol, timeframe=tf, time_boundary=time_boundary,
-                    detail=f"trend={trend}",
-                )
+                if not _exploration_allows("PULSE_TRIAGE_TREND_EXPLORATION_RATE"):
+                    self._bump_reject(TriageReject.TREND_MISALIGNED.value)
+                    return TriageVerdict(
+                        status=TriageReject.TREND_MISALIGNED.value,
+                        side=side, ask_price=ask_price, token_id=token_id,
+                        symbol=symbol, timeframe=tf, time_boundary=time_boundary,
+                        detail=f"trend={trend}",
+                    )
 
         ok_depth, slip_pct, shares = _depth_ok(
             book,

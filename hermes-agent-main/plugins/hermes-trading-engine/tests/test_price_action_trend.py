@@ -118,3 +118,27 @@ def test_triage_reject_trend_misaligned():
     v = skill.evaluate(window=w, side="up", ask_price=0.50, now=1_000_100.0,
                        tv_feature=feat, symbol="BTCUSD")
     assert v.status == TriageReject.TREND_MISALIGNED.value
+
+
+def test_triage_trend_exploration_allows_counter_trend(monkeypatch):
+    monkeypatch.setenv("PULSE_TRIAGE_TREND_EXPLORATION_RATE", "1.0")
+    monkeypatch.setattr(
+        "engine.pulse.loop_architecture.asset_triage.random.random", lambda: 0.0)
+    skill = AssetTriageSkill(cfg=TriageConfig(trend_source="price"))
+    w = _window(0.50)
+    feat = to_triage_feature({"trend": TREND_FALLING, "strength": 0.6, "timeframe": "spot"})
+    v = skill.evaluate(window=w, side="up", ask_price=0.50, now=1_000_100.0,
+                       tv_feature=feat, symbol="BTCUSD")
+    assert v.status == PROCEED_SWEEP
+
+
+def test_triage_flat_exploration_allows_flat_trend(monkeypatch):
+    monkeypatch.setenv("PULSE_TRIAGE_FLAT_EXPLORATION_RATE", "1.0")
+    monkeypatch.setattr(
+        "engine.pulse.loop_architecture.asset_triage.random.random", lambda: 0.0)
+    skill = AssetTriageSkill(cfg=TriageConfig(trend_source="price"))
+    w = _window(0.50)
+    feat = to_triage_feature({"trend": TREND_FLAT, "strength": 0.1, "timeframe": "spot"})
+    v = skill.evaluate(window=w, side="up", ask_price=0.50, now=1_000_100.0,
+                       tv_feature=feat, symbol="BTCUSD")
+    assert v.status == PROCEED_SWEEP

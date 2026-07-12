@@ -164,22 +164,22 @@ UPDATES = {
     "PULSE_LATE_WINDOW_MIN_CONVICTION": "0.20",
     # Must exceed scaled cohort max (15m: 220*3+1=661). Coupling auto-clamps if too low.
     "PULSE_TV_CONTEXT_MAX_TTC_S": "900",
-    "PULSE_TV_CONTEXT_EXPLORATION_RATE": "0",
-    "PULSE_TV_DOWN_BIAS_EXPLORE_RATE": "0",
+    "PULSE_TV_CONTEXT_EXPLORATION_RATE": "0.30",
+    "PULSE_TV_DOWN_BIAS_EXPLORE_RATE": "0.30",
     # Strict abstention: only proven buckets trade; 5% exploration builds clean forward evidence.
     "PULSE_DIRECTIONAL_REQUIRE_WINNING": "0",
     "PULSE_DIRECTIONAL_EXPLORE_RATE": "0.12",
     "PULSE_DIRECTIONAL_WINNING_MIN_SAMPLES": "30",
-    # Conservative base edge; fee-aware execution adds the separate net-EV floor below.
-    "PULSE_MIN_EDGE": "0.025",
-    "PULSE_BASIS_BUFFER": "0.005",
-    "PULSE_EDGE_BUFFER": "0.005",
-    # Reject wide books; paying 8 cents of spread cannot support a selective directional edge.
-    "PULSE_EXEC_MAX_SPREAD": "0.04",
-    # Require 1.5 points after VWAP and taker fees, before any paper fill.
-    "PULSE_EXEC_MIN_EV": "0.015",
-    # Align with triage/tier sweet band (0.48–0.72); was 0.52 blocking 47–51¢ tickets.
-    "PULSE_MIN_ENTRY_PRICE": "0.45",
+    # Training throughput: lower edge floors; execution gate still paper-only.
+    "PULSE_MIN_EDGE": "0.01",
+    "PULSE_BASIS_BUFFER": "0.003",
+    "PULSE_EDGE_BUFFER": "0.003",
+    # Reject only very wide books during training probes.
+    "PULSE_EXEC_MAX_SPREAD": "0.06",
+    # Allow marginal paper fills for loop learning (post-trade / Grok evidence).
+    "PULSE_EXEC_MIN_EV": "0",
+    # Paper training: allow underdog-side probes below favorite floor.
+    "PULSE_MIN_ENTRY_PRICE": "0.38",
     # Favorites have lower R:R; 0.25 allows entries up to ~0.80 while still skipping dust.
     "PULSE_MIN_REWARD_RISK": "0.25",
     "PULSE_MIN_REWARD_RISK_UP_PREMIUM": "0.10",
@@ -289,10 +289,10 @@ UPDATES = {
     "PULSE_HOURLY_ENTRY_CONFIDENCE_Z": "1.64",
     # Pre-trade: lower readiness bar + explore so hourly BTC/ETH can fill.
     "PULSE_PRE_TRADE_ANALYSIS_ENABLED": "1",
-    "PULSE_PRE_TRADE_MIN_SCORE": "0.25",
+    "PULSE_PRE_TRADE_MIN_SCORE": "0.15",
     "PULSE_PRE_TRADE_MARGIN_BOOST_MAX": "0.04",
     "PULSE_PRE_TRADE_AGREEMENT_BOOST_MAX": "0.05",
-    "PULSE_PRE_TRADE_EXPLORATION_RATE": "0.08",
+    "PULSE_PRE_TRADE_EXPLORATION_RATE": "0.20",
     "PULSE_PRE_TRADE_MIN_SIZE_SCALE": "0.35",
     "PULSE_PRE_TRADE_HOURLY_MIN_MINUTES": "15",
     "PULSE_PRE_TRADE_EVIDENCE_MIN_SAMPLES": "20",
@@ -482,9 +482,10 @@ UPDATES = {
     "PULSE_TRIAGE_TREND_SOURCE": "price",
     "PULSE_GROK_TREND_SOURCE": "price",
     # Detect trend sooner — flat windows were starving Discovery (REJECT_TREND_MISALIGNED).
-    "PULSE_PRICE_TREND_MIN_MOVE_BPS": "0.2",
-    # Allow flat Chainlink trend probes for learning (still restrict-only; not forced fills).
-    "PULSE_TRIAGE_FLAT_EXPLORATION_RATE": "0.10",
+    "PULSE_PRICE_TREND_MIN_MOVE_BPS": "0.1",
+    # Flat + counter-trend probes for paper learning (not forced fills).
+    "PULSE_TRIAGE_FLAT_EXPLORATION_RATE": "0.40",
+    "PULSE_TRIAGE_TREND_EXPLORATION_RATE": "0.30",
     # ---- DIRECTIONAL TIER ENGINE (operator 2026-07-06; $2000 bankroll, trade-like-live) ----
     # Regime-conditioned Bayesian tier system is the directional brain. Explicit 1h + 15m feeds
     # use tier engine on tick path (legacy_tick=0 -> unstructured pulse directional OFF).
@@ -568,8 +569,8 @@ UPDATES = {
     # Binary Intel — invented quant math + universal 5m TV + Grok pre/post-trade scripts.
     "PULSE_BINARY_INTEL_ENABLED": "1",
     "PULSE_BINARY_INTEL_GROK_COMPUTE": "1",
-    "PULSE_BINARY_INTEL_MIN_SCORE": "0.28",
-    "PULSE_BINARY_INTEL_EXPLORATION_RATE": "0.05",
+    "PULSE_BINARY_INTEL_MIN_SCORE": "0.15",
+    "PULSE_BINARY_INTEL_EXPLORATION_RATE": "0.20",
     "PULSE_BINARY_INTEL_MIN_SIZE_SCALE": "0.40",
     "PULSE_BINARY_INTEL_KELLY_FRACTION": "0.25",
     "PULSE_TV_2H_REVIEW_ENABLED": "0",

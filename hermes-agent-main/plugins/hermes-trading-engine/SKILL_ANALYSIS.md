@@ -37,10 +37,11 @@ Before passing any target token ID to the Execution Lane, the Discovery Lane mus
 
 1. Confirm Chainlink spot trend aligns with contract side (rising→UP, falling→DOWN).
 2. Flat trend: allow exploration probes at `PULSE_TRIAGE_FLAT_EXPLORATION_RATE` (learning only).
-3. Compute the implied probability: P(Asset) = Current Best Ask.
-4. If P(Asset) is between 0.48 and 0.72 → status code `PROCEED_SWEEP`.
-5. If P(Asset) < 0.10 and spot velocity indicates a breakthrough condition → status code `PROCEED_10X`.
-6. Otherwise → `REJECT_*` (no Execution Lane handoff).
+3. Misaligned rising/falling: allow counter-trend probes at `PULSE_TRIAGE_TREND_EXPLORATION_RATE` (learning only).
+4. Compute the implied probability: P(Asset) = Current Best Ask.
+5. If P(Asset) is between 0.48 and 0.72 → status code `PROCEED_SWEEP`.
+6. If P(Asset) < 0.10 and spot velocity indicates a breakthrough condition → status code `PROCEED_10X`.
+7. Otherwise → `REJECT_*` (no Execution Lane handoff).
 
 Execution Lane still runs skeptical `TradeEvaluator` (independent API book re-fetch).
 
