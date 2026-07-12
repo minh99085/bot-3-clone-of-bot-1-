@@ -1,16 +1,17 @@
 //@version=6
 // =====================================================================================
-// Hermes RSI Divergence Indicator — YOUR standard TV script + JSON webhook to Bot-1
+// Hermes RSI Divergence Indicator — Bot 3 Directional (5m only)
 // =====================================================================================
-// Paste this entire file into TradingView Pine Editor (replaces built-in library copy).
-// RSI math + plots are unchanged from RSI Divergence Indicator.txt.
+// Paste this entire file into TradingView Pine Editor.
 //
-// Charts: BINANCE:BTCUSDT + BINANCE:ETHUSDT · 5m (alerts 3 & 4 in 4-chart setup)
+// Charts (exactly 2 alerts):
+//   INDEX:BTCUSD · 5m
+//   INDEX:ETHUSD · 5m
 //
 // Alert (CRITICAL — while THIS indicator is selected on chart):
 //   Condition = Any alert() function call
 //   Message   = {{message}}
-//   Webhook   = http://144.202.122.120/webhooks/tradingview
+//   Webhook   = http://207.246.96.45/webhooks/tradingview
 //   Inputs → Hermes webhook secret = VPS TRADINGVIEW_WEBHOOK_SECRET
 //
 // Do NOT use alertcondition titles (Regular Bullish Divergence, etc.) — those send
@@ -22,13 +23,11 @@ indicator(title="Hermes RSI Divergence Indicator", shorttitle="HermesRSIDiv",
      format=format.price)
 
 secretInput   = input.string("PASTE_YOUR_HERMES_WEBHOOK_SECRET", "Hermes webhook secret")
-webhookUrl    = input.string("http://144.202.122.120/webhooks/tradingview", "Hermes webhook URL (paste into Alert → Webhook URL)")
+webhookUrl    = input.string("http://207.246.96.45/webhooks/tradingview", "Hermes webhook URL (paste into Alert → Webhook URL)")
 botName       = input.string("hermes", "Bot name")
+eventIdSuffix = input.string("bot3", "Event ID suffix")
 indicatorName = input.string("Hermes RSI Divergence Indicator", "Indicator name")
 webhookRegularOnly = input.bool(true, "Webhook regular bull/bear only (hidden = plot only)")
-webhookBandHeartbeat = input.bool(true, "Webhook RSI 30/70 band heartbeat (every bar close)")
-osThreshold = input.int(30, "Oversold threshold", minval=1, maxval=49)
-obThreshold = input.int(70, "Overbought threshold", minval=51, maxval=99)
 
 len = input.int(title="RSI Period", minval=1, defval=14)
 src = input(title="RSI Source", defval=close)
@@ -122,7 +121,7 @@ plotshape(hiddenBearCond ? osc[lbR] : na, offset=-lbR, title="Hidden Bearish Lab
 //------------------------------------------------------------------------------
 // Hermes JSON webhook (regular divergences → bot RSI overlay FIFO)
 f_hermes_msg(string direction, string signalLevel, string divKind, float rsiVal, float strength) =>
-    eventId = syminfo.ticker + "-" + timeframe.period + "-" + str.tostring(time) + "-" + signalLevel + "-rsidiv-bot1"
+    eventId = syminfo.ticker + "-" + timeframe.period + "-" + str.tostring(time) + "-" + signalLevel + "-rsidiv-" + eventIdSuffix
     msg = "{"
     msg := msg + "\"secret\":\""          + secretInput + "\","
     msg := msg + "\"bot_name\":\""         + botName + "\","
@@ -155,58 +154,3 @@ if barstate.isconfirmed and bullCondAlert and webhookRegularOnly
 if barstate.isconfirmed and bearCondAlert and webhookRegularOnly
     alert(f_hermes_msg("DOWN", "REGULAR_BEAR_DIV", "regular_bearish", osc[lbR], 0.75),
           alert.freq_once_per_bar_close)
-
-//------------------------------------------------------------------------------
-// RSI 30/70 band heartbeat (every bar close → bot rsi_band FIFO for Grok)
-f_rsi_zone(float rsiVal) =>
-    rsiVal <= osThreshold ? "oversold" : (rsiVal >= obThreshold ? "overbought" : "neutral")
-
-f_band_event(string prevZ, string currZ) =>
-    ev = "none"
-    if currZ == "oversold" and prevZ != "oversold"
-        ev := "enter_oversold"
-    else if prevZ == "oversold" and currZ != "oversold"
-        ev := "exit_oversold"
-    else if currZ == "overbought" and prevZ != "overbought"
-        ev := "enter_overbought"
-    else if prevZ == "overbought" and currZ != "overbought"
-        ev := "exit_overbought"
-    ev
-
-f_band_direction(string zone) =>
-    zone == "oversold" ? "UP" : (zone == "overbought" ? "DOWN" : "FLAT")
-
-f_band_level(string zone) =>
-    zone == "oversold" ? "RSI_OVERSOLD" : (zone == "overbought" ? "RSI_OVERBOUGHT" : "RSI_NEUTRAL")
-
-f_hermes_band_msg(float rsiVal, string zone, string bandEv) =>
-    eventId = syminfo.ticker + "-" + timeframe.period + "-" + str.tostring(time) + "-RSI_BAND-bot1"
-    msg = "{"
-    msg := msg + "\"secret\":\""          + secretInput + "\","
-    msg := msg + "\"bot_name\":\""         + botName + "\","
-    msg := msg + "\"source\":\"tradingview\","
-    msg := msg + "\"symbol\":\""           + syminfo.ticker + "\","
-    msg := msg + "\"timeframe\":\""        + timeframe.period + "\","
-    msg := msg + "\"direction\":\""       + f_band_direction(zone) + "\","
-    msg := msg + "\"signal_level\":\""     + f_band_level(zone) + "\","
-    msg := msg + "\"strength\":"           + jsonNum(zone == "neutral" ? 0.35 : 0.65) + ","
-    msg := msg + "\"indicator_name\":\""   + indicatorName + "\","
-    msg := msg + "\"signal_kind\":\"rsi_band\","
-    msg := msg + "\"rsi\":"                + jsonNum(rsiVal) + ","
-    msg := msg + "\"rsi_zone\":\""         + zone + "\","
-    msg := msg + "\"band_event\":\""       + bandEv + "\","
-    msg := msg + "\"rsi_os_threshold\":"   + jsonNum(osThreshold) + ","
-    msg := msg + "\"rsi_ob_threshold\":"   + jsonNum(obThreshold) + ","
-    msg := msg + "\"event_id\":\""         + eventId + "\","
-    msg := msg + "\"bar_time\":\""         + str.tostring(time_close) + "\","
-    msg := msg + "\"price\":"              + jsonNum(close) + ","
-    msg := msg + "\"composite_version\":\"rsi_band_webhook_v1\","
-    msg := msg + "\"observe_only\":true"
-    msg := msg + "}"
-    msg
-
-if barstate.isconfirmed and webhookBandHeartbeat
-    prevZone = f_rsi_zone(osc[1])
-    currZone = f_rsi_zone(osc)
-    bandEv = f_band_event(prevZone, currZone)
-    alert(f_hermes_band_msg(osc, currZone, bandEv), alert.freq_once_per_bar_close)

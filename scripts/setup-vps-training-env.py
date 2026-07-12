@@ -23,7 +23,15 @@ VPS_OVERRIDES = {
     "TRADINGVIEW_WEBHOOK_HOST": "0.0.0.0",
     "TRADINGVIEW_WEBHOOK_UPSTREAM": "http://hermes-training:8787",
     "PULSE_TV_EVENT_ID_SUFFIX": "bot3",
-    # TradingView intake + restrict-only context/tier gates (signal gate stays 0).
+    # TradingView: 5m RSI divergence only (INDEX BTC/ETH → 15m lane overlay).
+    "PULSE_TV_MTF_TIMEFRAMES": "5",
+    "PULSE_TV_RSI_BAND_ENABLED": "0",
+    "PULSE_TV_15M_CHART_LEAN_ENABLED": "0",
+    "PULSE_TV_1H_CHART_LEAN_ENABLED": "0",
+    "PULSE_TV_2H_REVIEW_ENABLED": "0",
+    "PULSE_TV_RSI_OVERLAY_ENABLED": "1",
+    "PULSE_TV_RSI_DIVERGENCE_ANALYSIS_ENABLED": "1",
+    "PULSE_TRIAGE_TREND_SOURCE": "price",
     "PULSE_TRADINGVIEW_SIGNAL_GATE": "0",
     "PULSE_TV_CONTEXT_GATE": "1",
     "PULSE_TV_DOWN_BIAS_GATE": "1",

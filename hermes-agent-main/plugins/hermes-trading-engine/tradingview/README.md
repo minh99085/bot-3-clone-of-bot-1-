@@ -1,90 +1,99 @@
-# TradingView — BTCUSD lite MTF (3 charts)
+# TradingView — Bot 3 Directional (5m RSI Divergence only)
 
-Polymarket BTC windows settle on **Chainlink BTC/USD**. Use **BTCUSD** or **INDEX:BTCUSD** on TradingView.
+Polymarket BTC/ETH windows settle on **Chainlink index prices**. Use **INDEX:BTCUSD** and **INDEX:ETHUSD** on TradingView (not Binance perps).
 
-## Recommended script
+## Script
 
-**`Hermes_BTC_Pulse_Lite.pine`** — simple EMA + RSI, lightweight webhook JSON (direction, strength, signal_level per chart). Replaces the heavy v7 composite for observe-only / Grok MTF.
+**`Hermes_RSI_Divergence_Indicator_Webhook.pine`** — pivot-based RSI divergence with JSON webhook. Fires only on **regular** bull/bear divergence (no band heartbeat, no bar-close, no multi-TF).
 
-Legacy: `Hermes_BTC_Pulse_v7_IndexTrend.pine` (full composite v6 fields).
+## Setup — exactly **2 alerts**
 
-## Setup — minimum **3 alerts**
+| # | Chart | Timeframe | Script |
+|---|-------|-----------|--------|
+| 1 | `INDEX:BTCUSD` | **5m** | `Hermes_RSI_Divergence_Indicator_Webhook.pine` |
+| 2 | `INDEX:ETHUSD` | **5m** | same |
 
-| # | Chart | Timeframe | Alert |
-|---|-------|-----------|-------|
-| 1 | BTCUSD | **2m** | Any `alert()` function call → webhook |
-| 2 | BTCUSD | **3m** | same |
-| 3 | BTCUSD | **4m** | same |
+### Alert settings (both charts)
 
-Webhook URL (all three):
+| Field | Value |
+|-------|-------|
+| Condition | **Any alert() function call** |
+| Message | `{{message}}` |
+| Webhook URL | `http://207.246.96.45/webhooks/tradingview` |
+| Frequency | Once per bar close (set by Pine) |
 
-```
-http://<vps-ip>/webhooks/tradingview
-```
+### Indicator inputs
 
-Paste your VPS `TRADINGVIEW_WEBHOOK_SECRET` into the indicator **Hermes webhook secret** input on each chart.
+| Input | Value |
+|-------|-------|
+| Hermes webhook secret | VPS `TRADINGVIEW_WEBHOOK_SECRET` |
+| Hermes webhook URL | `http://207.246.96.45/webhooks/tradingview` |
+| Event ID suffix | `bot3` |
+| Webhook regular bull/bear only | **ON** |
 
-The **Event ID suffix** input (default `bot3` for this clone) tags every alert's `event_id` so IDs stay unique across bots on the same VPS.
+Get the secret on VPS:
 
-### Indicator toggles (recommended)
-
-| Setting | Recommended | Why |
-|---------|-------------|-----|
-| Send weak signals | ON | Early trend rows for Grok / learning |
-| Send strong signals | ON | High-confidence `UP_STRONG` / `DOWN_STRONG` |
-| Send FLAT on quiet bars | ON | Every bar close sends `FLAT` when no UP/DOWN — keeps `tf_2m/3m/4m_age_s` fresh |
-
-Turn **FLAT heartbeat** off only if webhook volume is too high; MTF ages may go stale on quiet charts.
-
-Bot env (already set via `scripts/apply-loop-arch-env.py`):
-
-```
-PULSE_TV_FEATURE_SYMBOL=BTCUSD
-TRADINGVIEW_ALLOWED_SYMBOLS=BTCUSD,INDEX:BTCUSD,BTC/USD,BTC,XBTUSD
-PULSE_TV_MTF_TIMEFRAMES=2,3,4
-TRADINGVIEW_MAX_AGE_S=180
+```bash
+ssh root@207.246.96.45 "grep ^TRADINGVIEW_WEBHOOK_SECRET= /opt/Bot-3/hermes-agent-main/plugins/hermes-trading-engine/.env | cut -d= -f2-"
 ```
 
-## Why 3 alerts (not 1 or 5)
+**Do not** create alerts from alertcondition titles (Regular Bullish Divergence, etc.) — those send English text, not JSON.
 
-- **1 alert** — only one timeframe; MTF stays `single_tf`, Grok never sees 2m+3m+4m alignment.
-- **3 alerts** — matches bot `PULSE_TV_MTF_TIMEFRAMES=2,3,4`; each TF fires on its own bar close (~every 2–4 min). Fresh windows: 2m=300s, 3m=450s, 4m=600s.
-- **More than 3** — only needed if you change `PULSE_TV_MTF_TIMEFRAMES` in `.env`.
+## What the bot learns
 
-## Lite JSON fields (per alert)
+5m RSI divergence webhooks feed the **15m directional lane** as an observe-only overlay:
 
-```json
-{
-  "secret": "...",
-  "bot_name": "hermes",
-  "symbol": "BTCUSD",
-  "timeframe": "2",
-  "direction": "UP",
-  "signal_level": "UP_STRONG",
-  "strength": 0.72,
-  "event_id": "BTCUSD-2-...-UP_STRONG-lite-1",
-  "bar_time": "...",
-  "price": 60100.0
-}
+```
+Pine (rsi_divergence) → tradingview.py rsi_div_history FIFO
+  → tv_rsi_overlay (confirm/fade sizing on 15m entries)
+  → tv_rsi_divergence (Grok teaching + analysis bundle)
+  → lane_15m_learner (grades outcomes by RSI overlay alignment)
 ```
 
-Quiet bar (heartbeat):
+**Price trend** (rising/falling/flat) comes from **Chainlink spot** via `price_action_trend.py`, not from TradingView labels. RSI divergence is a separate confirm/fade signal layered on top.
 
-```json
-{
-  "timeframe": "3",
-  "direction": "FLAT",
-  "signal_level": "FLAT",
-  "strength": 0.0
-}
+## Bot env (set via `scripts/apply-loop-arch-env.py`)
+
+```
+PULSE_TV_MTF_TIMEFRAMES=5
+TRADINGVIEW_ALLOWED_SYMBOLS=BTCUSD,INDEX:BTCUSD,ETHUSD,INDEX:ETHUSD
+PULSE_TV_RSI_OVERLAY_ENABLED=1
+PULSE_TV_RSI_DIVERGENCE_ANALYSIS_ENABLED=1
+PULSE_TV_RSI_BAND_ENABLED=0
+PULSE_TV_15M_CHART_LEAN_ENABLED=0
+PULSE_TV_1H_CHART_LEAN_ENABLED=0
+PULSE_TV_2H_REVIEW_ENABLED=0
+PULSE_TRIAGE_TREND_SOURCE=price
 ```
 
-`FLAT` updates per-TF age and tells Grok “no trend on this chart” vs “chart silent.” Directional MTF count (`trend_fresh_count`) still only counts UP/DOWN.
-
-Apply env after changes:
+Apply on VPS after deploy:
 
 ```bash
 python3 /opt/Bot-3/scripts/setup-vps-training-env.py
 cd /opt/Bot-3/hermes-agent-main/plugins/hermes-trading-engine
-docker compose up -d --force-recreate hermes-training
+docker compose down --remove-orphans
+docker compose build
+docker compose up -d --force-recreate --remove-orphans
+```
+
+## Expected webhook JSON
+
+```json
+{
+  "secret": "...",
+  "symbol": "BTCUSD",
+  "timeframe": "5",
+  "direction": "UP",
+  "signal_level": "REGULAR_BULL_DIV",
+  "signal_kind": "rsi_divergence",
+  "divergence_kind": "regular_bullish",
+  "event_id": "BTCUSD-5-...-REGULAR_BULL_DIV-rsidiv-bot3",
+  "observe_only": true
+}
+```
+
+Verify intake on dashboard or:
+
+```bash
+ssh root@207.246.96.45 "tail -20 /opt/Bot-3/hermes-agent-main/plugins/hermes-trading-engine/data/btc_pulse_tradingview.json"
 ```

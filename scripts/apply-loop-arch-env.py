@@ -540,39 +540,34 @@ UPDATES = {
     "HERMES_SIZING_HARD_CAP_USD": "10.0",
     "HERMES_SIZING_BANKROLL_USD": "1000.0",
     "HERMES_SIZING_DAILY_LOSS_CAP_USD": "50.0",
-    # BTC+ETH intrahour RSI alerts (Hermes_RSI_Divergence on 15/30/45m charts per traded asset).
+    # Bot 3: INDEX:BTCUSD + INDEX:ETHUSD · 5m RSI Divergence only (15m directional lane).
     "PULSE_TV_FEATURE_SYMBOL": "BTCUSD",
-    # TradingView webhooks: BTC+ETH only (alt symbols retired from scan/directional lanes).
-    "TRADINGVIEW_ALLOWED_SYMBOLS": ("BTCUSD,INDEX:BTCUSD,BTC/USD,BTC,XBTUSD,"
-                                    "BTCUSDT,BINANCE:BTCUSDT,"
-                                    "ETHUSD,INDEX:ETHUSD,ETH/USD,ETH,"
-                                    "ETHUSDT,BINANCE:ETHUSDT"),
+    "TRADINGVIEW_ALLOWED_SYMBOLS": "BTCUSD,INDEX:BTCUSD,ETHUSD,INDEX:ETHUSD",
     "TRADINGVIEW_MAX_AGE_S": "3600",
-    # RSI Divergence Indicator ladder (BTC+ETH): 5m→55m intrahour + 1h; Grok/pre-trade/council
-    # grade each TF independently; tv_2h_review segments by hourly phase (pre/in/post band).
-    "PULSE_TV_DROP_TIMEFRAMES": "2,3,4",
-    "PULSE_TV_MTF_TIMEFRAMES": "5,10,15,20,25,30,35,40,45,50,55,60",
+    "PULSE_TV_DROP_TIMEFRAMES": "2,3,4,10,15,20,25,30,35,40,45,50,55,60",
+    "PULSE_TV_MTF_TIMEFRAMES": "5",
     "TRADINGVIEW_WEBHOOK_HOST": "0.0.0.0",
-    # Last-50 FIFO = HTF regime chart; last 8 = short-term trade lean (~2h of 15m bars).
-    "PULSE_TV_ALERT_HISTORY_PER_SYMBOL": "50",
+    "PULSE_TV_ALERT_HISTORY_PER_SYMBOL": "20",
     "PULSE_TV_RSI_DIV_HISTORY_PER_SYMBOL": "20",
     "PULSE_TV_15M_SHORT_PATH_N": "8",
-    "PULSE_TV_15M_CHART_LEAN_ENABLED": "1",
-    "PULSE_TV_15M_CHART_LEAN_SIZE": "1",
+    "PULSE_TV_15M_CHART_LEAN_ENABLED": "0",
+    "PULSE_TV_15M_CHART_LEAN_SIZE": "0",
     "PULSE_TV_1H_SHORT_PATH_N": "12",
-    "PULSE_TV_1H_CHART_LEAN_ENABLED": "1",
-    "PULSE_TV_1H_CHART_LEAN_GATE": "1",
-    "PULSE_TV_1H_CHART_LEAN_SIZE": "1",
+    "PULSE_TV_1H_CHART_LEAN_ENABLED": "0",
+    "PULSE_TV_1H_CHART_LEAN_GATE": "0",
+    "PULSE_TV_1H_CHART_LEAN_SIZE": "0",
     "PULSE_TV_RSI_OVERLAY_ENABLED": "1",
     "PULSE_TV_RSI_OVERLAY_SIZE": "1",
     "PULSE_TV_RSI_OVERLAY_MAX_AGE_S": "2700",
     "PULSE_TV_RSI_OVERLAY_ALIGNED_MULT": "1.15",
     "PULSE_TV_RSI_OVERLAY_OPPOSED_MULT": "0.45",
-    "PULSE_TV_2H_REVIEW_ENABLED": "1",
+    "PULSE_TV_RSI_BAND_ENABLED": "0",
+    "PULSE_TV_RSI_DIVERGENCE_ANALYSIS_ENABLED": "1",
+    "PULSE_TV_2H_REVIEW_ENABLED": "0",
     "PULSE_TV_2H_LOOKBACK_S": "7200",
     "PULSE_TV_2H_ALERT_HISTORY_CAP": "50",
-    "PULSE_TV_2H_REVIEW_PRETRADE": "1",
-    "PULSE_TV_2H_COUNCIL_GRADE": "1",
+    "PULSE_TV_2H_REVIEW_PRETRADE": "0",
+    "PULSE_TV_2H_COUNCIL_GRADE": "0",
     # Reset new + retired members so the tv_mtf blend recomputes cleanly over the tier ladder.
     "PULSE_TV_RESET_TOKEN": "2026-07-07-tv-3m-4m",
     "PULSE_TV_RESET_MEMBERS": "tv_3m,tv_4m,tv_5m,tv_60m,tv_240m,tv_1440m,tv_mtf",

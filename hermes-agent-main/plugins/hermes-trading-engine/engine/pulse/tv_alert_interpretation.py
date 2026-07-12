@@ -28,18 +28,17 @@ TV_ALERT_GUIDE = {
     ],
     "signal_kinds": {
         "bar_close_5m": (
-            "Hermes BarClose heartbeat every 5m bar — PRIMARY price pattern. "
-            "Plot short_path OHLC oldest→newest; short lean drives entry side."
+            "DISABLED on Bot 3 — was Hermes BarClose heartbeat; price trend now from "
+            "Chainlink spot (price_action_trend), not TV bar-close FIFO."
         ),
         "rsi_band": (
-            "Continuous RSI 30/70 zone every bar (Wilder OB/OS). "
-            "Oversold (<30) = mean-revert UP lean; overbought (>70) = DOWN lean. "
-            "band_event crosses (enter/exit 30/70) mark timing."
+            "DISABLED on Bot 3 — was continuous RSI 30/70 zone every bar. "
+            "Only rsi_divergence webhooks are active."
         ),
         "rsi_divergence": (
-            "Sparse pivot event: price pivot disagrees with RSI pivot. "
+            "ACTIVE on Bot 3: sparse 5m pivot event on INDEX:BTCUSD/ETHUSD. "
             "Regular bull = price LL + RSI HL (UP lean); regular bear = price HH + RSI LH "
-            "(DOWN lean). Confirm/fade overlay only — never overrides price path."
+            "(DOWN lean). Confirm/fade overlay on 15m entries — never overrides Chainlink price trend."
         ),
     },
     "lane_routing": {
@@ -74,11 +73,10 @@ TV_ALERT_GUIDE = {
         "combined with other tools — never trade divergence alone."
     ),
     "decision_hierarchy": [
-        "1_price_path_short_lean (bar_close_5m short_path)",
-        "2_rsi_band_zone_and_crosses (30/70 backdrop)",
-        "3_rsi_divergence_confirm_fade (sparse pivot overlay)",
-        "4_regime_path_context (HTF alignment)",
-        "5_per_tf_ladder_and_2h_review (when present)",
+        "1_price_action_trend (Chainlink spot vs window-open — rising/falling/flat)",
+        "2_rsi_divergence_confirm_fade (5m INDEX pivot overlay)",
+        "3_regime_path_context (HTF alignment, when bar-close FIFO present)",
+        "4_per_tf_ladder_and_2h_review (disabled on Bot 3)",
     ],
 }
 
@@ -110,14 +108,14 @@ def tv_grok_reading_guide(*, window_seconds: int, series_label: str = "") -> str
         )
     if ws >= 900:
         return (
-            "Lane 15m → %s (%s, settlement oracle). PRIMARY: BarClose 5m short_path "
-            "(last 6–8 bars ≈ 30–40m) — highest weight for side. regime_path_tail = HTF only. "
-            "When short/regime ALIGN → high conviction; DIVERGENT → prefer short, size down. "
-            "RSI BAND: 30/70 zone + band_event crosses for timing. "
-            "RSI DIVERGENCE: primer.tradingview_official (Wilder/Cardwell) + operator_indicator; "
+            "Lane 15m → %s (%s, settlement oracle). PRIMARY TREND: price_action_trend "
+            "(Chainlink spot vs window-open → rising/falling/flat). "
+            "TV INPUT: tradingview_rsi_divergence only (5m INDEX regular bull/bear). "
+            "Read primer.tradingview_official (Wilder/Cardwell) + confirm_fade_by_side; "
             "regular bull = price LL + RSI HL; regular bear = price HH + RSI LH. "
+            "Divergence confirms/fades size — never overrides Chainlink price trend. "
             "Read tradingview_alert_interpretation.composite_lean + confirm_fade. "
-            "Settlement = Chainlink — TV observe-only context."
+            "Settlement = Chainlink — TV observe-only overlay."
             % (charts, feed)
         )
     return (
@@ -284,12 +282,11 @@ def interpret_tv_for_window(
             cardwell_hint = "Divergence confirms price path — stronger confirm/fade signal."
 
     grok_instructions = [
-        "Read guide.decision_hierarchy — price_path short lean is primary.",
-        "Plot tradingview_15m_price_path.price_pattern.short_path oldest→newest.",
-        "RSI band = zone backdrop (30/70); divergence = sparse confirm/fade overlay.",
+        "Read guide.decision_hierarchy — price_action_trend (Chainlink) is primary for side.",
+        "TV active signal: tradingview_rsi_divergence (5m INDEX pivot overlay only).",
         "Use composite_lean + signal_agreement for conviction; size down when conflicted.",
         "Cardwell: divergence in-trend often = correction; positive/negative reversals differ.",
-        "Lane routing: never mix *USDT (1h) with INDEX *USD (15m) FIFOs.",
+        "Lane routing: 15m reads INDEX *USD FIFO only; bar-close and rsi_band are off.",
     ]
 
     return {
@@ -317,7 +314,7 @@ def interpret_tv_for_window(
         "confirm_fade": _confirm_fade_for_side(trade_side, div, path.get("lean")),
         "grok_instructions": grok_instructions,
         "note": (
-            "Unified TV read: synthesizes bar-close path + RSI 30/70 band + divergence "
-            "overlay per lane-routed FIFO. Training grounded in TradingView official docs."
+            "Bot 3 unified TV read: Chainlink price_action_trend drives side; "
+            "5m rsi_divergence overlay confirm/fades 15m entries. Bar-close and rsi_band off."
         ),
     }
