@@ -21,8 +21,8 @@ from engine.pulse.loop_architecture.maker_checker import (
 
 logger = logging.getLogger("pulse.loop_architecture.lanes")
 
-SWEET_SPOT_MIN = 0.47
-SWEET_SPOT_MAX = 0.55
+SWEET_SPOT_MIN = 0.48
+SWEET_SPOT_MAX = 0.72
 
 
 @dataclass

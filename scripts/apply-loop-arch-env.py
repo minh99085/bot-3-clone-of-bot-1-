@@ -178,8 +178,8 @@ UPDATES = {
     "PULSE_EXEC_MAX_SPREAD": "0.04",
     # Require 1.5 points after VWAP and taker fees, before any paper fill.
     "PULSE_EXEC_MIN_EV": "0.015",
-    # Do not buy sub-50-cent underdogs on an unpromoted directional opinion.
-    "PULSE_MIN_ENTRY_PRICE": "0.52",
+    # Align with triage/tier sweet band (0.48–0.72); was 0.52 blocking 47–51¢ tickets.
+    "PULSE_MIN_ENTRY_PRICE": "0.45",
     # Favorites have lower R:R; 0.25 allows entries up to ~0.80 while still skipping dust.
     "PULSE_MIN_REWARD_RISK": "0.25",
     "PULSE_MIN_REWARD_RISK_UP_PREMIUM": "0.10",
@@ -481,8 +481,10 @@ UPDATES = {
     # Spot price-action trend (rising/falling/flat) for Osmani triage + Grok — not TV UP/DOWN labels.
     "PULSE_TRIAGE_TREND_SOURCE": "price",
     "PULSE_GROK_TREND_SOURCE": "price",
-    # Loosened (2026-07-11): 0.5 bps detects trend sooner; flat→misaligned less frequent.
-    "PULSE_PRICE_TREND_MIN_MOVE_BPS": "0.5",
+    # Detect trend sooner — flat windows were starving Discovery (REJECT_TREND_MISALIGNED).
+    "PULSE_PRICE_TREND_MIN_MOVE_BPS": "0.2",
+    # Allow flat Chainlink trend probes for learning (still restrict-only; not forced fills).
+    "PULSE_TRIAGE_FLAT_EXPLORATION_RATE": "0.10",
     # ---- DIRECTIONAL TIER ENGINE (operator 2026-07-06; $2000 bankroll, trade-like-live) ----
     # Regime-conditioned Bayesian tier system is the directional brain. Explicit 1h + 15m feeds
     # use tier engine on tick path (legacy_tick=0 -> unstructured pulse directional OFF).

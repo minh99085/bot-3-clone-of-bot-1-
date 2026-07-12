@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -275,7 +276,21 @@ class AssetTriageSkill:
                     symbol=symbol, timeframe=tf, time_boundary=time_boundary,
                     detail="no_trend",
                 )
-            if trend == "flat" or not _trend_side_ok(trend, side):
+            if trend == "flat":
+                try:
+                    flat_explore = float(
+                        os.getenv("PULSE_TRIAGE_FLAT_EXPLORATION_RATE", "0") or 0)
+                except (TypeError, ValueError):
+                    flat_explore = 0.0
+                if flat_explore <= 0 or random.random() >= flat_explore:
+                    self._bump_reject(TriageReject.TREND_MISALIGNED.value)
+                    return TriageVerdict(
+                        status=TriageReject.TREND_MISALIGNED.value,
+                        side=side, ask_price=ask_price, token_id=token_id,
+                        symbol=symbol, timeframe=tf, time_boundary=time_boundary,
+                        detail="trend=flat",
+                    )
+            elif not _trend_side_ok(trend, side):
                 self._bump_reject(TriageReject.TREND_MISALIGNED.value)
                 return TriageVerdict(
                     status=TriageReject.TREND_MISALIGNED.value,

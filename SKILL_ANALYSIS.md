@@ -9,23 +9,24 @@ are parsed into code (`AssetTriageSkill`). PAPER ONLY._
 ### 1. Objective
 
 Identify high-probability, low-priced prediction contracts on Polymarket within the target
-asymmetrical probability band, specifically isolating **Crypto** category assets triggered by
-**5m, 15m, 30m, 60m, 240m, and 1440m** TradingView momentum alerts.
+asymmetrical probability band, specifically isolating **Crypto** category assets. Trend alignment
+uses **Chainlink spot** (`PULSE_TRIAGE_TREND_SOURCE=price`); 5m RSI Divergence is confirm/fade
+overlay only.
 
 ### 2. Operational Thresholds
 
 | Key | Value |
 |-----|-------|
-| `sweet_min` | 0.47 |
-| `sweet_max` | 0.55 |
+| `sweet_min` | 0.48 |
+| `sweet_max` | 0.72 |
 | `tail_max` | 0.10 |
 | `min_depth_usd` | 50 |
 | `max_slippage_pct` | 2.0 |
 | `min_shares` | 5 |
-| `tv_timeframes` | 5, 15, 30, 60, 240, 1440 |
-| `tail_min_strength` | 0.55 |
+| `tv_timeframes` | 5 |
+| `tail_min_strength` | 0.70 |
 
-- **Target Price Range (YES Token):** $0.47 to $0.55 (The Sweet Spot)
+- **Target Price Range (YES Token):** $0.48 to $0.72 (aligned with tier sweet band)
 - **Asymmetric Target Price (Tail-Risk):** Under $0.10 (Targeting 10x Returns)
 - **Minimum Order Book Depth:** Must absorb ≥ $50 USDC inside the current price bracket without triggering > 2% slippage.
 - **Minimum Share Threshold:** Strictly ≥ 5 shares per individual execution (Polymarket CLOB structural mandate).
@@ -34,10 +35,10 @@ asymmetrical probability band, specifically isolating **Crypto** category assets
 
 Before passing any target token ID to the Execution Lane, the Discovery Lane must run this validation:
 
-1. Extract Parent Asset (`Symbol`) and Timeframe (`Interval`) from incoming JSON payload.
-2. Confirm the underlying asset spot momentum direction matches the contract binary outcome.
+1. Confirm Chainlink spot trend aligns with contract side (rising→UP, falling→DOWN).
+2. Flat trend: allow exploration probes at `PULSE_TRIAGE_FLAT_EXPLORATION_RATE` (learning only).
 3. Compute the implied probability: P(Asset) = Current Best Ask.
-4. If P(Asset) is between 0.47 and 0.55 → status code `PROCEED_SWEEP`.
+4. If P(Asset) is between 0.48 and 0.72 → status code `PROCEED_SWEEP`.
 5. If P(Asset) < 0.10 and spot velocity indicates a breakthrough condition → status code `PROCEED_10X`.
 6. Otherwise → `REJECT_*` (no Execution Lane handoff).
 
