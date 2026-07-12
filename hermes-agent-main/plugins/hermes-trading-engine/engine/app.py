@@ -134,8 +134,11 @@ def _dashboard_html() -> str:
     label = (os.getenv("PULSE_DASHBOARD_BOT_LABEL") or "").strip()
     if not label:
         return _DASHBOARD_HTML
+    html = _DASHBOARD_HTML.replace("<title>Bot 1 · Directional Lanes</title>",
+                                   f"<title>{label}</title>", 1)
+    html = html.replace("<h1>Bot 1 · Directional</h1>", f"<h1>{label}</h1>", 1)
     badge = f'<span class="tag live">{label}</span>'
-    return _DASHBOARD_HTML.replace(
+    return html.replace(
         '<span class="tag">Paper only</span>',
         f"{badge}<span class=\"tag\">Paper only</span>",
         1,
