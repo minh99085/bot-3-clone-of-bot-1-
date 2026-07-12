@@ -31,7 +31,7 @@ python3 -m pytest
 ./scripts/run-bot3-local-training.sh
 ```
 
-Dashboard: http://localhost:8800/dashboard — paper training loop in `hermes-training`.
+Dashboard: http://localhost:8810/dashboard — paper training loop in `hermes-training`.
 
 ---
 

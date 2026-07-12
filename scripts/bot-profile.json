@@ -10,7 +10,7 @@
   "ssh_alias": null,
   "ssh_key": null,
   "plugin_path": "hermes-agent-main/plugins/hermes-trading-engine",
-  "dashboard": "http://localhost:8800/dashboard",
+  "dashboard": "http://localhost:8810/dashboard",
   "bundle_name": null,
   "scheduled_task": null,
   "babysit_autopilot": false,

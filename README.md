@@ -23,7 +23,7 @@ cd C:\Users\tieut\Bot-1
 .\scripts\run-bot3-local-training.ps1
 ```
 
-Dashboard: http://localhost:8800/dashboard
+Dashboard: http://localhost:8810/dashboard
 
 Profile: `scripts/bot-profile.json`
 

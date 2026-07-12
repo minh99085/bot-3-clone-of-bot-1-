@@ -1,5 +1,5 @@
 # Local laptop training overlay (Bot 3). Used by scripts/run-bot3-local-training.*
-# Isolated project name + container names so Bot-1/VPS containers on the same machine do not collide.
+# Isolated project + container names; laptop ports avoid Bot-1 on 8800/8787.
 name: bot3-local
 
 services:
@@ -8,8 +8,13 @@ services:
     build:
       args:
         RUN_TESTS: "0"
+    ports: !override
+      - "127.0.0.1:8810:8800"
+
   hermes-training:
     container_name: bot3-hermes-training
     build:
       args:
         RUN_TESTS: "0"
+    ports: !override
+      - "127.0.0.1:18787:8787"
