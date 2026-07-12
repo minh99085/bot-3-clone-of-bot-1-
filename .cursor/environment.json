@@ -1,0 +1,3 @@
+{
+  "install": "bash scripts/materialize-vps-ssh-key.sh || true"
+}

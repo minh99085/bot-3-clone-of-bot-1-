@@ -23,6 +23,31 @@ Read **`.grok/rules/bot3-deploy-policy.md`** every session.
 Job is **incomplete** until VPS rebuild finishes. Never `-SkipRebuild` unless operator explicitly
 requests code-only sync in the current message.
 
+## Cloud agent SSH access (required for autonomous VPS deploy)
+
+This cloud VM cannot reach the VPS until **one** of these is done:
+
+### Option A — Cursor secret (fastest; uses your laptop key)
+
+1. Open [Cloud Agents → Environments](https://cursor.com/dashboard/cloud-agents/environments/r/github.com/minh99085/bot-3-clone-of-bot-1-)
+2. **Secrets** tab → add **Runtime Secret** `BOT3_VPS_SSH_PRIVATE_KEY`
+3. Value = full contents of `%USERPROFILE%\.ssh\hermes-laptop-vps` (private key PEM)
+4. **Update environment** / start a new cloud agent run
+
+`scripts/materialize-vps-ssh-key.sh` writes the secret to `~/.ssh/hermes-laptop-vps` on boot.
+
+### Option B — Grant cloud-agent key (one-time from laptop)
+
+Run **once** on Windows (no git pull needed — paste as-is):
+
+```powershell
+ssh -i "$env:USERPROFILE\.ssh\hermes-laptop-vps" root@207.246.96.45 "grep -qF 'bot3-cloud-agent' ~/.ssh/authorized_keys || echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFYJ352J+SrH4CZsOfGds87X4B9lig4ci+PHOgEuBIjK bot3-cloud-agent' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+```
+
+Or after `git pull`: `.\scripts\grant-cloud-agent-ssh.ps1`
+
+Public key file: `scripts/keys/bot3-cloud-agent.pub`
+
 | Item | Value |
 |------|-------|
 | VPS | `root@207.246.96.45` |

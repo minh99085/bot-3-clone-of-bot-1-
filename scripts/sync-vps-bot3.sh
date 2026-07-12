@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+bash "$ROOT/scripts/materialize-vps-ssh-key.sh" 2>/dev/null || true
 SSH_KEY="${BOT3_VPS_SSH_KEY:-$HOME/.ssh/hermes-laptop-vps}"
 VPS_HOST="${BOT3_VPS_HOST:-207.246.96.45}"
 VPS_USER="${BOT3_VPS_USER:-root}"
