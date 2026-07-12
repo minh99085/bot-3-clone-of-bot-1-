@@ -41,16 +41,20 @@ ssh root@207.246.96.45 "grep ^TRADINGVIEW_WEBHOOK_SECRET= /opt/Bot-3/hermes-agen
 
 ## What the bot learns
 
-5m RSI divergence webhooks feed the **15m directional lane** as an observe-only overlay:
+5m RSI divergence webhooks feed **all directional lanes** (5m / 15m / 1h) via **Binary Intel**:
 
 ```
 Pine (rsi_divergence) → tradingview.py rsi_div_history FIFO
-  → tv_rsi_overlay (confirm/fade sizing on 15m entries)
-  → tv_rsi_divergence (Grok teaching + analysis bundle)
-  → lane_15m_learner (grades outcomes by RSI overlay alignment)
+  → binary_intel.tv_universal (BTC+ETH, every lane)
+  → math_core (z, θ, entropy, RSI info-gain, Kelly haircut)
+  → pre_trade script (size mult / hard-block / Grok brief)
+  → post_trade learner (Brier + RSI alignment WR → LessonsBook)
+  → lane_15m_learner (grades tv_rsi_overlay_aligned)
 ```
 
-**Price trend** (rising/falling/flat) comes from **Chainlink spot** via `price_action_trend.py`, not from TradingView labels. RSI divergence is a separate confirm/fade signal layered on top.
+**Price trend** (rising/falling/flat) comes from **Chainlink spot** via `price_action_trend.py`, not from TradingView labels. RSI divergence is a confirm/fade overlay.
+
+See `engine/pulse/binary_intel/README.md` for formulas.
 
 ## Bot env (set via `scripts/apply-loop-arch-env.py`)
 

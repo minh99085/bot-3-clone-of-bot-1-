@@ -112,11 +112,16 @@ class Lane15mStrategyLearner:
         chart_lean_aligned: Optional[bool] = None,
         chart_alignment: Optional[str] = None,
         short_pattern: Optional[str] = None,
+        rsi_overlay_aligned: Optional[bool] = None,
         now: Optional[float] = None,
     ) -> None:
         if not self.cfg.enabled:
             return
         ts = float(now if now is not None else time.time())
+        # Prefer RSI overlay alignment when present (Bot 3: 5m RSI div is the active TV signal).
+        lean_aligned = chart_lean_aligned
+        if rsi_overlay_aligned is not None:
+            lean_aligned = bool(rsi_overlay_aligned)
         self._recent.append({
             "won": bool(won),
             "pnl": float(pnl_usd or 0.0),
@@ -126,10 +131,11 @@ class Lane15mStrategyLearner:
             "sso": float(sso) if sso is not None else None,
             "ttc_s": float(ttc_s) if ttc_s is not None else None,
             "entry_mode": str(entry_mode or "") or None,
-            "chart_lean_aligned": (bool(chart_lean_aligned)
-                                   if chart_lean_aligned is not None else None),
+            "chart_lean_aligned": (bool(lean_aligned) if lean_aligned is not None else None),
             "chart_alignment": str(chart_alignment or "") or None,
             "short_pattern": str(short_pattern or "") or None,
+            "rsi_overlay_aligned": (bool(rsi_overlay_aligned)
+                                    if rsi_overlay_aligned is not None else None),
             "settled_ts": ts,
         })
         self._since_adjust += 1

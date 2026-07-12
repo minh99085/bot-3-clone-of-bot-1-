@@ -32,6 +32,8 @@ _BUNDLE_PRIORITY_KEYS = (
     "tradingview_alert_interpretation",
     "tradingview_signal",
     "tv_signal_learning",
+    "binary_intel",
+    "binary_intel_learner",
     "cex_lead_mispricing",
     "polymarket",
     "price",

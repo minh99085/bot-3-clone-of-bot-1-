@@ -526,6 +526,13 @@ class PulseConfig:
     tv_rsi_overlay_max_age_s: float = 2700.0
     tv_rsi_overlay_aligned_mult: float = 1.15
     tv_rsi_overlay_opposed_mult: float = 0.45
+    # Binary Intel — invented quant + Grok pre/post-trade scripts (PAPER ONLY).
+    binary_intel_enabled: bool = True
+    binary_intel_grok_compute: bool = True
+    binary_intel_min_score: float = 0.28
+    binary_intel_exploration_rate: float = 0.05
+    binary_intel_min_size_scale: float = 0.40
+    binary_intel_kelly_fraction: float = 0.25
     # RSI 30/70 band heartbeats (separate FIFO; Grok + MC context).
     tradingview_rsi_band_history_per_symbol: int = 50
     tv_rsi_band_enabled: bool = True
@@ -1175,6 +1182,16 @@ class PulseConfig:
             tv_rsi_overlay_max_age_s=_envf("PULSE_TV_RSI_OVERLAY_MAX_AGE_S", 2700.0),
             tv_rsi_overlay_aligned_mult=_envf("PULSE_TV_RSI_OVERLAY_ALIGNED_MULT", 1.15),
             tv_rsi_overlay_opposed_mult=_envf("PULSE_TV_RSI_OVERLAY_OPPOSED_MULT", 0.45),
+            binary_intel_enabled=str(
+                os.getenv("PULSE_BINARY_INTEL_ENABLED", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            binary_intel_grok_compute=str(
+                os.getenv("PULSE_BINARY_INTEL_GROK_COMPUTE", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            binary_intel_min_score=_envf("PULSE_BINARY_INTEL_MIN_SCORE", 0.28),
+            binary_intel_exploration_rate=_envf("PULSE_BINARY_INTEL_EXPLORATION_RATE", 0.05),
+            binary_intel_min_size_scale=_envf("PULSE_BINARY_INTEL_MIN_SIZE_SCALE", 0.40),
+            binary_intel_kelly_fraction=_envf("PULSE_BINARY_INTEL_KELLY_FRACTION", 0.25),
             tradingview_rsi_band_history_per_symbol=int(
                 _envf("PULSE_TV_RSI_BAND_HISTORY_PER_SYMBOL", 50)),
             tv_rsi_band_enabled=str(
@@ -1562,6 +1579,19 @@ class PulseEngine:
                 exploration_rate=float(getattr(self.cfg, "cross_horizon_exploration_rate", 0.08)),
             ),
             policy=CrossHorizonPolicy(),
+        )
+        # Binary Intel — invented pre/post-trade math + universal 5m TV + Grok protocols.
+        from engine.pulse.binary_intel import BinaryIntelController
+        self.binary_intel = BinaryIntelController(
+            enabled=bool(getattr(self.cfg, "binary_intel_enabled", True)),
+            grok_compute_enabled=bool(getattr(self.cfg, "binary_intel_grok_compute", True)),
+            max_age_s=float(getattr(self.cfg, "tv_rsi_overlay_max_age_s", 2700.0) or 2700.0),
+            kelly_fraction=float(getattr(self.cfg, "binary_intel_kelly_fraction", 0.25) or 0.25),
+            aligned_mult=float(getattr(self.cfg, "tv_rsi_overlay_aligned_mult", 1.15) or 1.15),
+            opposed_mult=float(getattr(self.cfg, "tv_rsi_overlay_opposed_mult", 0.45) or 0.45),
+            min_intel_score=float(getattr(self.cfg, "binary_intel_min_score", 0.28) or 0.28),
+            exploration_rate=float(getattr(self.cfg, "binary_intel_exploration_rate", 0.05) or 0.05),
+            min_size_scale=float(getattr(self.cfg, "binary_intel_min_size_scale", 0.40) or 0.40),
         )
         self.reconciler = LifecycleReconciler()   # GS-Quant-style candidate lifecycle audit
         self.gate_obs = GateObservations()        # orderbook-reality observations seen at the gate
@@ -2175,6 +2205,8 @@ class PulseEngine:
                 self.lane_15m_learner.load_state(acct.get("lane_15m_learner") or {})
             if getattr(self, "cross_horizon_learner", None) is not None:
                 self.cross_horizon_learner.load_state(acct.get("cross_horizon_learner") or {})
+            if getattr(self, "binary_intel", None) is not None:
+                self.binary_intel.load_state(acct.get("binary_intel") or {})
         self.tv_context_gate.load_state(acct.get("tv_context_gate") or {})
         self.tv_down_bias_gate.load_state(acct.get("tv_down_bias_gate") or {})
         self.tv_mtf_gate.load_state(acct.get("tv_mtf_gate") or {})
@@ -3786,6 +3818,23 @@ class PulseEngine:
                 _rl = str((dr.tv_rsi_overlay or {}).get("lean") or "").lower()
                 if _rl in ("up", "down") and str(pos.side or "").lower() in ("up", "down"):
                     pos.research["tv_rsi_overlay_aligned"] = (_rl == str(pos.side).lower())
+            # Binary Intel research tags (pre-trade math + universal 5m TV).
+            _bi = getattr(dr, "binary_intel", None) or (
+                (dr.pre_trade or {}).get("binary_intel") if getattr(dr, "pre_trade", None) else None)
+            if _bi:
+                tags = (_bi.get("research_tags") or {})
+                pos.research["binary_intel_score"] = _bi.get("composite_score") or tags.get("binary_intel_score")
+                pos.research["binary_intel_intelligence"] = _bi.get("intelligence_score")
+                pos.research["binary_intel_recommendation"] = _bi.get("recommendation")
+                pos.research["binary_intel_size_mult"] = _bi.get("size_mult")
+                pos.research["binary_intel_z"] = tags.get("binary_intel_z")
+                pos.research["binary_intel_rsi_lean"] = tags.get("binary_intel_rsi_lean")
+                pos.research["binary_intel_rsi_decision"] = tags.get("binary_intel_rsi_decision")
+                pos.research["tv_cross_asset_rsi"] = tags.get("tv_cross_asset_rsi")
+                if tags.get("tv_rsi_overlay_aligned") is not None:
+                    pos.research["tv_rsi_overlay_aligned"] = tags.get("tv_rsi_overlay_aligned")
+                if tags.get("binary_intel_rsi_lean") and not pos.research.get("tv_rsi_overlay_lean"):
+                    pos.research["tv_rsi_overlay_lean"] = tags.get("binary_intel_rsi_lean")
             if getattr(dr, "cross_horizon", None):
                 pos.research["cross_horizon"] = dr.cross_horizon
                 pos.research["cross_horizon_decision"] = (dr.cross_horizon or {}).get("decision")
@@ -4043,11 +4092,37 @@ class PulseEngine:
                             chart_lean_aligned=_rt15.get("tv_15m_lean_aligned"),
                             chart_alignment=str(_rt15.get("tv_15m_chart_alignment") or "") or None,
                             short_pattern=str(_rt15.get("tv_15m_short_pattern") or "") or None,
+                            rsi_overlay_aligned=_rt15.get("tv_rsi_overlay_aligned"),
                             now=now,
                         )
                         self.lane_15m_learner.maybe_adjust()
                 except Exception:  # noqa: BLE001 — never break settlement
                     logger.exception("lane_15m_learner settlement adjust failed")
+            # Binary Intel — grade math+TV pre-trade scores; emit Grok autopsy + lessons.
+            if getattr(self, "binary_intel", None) is not None:
+                try:
+                    _rtbi = pos.research or {}
+                    _slugbi = str(_rtbi.get("series_slug") or "").lower()
+                    _wsbi = int(_rtbi.get("window_seconds") or 0)
+                    _assetbi = "eth" if ("eth" in _slugbi or "ethereum" in _slugbi) else "btc"
+                    if _wsbi >= 3600 or "1h" in _slugbi or "hourly" in _slugbi:
+                        _lanebi = "1h"
+                    elif _wsbi >= 600 or "15m" in _slugbi:
+                        _lanebi = "15m"
+                    else:
+                        _lanebi = "5m"
+                    self.binary_intel.record_settled(
+                        won=bool(pos.won),
+                        pnl_usd=float(pos.pnl_usd or 0.0),
+                        side=str(pos.side or ""),
+                        asset=_assetbi,
+                        lane=_lanebi,
+                        research=_rtbi,
+                        now=now,
+                        lessons_book=self.lessons,
+                    )
+                except Exception:  # noqa: BLE001 — never break settlement
+                    logger.exception("binary_intel settlement adjust failed")
             # Shared 15m↔1h cross-horizon learner — restrict/size overlays from graded settles.
             if getattr(self, "cross_horizon_learner", None) is not None:
                 try:
@@ -4474,7 +4549,7 @@ class PulseEngine:
             _tv_sym = tv_symbol_for_window(w, default_btc=self.cfg.tradingview_feature_symbol)
             tv_per_tf = self._tv_per_tf_views(
                 now, symbol=_tv_sym, tfs=self._tv_mtf_timeframes_for_window(w))
-        return analyze_pre_trade(
+        analysis = analyze_pre_trade(
             fair_p_up=fair_used,
             poly_yes=mc.poly_yes,
             council_views=council_views,
@@ -4498,6 +4573,58 @@ class PulseEngine:
             tv_2h_review=tv_2h,
             tv_per_tf_views=tv_per_tf,
         )
+        # Binary Intel pre-trade script — math + universal 5m TV for all lanes.
+        if getattr(self, "binary_intel", None) is not None and self.cfg.binary_intel_enabled:
+            try:
+                feed = self._price_feed_for(w)
+                s_now = feed.current() if feed is not None else mc.s_now
+                s_open = None
+                try:
+                    snap = feed.open_snapshot(getattr(w, "event_id", None)) if feed else None
+                    if snap is not None:
+                        s_open = getattr(snap, "price", None) or (
+                            snap.get("price") if isinstance(snap, dict) else None)
+                    s_open = s_open or mc.s_open
+                except Exception:  # noqa: BLE001
+                    s_open = mc.s_open
+                ask = None
+                if proposed_side == "up":
+                    ask = (w.up_book.best_ask if w.up_book else None)
+                elif proposed_side == "down":
+                    ask = (w.down_book.best_ask if w.down_book else None)
+                sigma_use = sigma
+                if feed is not None and hasattr(feed, "sigma_per_sec"):
+                    try:
+                        sigma_use = feed.sigma_per_sec(now) or sigma
+                    except Exception:  # noqa: BLE001
+                        sigma_use = sigma
+                bi = self.binary_intel.analyze_pre_trade(
+                    intake=self.tradingview,
+                    window=w,
+                    s_now=s_now,
+                    s_open=s_open,
+                    sigma_per_sec=sigma_use,
+                    ttc_s=float(ttc),
+                    window_seconds=float(ws),
+                    poly_mid=mc.poly_yes,
+                    model_p_up=fair_used,
+                    proposed_side=proposed_side,
+                    ask=ask,
+                    now=float(now),
+                    readiness_score=analysis.get("score"),
+                )
+                if bi:
+                    analysis["binary_intel"] = bi
+                    analysis["binary_intel_score"] = bi.get("composite_score")
+                    analysis["binary_intel_size_mult"] = bi.get("size_mult")
+                    analysis["binary_intel_recommendation"] = bi.get("recommendation")
+                    try:
+                        dr.binary_intel = bi
+                    except Exception:  # noqa: BLE001
+                        pass
+            except Exception:  # noqa: BLE001 — never block on intel errors
+                logger.exception("binary_intel pre-trade failed")
+        return analysis
 
     def _grok_decision_bundle(self, mc, dr, w, fair_used, ttc, tv_feature) -> dict:
         """Fully-structured 'analyze everything' payload for the Grok decider. Numerics rounded,
@@ -4621,6 +4748,13 @@ class PulseEngine:
                        "window_seconds": int(getattr(w, "window_seconds", mc.window_seconds) or 300),
                        "utc_minute_of_hour": int((self.last_tick_ts or time.time()) // 60 % 60)},
             "pre_trade_analysis": (dr.pre_trade if getattr(dr, "pre_trade", None) else None),
+            "binary_intel": (getattr(dr, "binary_intel", None)
+                             or ((dr.pre_trade or {}).get("binary_intel")
+                                 if getattr(dr, "pre_trade", None) else None)
+                             or (self.binary_intel._last_pre
+                                 if getattr(self, "binary_intel", None) is not None else None)),
+            "binary_intel_learner": (self.binary_intel.report()
+                                     if getattr(self, "binary_intel", None) is not None else None),
             "price": {"btc_now": self._r(mc.s_now, 2), "btc_open": self._r(mc.s_open, 2),
                       "eth_now": (self._r(self._eth_price.current(), 2)
                                   if self._eth_price is not None else None),
@@ -6751,6 +6885,38 @@ class PulseEngine:
                 aligned_mult=float(getattr(self.cfg, "tv_rsi_overlay_aligned_mult", 1.15)),
                 opposed_mult=float(getattr(self.cfg, "tv_rsi_overlay_opposed_mult", 0.45))))
 
+        # Binary Intel — universal 5m TV + binary math size mult (all lanes).
+        _bi_osmani = None
+        if getattr(self, "binary_intel", None) is not None and self.cfg.binary_intel_enabled:
+            try:
+                feed = self._price_feed_for(w)
+                s_now = feed.current() if feed is not None else None
+                s_open = getattr(_snap, "price", None) if _snap is not None else None
+                sigma_use = None
+                if feed is not None and hasattr(feed, "sigma_per_sec"):
+                    sigma_use = feed.sigma_per_sec(now)
+                _bi_osmani = self.binary_intel.analyze_pre_trade(
+                    intake=self.tradingview,
+                    window=w,
+                    s_now=s_now,
+                    s_open=s_open,
+                    sigma_per_sec=sigma_use,
+                    ttc_s=float(w.seconds_to_close(now)),
+                    window_seconds=float(getattr(w, "window_seconds", 900) or 900),
+                    poly_mid=fill if proposal.side == "up" else (1.0 - fill),
+                    model_p_up=(p_win if proposal.side == "up" else (1.0 - p_win)),
+                    proposed_side=proposal.side,
+                    ask=fill,
+                    now=float(now),
+                    readiness_score=(pre_trade_snap or {}).get("score"),
+                )
+                if _bi_osmani:
+                    if self.binary_intel.hard_block(_bi_osmani):
+                        return False
+                    readiness_scale *= float(self.binary_intel.size_mult(_bi_osmani))
+            except Exception:  # noqa: BLE001
+                logger.exception("osmani binary_intel failed; continuing")
+
         from engine.pulse.sizing import decide_trade_size
         size_decision = decide_trade_size(
             p_win=p_win,
@@ -6829,6 +6995,24 @@ class PulseEngine:
             },
             "pre_trade": pre_trade_snap,
         })
+        if _rsi_ov:
+            _rl = str((_rsi_ov or {}).get("lean") or "").lower()
+            if _rl in ("up", "down"):
+                pos.research["tv_rsi_overlay_aligned"] = (_rl == str(proposal.side).lower())
+        if _bi_osmani:
+            tags = (_bi_osmani.get("research_tags") or {})
+            pos.research["binary_intel_score"] = _bi_osmani.get("composite_score")
+            pos.research["binary_intel_intelligence"] = _bi_osmani.get("intelligence_score")
+            pos.research["binary_intel_recommendation"] = _bi_osmani.get("recommendation")
+            pos.research["binary_intel_size_mult"] = _bi_osmani.get("size_mult")
+            pos.research["binary_intel_z"] = tags.get("binary_intel_z")
+            pos.research["binary_intel_rsi_lean"] = tags.get("binary_intel_rsi_lean")
+            pos.research["binary_intel_rsi_decision"] = tags.get("binary_intel_rsi_decision")
+            pos.research["tv_cross_asset_rsi"] = tags.get("tv_cross_asset_rsi")
+            if tags.get("tv_rsi_overlay_aligned") is not None:
+                pos.research["tv_rsi_overlay_aligned"] = tags.get("tv_rsi_overlay_aligned")
+            if tags.get("binary_intel_rsi_lean") and not pos.research.get("tv_rsi_overlay_lean"):
+                pos.research["tv_rsi_overlay_lean"] = tags.get("binary_intel_rsi_lean")
         if _pe_osmani:
             pos.research["p_exec"] = _pe_osmani.get("p_exec")
             pos.research["p_blend"] = _pe_osmani.get("p_blend")
@@ -7470,6 +7654,9 @@ class PulseEngine:
             "cross_horizon_learner": (self.cross_horizon_learner.report()
                                      if getattr(self, "cross_horizon_learner", None) is not None
                                      else {"enabled": False}),
+            "binary_intel": (self.binary_intel.report()
+                             if getattr(self, "binary_intel", None) is not None
+                             else {"enabled": False}),
             "late_window_entry": self._late_window_report(),
             "tradingview": self._tradingview_report(),
             "tick_reasons": self._reasons,
@@ -7547,6 +7734,9 @@ class PulseEngine:
                               "cross_horizon_learner": (self.cross_horizon_learner.to_state()
                                                         if getattr(self, "cross_horizon_learner", None)
                                                         is not None else {}),
+                              "binary_intel": (self.binary_intel.to_state()
+                                               if getattr(self, "binary_intel", None)
+                                               is not None else {}),
                               "tv_context_gate": self.tv_context_gate.to_state(),
                               "tv_down_bias_gate": self.tv_down_bias_gate.to_state(),
                               "tv_mtf_gate": self.tv_mtf_gate.to_state(),
