@@ -19,6 +19,20 @@ pip install -r requirements.txt -r requirements-dev.txt
 python3 -m pytest
 ```
 
+**Local laptop training (Docker Desktop — Bot 3):**
+
+```powershell
+# Windows (repo root)
+.\scripts\run-bot3-local-training.ps1
+```
+
+```bash
+# macOS / Linux / WSL (repo root)
+./scripts/run-bot3-local-training.sh
+```
+
+Dashboard: http://localhost:8800/dashboard — paper training loop in `hermes-training`.
+
 ---
 
 ## Quant team mandate (ALWAYS follow)

@@ -17,6 +17,14 @@ cd C:\Users\tieut\Bot-1
 .\scripts\sync-vps.ps1
 ```
 
+**Bot 3 local training (Docker Desktop):**
+
+```powershell
+.\scripts\run-bot3-local-training.ps1
+```
+
+Dashboard: http://localhost:8800/dashboard
+
 Profile: `scripts/bot-profile.json`
 
 **Loop runtime:** paper loop runs 24×7 on VPS (`hermes-training`). GitHub Actions

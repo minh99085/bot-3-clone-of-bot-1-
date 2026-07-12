@@ -1,18 +1,26 @@
 {
   "schema": "grok_bot_profile/1.0",
-  "bot_id": "bot1",
+  "bot_id": "bot3",
   "strategy_id": "arb_first_perfect_wr_v1",
-  "github": "https://github.com/minh99085/Bot-1",
-  "local_workspace": "C:\\Users\\tieut\\Bot-1",
-  "vps_host": "144.202.122.120",
-  "vps_user": "root",
-  "vps_repo": "/opt/Bot-1",
-  "ssh_alias": "bot1",
-  "ssh_key": "bot1_grok_temp",
-  "plugin_path": "/opt/Bot-1/hermes-agent-main/plugins/hermes-trading-engine",
-  "dashboard": "http://144.202.122.120/",
-  "bundle_name": "grok-bot1-sync.bundle",
+  "github": "https://github.com/minh99085/bot-3-clone-of-bot-1-",
+  "local_workspace": "C:\\Users\\tieut\\bot-3-clone-of-bot-1-",
+  "vps_host": null,
+  "vps_user": null,
+  "vps_repo": null,
+  "ssh_alias": null,
+  "ssh_key": null,
+  "plugin_path": "hermes-agent-main/plugins/hermes-trading-engine",
+  "dashboard": "http://localhost:8800/dashboard",
+  "bundle_name": null,
   "scheduled_task": null,
   "babysit_autopilot": false,
-  "standalone": true
+  "standalone": true,
+  "local_training": {
+    "setup_script_ps1": "scripts/run-bot3-local-training.ps1",
+    "setup_script_sh": "scripts/run-bot3-local-training.sh",
+    "compose_files": [
+      "hermes-agent-main/plugins/hermes-trading-engine/docker-compose.yml",
+      "hermes-agent-main/plugins/hermes-trading-engine/docker-compose.local.yml"
+    ]
+  }
 }
