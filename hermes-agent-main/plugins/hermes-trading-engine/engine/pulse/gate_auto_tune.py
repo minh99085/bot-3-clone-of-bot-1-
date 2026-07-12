@@ -163,6 +163,18 @@ class GateAutoTuner:
         action = self._decide(roll)
         if action is None:
             return None
+        # CHRONOS Layer B: walk-forward holdout veto before applying gate change.
+        if action == "loosen" and getattr(engine, "chronos", None) is not None:
+            try:
+                positions = list(getattr(getattr(engine, "ledger", None), "positions", {}).values())
+                approval = engine.chronos.validate_policy_action(
+                    positions=positions, action=action,
+                    kill_wr=float(self.cfg.kill_wr),
+                )
+                if not approval.get("approved"):
+                    return None
+            except Exception:  # noqa: BLE001
+                pass
         # SAWR meta-arbitration: do not loosen when win-rate kill floor is active.
         if action == "loosen" and getattr(engine, "sawr", None) is not None:
             try:

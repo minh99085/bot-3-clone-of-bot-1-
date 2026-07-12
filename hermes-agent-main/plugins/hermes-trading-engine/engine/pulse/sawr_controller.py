@@ -398,6 +398,18 @@ class SawrController:
         action = self._decide(roll)
         if action is None:
             return None
+        # CHRONOS Layer B: veto loosen if holdout Wilson LB below kill floor.
+        if action == "loosen" and hasattr(engine, "chronos") and engine.chronos is not None:
+            try:
+                positions = list(getattr(getattr(engine, "ledger", None), "positions", {}).values())
+                approval = engine.chronos.validate_policy_action(
+                    positions=positions, action="loosen",
+                    kill_wr=float(self.cfg.kill_wr),
+                )
+                if not approval.get("approved"):
+                    return None
+            except Exception:  # noqa: BLE001
+                pass
 
         scale = self.step_scale()
         cfg = engine.cfg

@@ -545,6 +545,12 @@ class PulseConfig:
     sawr_fill_weight: float = 0.35
     sawr_kill_penalty: float = 2.0
     sawr_cooldown: int = 5
+    # CHRONOS — pre-decision walk-forward dry-run before size/trade authority.
+    chronos_enabled: bool = True
+    chronos_min_cohort_n: int = 4
+    chronos_proceed_cvs: float = 0.05
+    chronos_exploration_rate: float = 0.12
+    chronos_kill_wr: float = 0.48
     # RSI 30/70 band heartbeats (separate FIFO; Grok + MC context).
     tradingview_rsi_band_history_per_symbol: int = 50
     tv_rsi_band_enabled: bool = True
@@ -1216,6 +1222,12 @@ class PulseConfig:
             sawr_fill_weight=_envf("PULSE_SAWR_FILL_WEIGHT", 0.35),
             sawr_kill_penalty=_envf("PULSE_SAWR_KILL_PENALTY", 2.0),
             sawr_cooldown=int(_envf("PULSE_SAWR_COOLDOWN", 5)),
+            chronos_enabled=str(os.getenv("PULSE_CHRONOS_ENABLED", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            chronos_min_cohort_n=int(_envf("PULSE_CHRONOS_MIN_COHORT_N", 4)),
+            chronos_proceed_cvs=_envf("PULSE_CHRONOS_PROCEED_CVS", 0.05),
+            chronos_exploration_rate=_envf("PULSE_CHRONOS_EXPLORATION_RATE", 0.12),
+            chronos_kill_wr=_envf("PULSE_CHRONOS_KILL_WR", 0.48),
             tradingview_rsi_band_history_per_symbol=int(
                 _envf("PULSE_TV_RSI_BAND_HISTORY_PER_SYMBOL", 50)),
             tv_rsi_band_enabled=str(
@@ -1631,6 +1643,15 @@ class PulseEngine:
             fill_weight=float(getattr(self.cfg, "sawr_fill_weight", 0.35)),
             kill_penalty=float(getattr(self.cfg, "sawr_kill_penalty", 2.0)),
             cooldown_settlements=int(getattr(self.cfg, "sawr_cooldown", 5)),
+        ))
+        # CHRONOS — invented pre-decision walk-forward validator (dry-run before size/trade).
+        from engine.pulse.chronos_validator import ChronosConfig, ChronosValidator
+        self.chronos = ChronosValidator(ChronosConfig(
+            enabled=bool(getattr(self.cfg, "chronos_enabled", True)),
+            min_cohort_n=int(getattr(self.cfg, "chronos_min_cohort_n", 4)),
+            proceed_cvs=float(getattr(self.cfg, "chronos_proceed_cvs", 0.05)),
+            exploration_rate=float(getattr(self.cfg, "chronos_exploration_rate", 0.12)),
+            kill_wr=float(getattr(self.cfg, "chronos_kill_wr", 0.48)),
         ))
         self.reconciler = LifecycleReconciler()   # GS-Quant-style candidate lifecycle audit
         self.gate_obs = GateObservations()        # orderbook-reality observations seen at the gate
@@ -2248,6 +2269,8 @@ class PulseEngine:
                 self.binary_intel.load_state(acct.get("binary_intel") or {})
             if getattr(self, "sawr", None) is not None:
                 self.sawr.load_state(acct.get("sawr") or {})
+            if getattr(self, "chronos", None) is not None:
+                self.chronos.load_state(acct.get("chronos") or {})
         self.tv_context_gate.load_state(acct.get("tv_context_gate") or {})
         self.tv_down_bias_gate.load_state(acct.get("tv_down_bias_gate") or {})
         self.tv_mtf_gate.load_state(acct.get("tv_mtf_gate") or {})
@@ -7007,6 +7030,34 @@ class PulseEngine:
             except Exception:  # noqa: BLE001
                 logger.exception("osmani sawr affinity failed; continuing")
 
+        # CHRONOS — walk-forward cohort dry-run before bet size (invented pre-decision test).
+        _chronos_cert = None
+        if getattr(self, "chronos", None) is not None and bool(
+                getattr(self.cfg, "chronos_enabled", True)):
+            try:
+                from engine.pulse.chronos_validator import asset_from_slug, lane_from_slug
+                _slug_c = str(getattr(w, "series_slug", "") or "").lower()
+                _ws_c = int(getattr(w, "window_seconds", 900) or 900)
+                _chronos_cert = self.chronos.validate_trade(
+                    positions=self.ledger.positions.values(),
+                    asset=asset_from_slug(_slug_c),
+                    lane=lane_from_slug(_slug_c, _ws_c),
+                    side=str(proposal.side),
+                    ask=float(fill),
+                    now=float(now),
+                    ttc_s=float(w.seconds_to_close(now)),
+                    window_seconds=float(_ws_c),
+                    model_p_win=float(p_win if proposal.side == "up" else (1.0 - p_win)),
+                )
+                if _chronos_cert.verdict == "block" and not _chronos_cert.exploration:
+                    return False
+                if _chronos_cert.verdict in ("probe", "cold_probe"):
+                    readiness_scale = min(readiness_scale, 1.0)
+                if float(_chronos_cert.size_cap_mult) < 1.0:
+                    readiness_scale *= float(_chronos_cert.size_cap_mult)
+            except Exception:  # noqa: BLE001
+                logger.exception("osmani chronos dry-run failed; continuing")
+
         from engine.pulse.sizing import decide_trade_size
         size_decision = decide_trade_size(
             p_win=p_win,
@@ -7750,6 +7801,9 @@ class PulseEngine:
             "sawr": (self.sawr.report()
                      if getattr(self, "sawr", None) is not None
                      else {"enabled": False}),
+            "chronos": (self.chronos.report()
+                        if getattr(self, "chronos", None) is not None
+                        else {"enabled": False}),
             "late_window_entry": self._late_window_report(),
             "tradingview": self._tradingview_report(),
             "tick_reasons": self._reasons,
@@ -7833,6 +7887,9 @@ class PulseEngine:
                               "sawr": (self.sawr.to_state()
                                        if getattr(self, "sawr", None)
                                        is not None else {}),
+                              "chronos": (self.chronos.to_state()
+                                          if getattr(self, "chronos", None)
+                                          is not None else {}),
                               "tv_context_gate": self.tv_context_gate.to_state(),
                               "tv_down_bias_gate": self.tv_down_bias_gate.to_state(),
                               "tv_mtf_gate": self.tv_mtf_gate.to_state(),

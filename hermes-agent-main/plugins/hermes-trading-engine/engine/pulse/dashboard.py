@@ -439,6 +439,24 @@ function buildRows(s){
     addRow(rows,'SAWR','OFF','enable PULSE_SAWR_ENABLED','yellow');
   }
 
+  addSection(rows,'CHRONOS pre-decision dry-run');
+  const chron=s.chronos||{};
+  const lc=chron.last_certificate||{};
+  if(chron.enabled!==false){
+    addRow(rows,'Trade certificate',
+      'verdict '+(lc.verdict||'—')+' · CVS '+f(lc.cvs,3),
+      'cohort n='+f(lc.cohort_n,0)+' · w_lb '+(lc.wilson_lb!=null?(lc.wilson_lb*100).toFixed(0)+'%':'—')
+      +' · kelly_dry '+f(lc.kelly_dry_run,3),
+      lc.verdict==='block'?'yellow':'green');
+    addRow(rows,'Replay stats',
+      'issued '+f(chron.certificates_issued,0)+' · blocked '+f(chron.blocked,0)
+      +' · probed '+f(chron.probed,0)+' · proceeded '+f(chron.proceeded,0),
+      'policy_vetoed '+f(chron.policy_vetoed,0)+' · walk-forward before size',
+      (chron.blocked||0)>(chron.proceeded||0)?'yellow':'green');
+  }else{
+    addRow(rows,'CHRONOS','OFF','enable PULSE_CHRONOS_ENABLED','yellow');
+  }
+
   addSection(rows,'Entry timing · sizing · pre-trade');
   const band=he.target_entry_band_s||[he.min_seconds_since_open,he.max_seconds_since_open];
   addRow(rows,'Hourly entry band',

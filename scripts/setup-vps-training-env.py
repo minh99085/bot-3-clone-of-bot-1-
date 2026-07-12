@@ -53,6 +53,8 @@ VPS_OVERRIDES = {
     # SAWR + GateAutoTuner tighten on low WR — off for throughput training.
     "PULSE_SAWR_ENABLED": "0",
     "PULSE_GATE_AUTO_TUNE_ENABLED": "0",
+    "PULSE_CHRONOS_ENABLED": "1",
+    "PULSE_CHRONOS_EXPLORATION_RATE": "0.15",
     "PULSE_TRIAGE_TREND_SOURCE": "price",
     "PULSE_TRADINGVIEW_SIGNAL_GATE": "0",
     # Off during training — legacy tick path only; Osmani Discovery is price-trend authority.
