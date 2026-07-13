@@ -15,6 +15,7 @@ import argparse
 import csv
 import json
 import logging
+import os
 import sys
 import time
 from dataclasses import asdict, dataclass
@@ -24,8 +25,25 @@ from typing import Any, Optional
 
 import httpx
 
-ROOT = Path(__file__).resolve().parents[2]
-ENGINE = ROOT / "hermes-agent-main" / "plugins" / "hermes-trading-engine"
+SCRIPT = Path(__file__).resolve()
+
+
+def _resolve_engine_root() -> Path:
+    """Repo checkout or /app inside hermes-training/backfill containers."""
+    repo_root = SCRIPT.parents[2]
+    candidates = (
+        repo_root / "hermes-agent-main" / "plugins" / "hermes-trading-engine",
+        Path("/app"),
+        Path("/backfill_engine"),
+    )
+    for candidate in candidates:
+        if (candidate / "engine" / "pulse" / "markets.py").is_file():
+            return candidate
+    return candidates[0]
+
+
+ENGINE = _resolve_engine_root()
+ROOT = ENGINE.parents[2] if ENGINE.name == "hermes-trading-engine" else ENGINE
 if str(ENGINE) not in sys.path:
     sys.path.insert(0, str(ENGINE))
 
@@ -524,7 +542,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Download Polymarket BTC/ETH 15m+1h training data")
     parser.add_argument(
         "--output",
-        default=str(ROOT / "data" / "polymarket-training"),
+        default=os.getenv(
+            "BACKFILL_OUTPUT",
+            str(ROOT / "data" / "polymarket-training"),
+        ),
         help="Output directory (use D:\\polymarket-training on your Samsung T7)",
     )
     parser.add_argument("--days", type=int, default=30, help="Days of closed windows to fetch")

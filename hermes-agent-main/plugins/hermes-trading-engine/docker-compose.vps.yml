@@ -11,3 +11,26 @@ services:
     build:
       args:
         RUN_TESTS: "0"
+
+  # Persistent 30d Polymarket backfill — survives bot deploys/rebuilds via restart:unless-stopped.
+  hermes-backfill:
+    build:
+      context: .
+      args:
+        RUN_TESTS: "0"
+    image: bot3-vps-hermes-backfill
+    container_name: hermes-backfill
+    depends_on:
+      - hermes-trading-engine
+    volumes:
+      - hte_data:/data
+      # Repo scripts (../../../ = Bot-3 root from this plugin dir).
+      - ../../../scripts/polymarket-backfill:/backfill:ro
+    environment:
+      PYTHONPATH: /app
+      BACKFILL_OUTPUT: /data/polymarket-training
+      BACKFILL_DAYS: "${BACKFILL_DAYS:-30}"
+      BACKFILL_LOG: /data/polymarket-backfill.log
+      BACKFILL_SCRIPT: /backfill/download_crypto_windows.py
+    command: ["/bin/sh", "/backfill/backfill-watchdog.sh"]
+    restart: unless-stopped
