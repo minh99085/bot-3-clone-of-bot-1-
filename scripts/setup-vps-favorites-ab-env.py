@@ -29,15 +29,13 @@ FAVORITES_OVERRIDES = {
     "PULSE_TRAINING_THROUGHPUT_MODE": "0",
     "PULSE_EXEC_TRAINING_MIN_EV": "0",
     "PULSE_TRAINING_MIN_EDGE": "0.003",
-    # Favorites floor tightened from offline holdout: ask>=0.48 alone ≈ coin-flip
-    # live (51.6%); mid-band favorites (ask≈0.60+) showed ~63–66% WR with +EV.
-    # Tail-high (~0.82) hits 84–86% WR but thin EV — floor 0.58 targets mid+.
-    "PULSE_MIN_ENTRY_PRICE": "0.58",
-    "PULSE_TRIAGE_BTC_SWEET_MIN": "0.58",
+    # Favorites floor — ask>=0.52 (loosened from 0.58 for more fills while learning).
+    "PULSE_MIN_ENTRY_PRICE": "0.52",
+    "PULSE_TRIAGE_BTC_SWEET_MIN": "0.52",
     "PULSE_TRIAGE_BTC_SWEET_MAX": "0.78",
-    "PULSE_TRIAGE_ETH_SWEET_MIN": "0.58",
+    "PULSE_TRIAGE_ETH_SWEET_MIN": "0.52",
     "PULSE_TRIAGE_ETH_SWEET_MAX": "0.78",
-    "PULSE_TIER_SWEET_MIN": "0.58",
+    "PULSE_TIER_SWEET_MIN": "0.52",
     "PULSE_TIER_SWEET_MAX": "0.78",
     # Cell learning Phase-2 on tier + Osmani (offline warm-start in /data).
     "PULSE_CELL_LEARNING_ENABLED": "1",
@@ -149,7 +147,7 @@ def main() -> int:
     env_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     print(f"Wrote favorites A/B profile to {env_path}")
     print("  PULSE_AB_PROFILE=favorites")
-    print("  PULSE_MIN_ENTRY_PRICE=%s" % updates.get("PULSE_MIN_ENTRY_PRICE", "0.58"))
+    print("  PULSE_MIN_ENTRY_PRICE=%s" % updates.get("PULSE_MIN_ENTRY_PRICE", "0.52"))
     print("  PULSE_CELL_LEARNING_PHASE2_ENABLED=1")
     return 0
 

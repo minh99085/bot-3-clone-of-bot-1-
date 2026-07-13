@@ -2217,9 +2217,9 @@ class PulseEngine:
                 setattr(self.lane_15m_learner.policy, k, v)
         # Never let offline lane prior undercut the favorites floor.
         try:
-            floor = float(os.getenv("PULSE_MIN_ENTRY_PRICE", "0.58") or 0.58)
+            floor = float(os.getenv("PULSE_MIN_ENTRY_PRICE", "0.52") or 0.52)
         except (TypeError, ValueError):
-            floor = 0.58
+            floor = 0.52
         if float(getattr(self.lane_15m_learner.policy, "min_entry_price", 0) or 0) < floor:
             self.lane_15m_learner.policy.min_entry_price = floor
         sweet_min = float(getattr(self.lane_15m_learner.policy, "sweet_min", 0) or 0)

@@ -54,10 +54,10 @@ def test_policy_off_by_default(monkeypatch):
 
 def test_favorites_blocks_below_min_entry(monkeypatch):
     monkeypatch.setenv("PULSE_AB_PROFILE", "favorites")
-    monkeypatch.setenv("PULSE_MIN_ENTRY_PRICE", "0.58")
+    monkeypatch.setenv("PULSE_MIN_ENTRY_PRICE", "0.52")
     assert favorites_policy_active()
-    assert min_entry_price_from_env() == 0.58
-    res = evaluate_osmani_fill(side="up", ask=0.42, window=_window(), now=1_000_100.0)
+    assert min_entry_price_from_env() == 0.52
+    res = evaluate_osmani_fill(side="up", ask=0.50, window=_window(), now=1_000_100.0)
     assert res.allow is False
     assert res.reason == "favorites_min_entry"
     assert res.ab_profile == "favorites"
@@ -65,8 +65,8 @@ def test_favorites_blocks_below_min_entry(monkeypatch):
 
 def test_favorites_allows_at_floor(monkeypatch):
     monkeypatch.setenv("PULSE_AB_PROFILE", "favorites")
-    monkeypatch.setenv("PULSE_MIN_ENTRY_PRICE", "0.58")
-    res = evaluate_osmani_fill(side="up", ask=0.58, window=_window(), now=1_000_100.0)
+    monkeypatch.setenv("PULSE_MIN_ENTRY_PRICE", "0.52")
+    res = evaluate_osmani_fill(side="up", ask=0.52, window=_window(), now=1_000_100.0)
     assert res.allow is True
     assert res.reason == "favorites_ok"
 

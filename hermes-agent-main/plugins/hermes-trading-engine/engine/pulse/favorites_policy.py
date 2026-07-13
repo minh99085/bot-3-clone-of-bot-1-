@@ -35,9 +35,9 @@ def favorites_policy_active() -> bool:
 
 def min_entry_price_from_env() -> float:
     try:
-        return float(os.getenv("PULSE_MIN_ENTRY_PRICE", "0.58") or 0.58)
+        return float(os.getenv("PULSE_MIN_ENTRY_PRICE", "0.52") or 0.52)
     except (TypeError, ValueError):
-        return 0.58
+        return 0.52
 
 
 def cell_phase2_block_fade() -> bool:
