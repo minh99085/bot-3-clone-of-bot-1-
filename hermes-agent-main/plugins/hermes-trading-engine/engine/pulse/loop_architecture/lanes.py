@@ -77,12 +77,15 @@ class DiscoveryLane:
     def _emit_opportunity(self, w, side: str, ask_f: float, fair: float, now: float,
                           verdict: Optional[TriageVerdict] = None) -> None:
         edge = float((fair if side == "up" else (1.0 - fair)) - ask_f)
-        if edge < self.min_edge:
+        from engine.pulse.training_throughput import training_min_edge, training_throughput_enabled
+        min_edge = training_min_edge() if training_throughput_enabled() else self.min_edge
+        if edge < min_edge:
             return
         from engine.pulse.execution_gate import down_ask_fair_gap_blocks
         import os
         max_gap = float(os.getenv("PULSE_DOWN_MAX_ASK_FAIR_GAP", "0.12") or 0.12)
-        if down_ask_fair_gap_blocks(side=side, ask=ask_f, fair_p_up=fair, max_gap=max_gap):
+        if (not training_throughput_enabled()
+                and down_ask_fair_gap_blocks(side=side, ask=ask_f, fair_p_up=fair, max_gap=max_gap)):
             self.triage_rejected += 1
             return
         mode = (verdict.status if verdict else "TIMER_SWEEP")

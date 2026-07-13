@@ -66,3 +66,13 @@ def training_min_shares() -> float:
         return float(os.getenv("PULSE_TRIAGE_TRAINING_MIN_SHARES", "1") or 1)
     except (TypeError, ValueError):
         return 1.0
+
+
+def training_min_edge() -> float:
+    """Discovery min edge for paper learning (0 = emit on any non-negative fair vs ask)."""
+    if not training_throughput_enabled():
+        return 0.0
+    try:
+        return float(os.getenv("PULSE_TRAINING_MIN_EDGE", "0") or 0)
+    except (TypeError, ValueError):
+        return 0.0
