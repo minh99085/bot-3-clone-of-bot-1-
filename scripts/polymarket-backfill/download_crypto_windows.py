@@ -330,32 +330,51 @@ def backfill(
                 if rec is None:
                     continue
                 key = rec.event_slug or rec.event_id
-                if not key or key in done:
+                if not key:
                     continue
+                trade_path = raw / "trades" / ("%s.jsonl" % rec.condition_id) if rec.condition_id else None
+                if key in done:
+                    if with_trades and trade_path is not None and not trade_path.exists():
+                        log.info("  backfilling trades for %s", key)
+                    else:
+                        continue
 
                 try:
                     gamma_path = raw / "gamma" / spec["series_slug"] / ("%s.json" % key)
-                    _write_json(gamma_path, ev)
+                    if not gamma_path.exists():
+                        _write_json(gamma_path, ev)
 
-                    up_hist = client.fetch_price_history(rec.up_token_id)
-                    down_hist = client.fetch_price_history(rec.down_token_id)
-                    _write_json(raw / "clob" / "prices" / ("%s.json" % rec.up_token_id), up_hist)
-                    _write_json(raw / "clob" / "prices" / ("%s.json" % rec.down_token_id), down_hist)
-                    rec.price_points_up = len(up_hist)
-                    rec.price_points_down = len(down_hist)
+                    up_path = raw / "clob" / "prices" / ("%s.json" % rec.up_token_id)
+                    down_path = raw / "clob" / "prices" / ("%s.json" % rec.down_token_id)
+                    if not up_path.exists():
+                        up_hist = client.fetch_price_history(rec.up_token_id)
+                        _write_json(up_path, up_hist)
+                        rec.price_points_up = len(up_hist)
+                    else:
+                        rec.price_points_up = len(json.loads(up_path.read_text(encoding="utf-8")))
+                    if not down_path.exists():
+                        down_hist = client.fetch_price_history(rec.down_token_id)
+                        _write_json(down_path, down_hist)
+                        rec.price_points_down = len(down_hist)
+                    else:
+                        rec.price_points_down = len(json.loads(down_path.read_text(encoding="utf-8")))
 
-                    if with_trades and rec.condition_id:
+                    if with_trades and rec.condition_id and (trade_path is None or not trade_path.exists()):
                         trades = client.fetch_all_trades(rec.condition_id)
                         rec.trade_count = len(trades)
-                        trade_path = raw / "trades" / ("%s.jsonl" % rec.condition_id)
+                        if trade_path is None:
+                            trade_path = raw / "trades" / ("%s.jsonl" % rec.condition_id)
                         if trade_path.exists():
                             trade_path.unlink()
                         _append_trades_jsonl(trade_path, trades)
                         stats["trades"] += len(trades)
+                    elif trade_path is not None and trade_path.exists():
+                        rec.trade_count = sum(1 for ln in trade_path.read_text(encoding="utf-8").splitlines() if ln.strip())
 
                     records.append(rec)
+                    if key not in done:
+                        stats["windows"] += 1
                     done.add(key)
-                    stats["windows"] += 1
                     ckpt["done"] = sorted(done)
                     ckpt["stats"] = stats
                     if stats["windows"] % 25 == 0:
