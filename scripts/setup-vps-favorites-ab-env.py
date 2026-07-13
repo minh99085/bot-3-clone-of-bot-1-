@@ -149,7 +149,7 @@ def main() -> int:
     env_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     print(f"Wrote favorites A/B profile to {env_path}")
     print("  PULSE_AB_PROFILE=favorites")
-    print("  PULSE_MIN_ENTRY_PRICE=0.48")
+    print("  PULSE_MIN_ENTRY_PRICE=%s" % updates.get("PULSE_MIN_ENTRY_PRICE", "0.58"))
     print("  PULSE_CELL_LEARNING_PHASE2_ENABLED=1")
     return 0
 
