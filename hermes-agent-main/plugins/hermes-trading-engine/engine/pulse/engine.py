@@ -2215,7 +2215,18 @@ class PulseEngine:
         for k, v in pol.items():
             if hasattr(self.lane_15m_learner.policy, k):
                 setattr(self.lane_15m_learner.policy, k, v)
-        logger.info("loaded lane_15m offline prior policy from %s", prior_path.name)
+        # Never let offline lane prior undercut the favorites floor.
+        try:
+            floor = float(os.getenv("PULSE_MIN_ENTRY_PRICE", "0.58") or 0.58)
+        except (TypeError, ValueError):
+            floor = 0.58
+        if float(getattr(self.lane_15m_learner.policy, "min_entry_price", 0) or 0) < floor:
+            self.lane_15m_learner.policy.min_entry_price = floor
+        sweet_min = float(getattr(self.lane_15m_learner.policy, "sweet_min", 0) or 0)
+        if sweet_min < floor:
+            self.lane_15m_learner.policy.sweet_min = floor
+        logger.info("loaded lane_15m offline prior policy from %s (floor=%.2f)",
+                    prior_path.name, floor)
 
     def _load_state(self) -> None:
         """Restore the paper ledger + calibration from disk so P&L survives restarts."""
