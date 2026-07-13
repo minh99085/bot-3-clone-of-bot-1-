@@ -2191,6 +2191,32 @@ class PulseEngine:
                            self._baseline["exec_candidates"], self._baseline["exec_accepted"])
             self._persist()
 
+    def _maybe_load_lane_offline_prior(self) -> None:
+        """Apply offline lane_15m policy prior if present and richer than live policy."""
+        if getattr(self, "lane_15m_learner", None) is None:
+            return
+        prior_path = self._data_dir / "lane_15m_learner_offline_prior.json"
+        if not prior_path.exists():
+            return
+        try:
+            data = json.loads(prior_path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            return
+        pol = data.get("policy") or {}
+        if not pol:
+            return
+        # Only adopt offline policy knobs when live learner has not yet self-adjusted,
+        # or when explicitly forced via env.
+        force = (os.getenv("PULSE_LANE_OFFLINE_PRIOR", "1") or "1").strip().lower() in (
+            "1", "true", "yes", "on")
+        live_adj = list(getattr(self.lane_15m_learner, "_adjustments", []) or [])
+        if not force and live_adj:
+            return
+        for k, v in pol.items():
+            if hasattr(self.lane_15m_learner.policy, k):
+                setattr(self.lane_15m_learner.policy, k, v)
+        logger.info("loaded lane_15m offline prior policy from %s", prior_path.name)
+
     def _load_state(self) -> None:
         """Restore the paper ledger + calibration from disk so P&L survives restarts."""
         if not self._ledger_path.exists():
@@ -2261,12 +2287,22 @@ class PulseEngine:
                 self.p_exec_tune.load_state(acct.get("p_exec_tune") or {})
             if getattr(self, "cell_learning", None) is not None:
                 self.cell_learning.load_state(acct.get("cell_learning") or {})
+                # Warm-start merge: offline import writes directional_cell_learning.json;
+                # if the file has cells missing from ledger (or richer counts), fold them in.
+                try:
+                    self.cell_learning.merge_from_disk()
+                except Exception:  # noqa: BLE001
+                    logger.exception("cell learning offline merge_from_disk failed")
             self.pre_trade_evidence.load_state(acct.get("pre_trade_evidence") or {})
             self.pre_trade_gate.load_state(acct.get("pre_trade_gate") or {})
             if getattr(self, "gate_auto_tuner", None) is not None:
                 self.gate_auto_tuner.load_state(acct.get("gate_auto_tuner") or {})
             if getattr(self, "lane_15m_learner", None) is not None:
                 self.lane_15m_learner.load_state(acct.get("lane_15m_learner") or {})
+                try:
+                    self._maybe_load_lane_offline_prior()
+                except Exception:  # noqa: BLE001
+                    logger.exception("lane_15m offline prior load failed")
             if getattr(self, "cross_horizon_learner", None) is not None:
                 self.cross_horizon_learner.load_state(acct.get("cross_horizon_learner") or {})
             if getattr(self, "binary_intel", None) is not None:

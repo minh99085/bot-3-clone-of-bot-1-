@@ -393,6 +393,50 @@ class DirectionalCellLearningStore:
     def load_state(self, data: dict) -> None:
         self.cells = {k: CellStats.from_dict(v) for k, v in (data or {}).get("cells", {}).items()}
 
+    def merge_cells_dict(self, other: dict) -> int:
+        """Additive merge of another cells dict. Returns number of keys touched."""
+        other_cells = (other or {}).get("cells") or other or {}
+        touched = 0
+        for key, stats in other_cells.items():
+            if not isinstance(stats, dict):
+                continue
+            cur = self.cells.get(key) or CellStats()
+            self.cells[key] = CellStats(
+                evals=int(cur.evals) + int(stats.get("evals", 0) or 0),
+                trades=int(cur.trades) + int(stats.get("trades", 0) or 0),
+                wins=int(cur.wins) + int(stats.get("wins", 0) or 0),
+                pnl_usd=float(cur.pnl_usd) + float(stats.get("pnl_usd", 0) or 0),
+            )
+            touched += 1
+        return touched
+
+    def merge_from_disk(self) -> int:
+        """Fold /data/directional_cell_learning.json into in-memory cells (offline import)."""
+        if self.path is None or not self.path.exists():
+            return 0
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            logger.exception("cell learning merge_from_disk read failed")
+            return 0
+        if data.get("schema") not in (None, "directional_cell_learning/2.0"):
+            return 0
+        # Only add keys / counts that are richer than in-memory (avoid double-count on restart).
+        # Strategy: for each disk key, if in-memory trades < disk trades, take disk row as floor.
+        disk_cells = data.get("cells") or {}
+        touched = 0
+        for key, stats in disk_cells.items():
+            if not isinstance(stats, dict):
+                continue
+            disk_trades = int(stats.get("trades", 0) or 0)
+            cur = self.cells.get(key)
+            if cur is None or int(cur.trades) < disk_trades:
+                self.cells[key] = CellStats.from_dict(stats)
+                touched += 1
+        if touched and self.path is not None:
+            self.save()
+        return touched
+
 
 def apply_phase2_to_tier_decision(td, adj: dict, *, ask_up, ask_down, down_only: bool = False):
     """Apply a Phase-2 cell posterior nudge to a :class:`TierDecision` (mutates in place)."""

@@ -54,9 +54,9 @@ def test_policy_off_by_default(monkeypatch):
 
 def test_favorites_blocks_below_min_entry(monkeypatch):
     monkeypatch.setenv("PULSE_AB_PROFILE", "favorites")
-    monkeypatch.setenv("PULSE_MIN_ENTRY_PRICE", "0.48")
+    monkeypatch.setenv("PULSE_MIN_ENTRY_PRICE", "0.58")
     assert favorites_policy_active()
-    assert min_entry_price_from_env() == 0.48
+    assert min_entry_price_from_env() == 0.58
     res = evaluate_osmani_fill(side="up", ask=0.42, window=_window(), now=1_000_100.0)
     assert res.allow is False
     assert res.reason == "favorites_min_entry"
@@ -65,13 +65,15 @@ def test_favorites_blocks_below_min_entry(monkeypatch):
 
 def test_favorites_allows_at_floor(monkeypatch):
     monkeypatch.setenv("PULSE_AB_PROFILE", "favorites")
-    res = evaluate_osmani_fill(side="up", ask=0.48, window=_window(), now=1_000_100.0)
+    monkeypatch.setenv("PULSE_MIN_ENTRY_PRICE", "0.58")
+    res = evaluate_osmani_fill(side="up", ask=0.58, window=_window(), now=1_000_100.0)
     assert res.allow is True
     assert res.reason == "favorites_ok"
 
 
 def test_cell_phase2_fade_blocks(monkeypatch):
     monkeypatch.setenv("PULSE_AB_PROFILE", "favorites")
+    monkeypatch.setenv("PULSE_MIN_ENTRY_PRICE", "0.50")
     monkeypatch.setenv("PULSE_CELL_PHASE2_BLOCK_FADE", "1")
     with tempfile.TemporaryDirectory() as td:
         store = DirectionalCellLearningStore(Path(td), min_samples=3)
@@ -95,6 +97,7 @@ def test_cell_phase2_fade_blocks(monkeypatch):
 
 def test_cell_phase2_follow_boosts_size(monkeypatch):
     monkeypatch.setenv("PULSE_AB_PROFILE", "favorites")
+    monkeypatch.setenv("PULSE_MIN_ENTRY_PRICE", "0.50")
     with tempfile.TemporaryDirectory() as td:
         store = DirectionalCellLearningStore(Path(td), min_samples=3)
         key = CellKey("btc", "0-5m", "unknown", "∅", "sweet", horizon="15m", side="up")

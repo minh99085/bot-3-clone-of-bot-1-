@@ -29,25 +29,29 @@ FAVORITES_OVERRIDES = {
     "PULSE_TRAINING_THROUGHPUT_MODE": "0",
     "PULSE_EXEC_TRAINING_MIN_EV": "0",
     "PULSE_TRAINING_MIN_EDGE": "0.003",
-    # Favorites floor + sweet band (30d replay recommendation).
-    "PULSE_MIN_ENTRY_PRICE": "0.48",
-    "PULSE_TRIAGE_BTC_SWEET_MIN": "0.48",
-    "PULSE_TRIAGE_BTC_SWEET_MAX": "0.72",
-    "PULSE_TRIAGE_ETH_SWEET_MIN": "0.48",
-    "PULSE_TRIAGE_ETH_SWEET_MAX": "0.72",
-    "PULSE_TIER_SWEET_MIN": "0.48",
-    "PULSE_TIER_SWEET_MAX": "0.72",
+    # Favorites floor tightened from offline holdout: ask>=0.48 alone ≈ coin-flip
+    # live (51.6%); mid-band favorites (ask≈0.60+) showed ~63–66% WR with +EV.
+    # Tail-high (~0.82) hits 84–86% WR but thin EV — floor 0.58 targets mid+.
+    "PULSE_MIN_ENTRY_PRICE": "0.58",
+    "PULSE_TRIAGE_BTC_SWEET_MIN": "0.58",
+    "PULSE_TRIAGE_BTC_SWEET_MAX": "0.78",
+    "PULSE_TRIAGE_ETH_SWEET_MIN": "0.58",
+    "PULSE_TRIAGE_ETH_SWEET_MAX": "0.78",
+    "PULSE_TIER_SWEET_MIN": "0.58",
+    "PULSE_TIER_SWEET_MAX": "0.78",
     # Cell learning Phase-2 on tier + Osmani (offline warm-start in /data).
     "PULSE_CELL_LEARNING_ENABLED": "1",
     "PULSE_CELL_LEARNING_PHASE2_ENABLED": "1",
     "PULSE_CELL_LEARNING_MIN_SAMPLES": "8",
     "PULSE_CELL_PHASE2_BLOCK_FADE": "1",
+    "PULSE_LANE_OFFLINE_PRIOR": "1",
+    "PULSE_LANE_15M_LEARN_ENABLED": "1",
     # CHRONOS active (training mode had it off).
     "PULSE_CHRONOS_ENABLED": "1",
     "PULSE_CHRONOS_EXPLORATION_RATE": "0.10",
     # Moderate discovery — not starvation, not firehose.
-    "PULSE_TRIAGE_FLAT_EXPLORATION_RATE": "0.35",
-    "PULSE_TRIAGE_TREND_EXPLORATION_RATE": "0.25",
+    "PULSE_TRIAGE_FLAT_EXPLORATION_RATE": "0.30",
+    "PULSE_TRIAGE_TREND_EXPLORATION_RATE": "0.20",
     "PULSE_EXEC_MIN_EV": "0",
     "PULSE_EXEC_MAX_SPREAD": "0.08",
     "PULSE_SAWR_ENABLED": "0",
