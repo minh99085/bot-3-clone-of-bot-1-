@@ -17,7 +17,7 @@ log() {
 
 is_running() {
   for pid in $(ls /proc 2>/dev/null | grep -E '^[0-9]+$' || true); do
-    cmd=$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)
+    cmd=$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null) || continue
     case "$cmd" in
       *download_crypto_windows.py*) return 0 ;;
     esac

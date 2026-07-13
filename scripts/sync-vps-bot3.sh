@@ -98,7 +98,7 @@ cd $PLUGIN_PATH
 docker compose -f docker-compose.yml -f docker-compose.vps.yml down --remove-orphans
 docker compose -f docker-compose.yml -f docker-compose.vps.yml build
 docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --force-recreate --remove-orphans
-bash scripts/polymarket-backfill/install-vps-backfill-autostart.sh
+bash $VPS_REPO/scripts/polymarket-backfill/install-vps-backfill-autostart.sh
 sleep 8
 docker ps --format '{{.Names}} {{.Status}}' | grep -E 'hermes-training|hermes-trading-engine|hermes-backfill' || true
 EOF
