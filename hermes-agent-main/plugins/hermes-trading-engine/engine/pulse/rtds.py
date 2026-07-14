@@ -39,7 +39,8 @@ class RTDSClient:
 
     def __init__(self, *, subscriptions: Optional[list] = None, url: str = RTDS_URL,
                  reconnect_delay_s: float = 3.0, spike_filter: float = 0.10,
-                 max_age_s: float = 30.0, spike_filter_fresh_s: float = 10.0):
+                 max_age_s: float = 30.0, spike_filter_fresh_s: float = 10.0,
+                 stale_reconnect_s: float = 20.0):
         # subscriptions: list of (topic, symbol)
         self.subscriptions = subscriptions or [(TOPIC_CHAINLINK, "btc/usd"),
                                                (TOPIC_BINANCE, "btcusdt")]
@@ -51,6 +52,10 @@ class RTDSClient:
         # would lock the price at a wrong level — so we FLUSH to the new value instead).
         self.max_age_s = float(max_age_s)
         self.spike_filter_fresh_s = float(spike_filter_fresh_s)
+        # Force a reconnect if no data frame arrives within this window. Guards
+        # against a HALF-OPEN socket where recv() keeps timing out but the manual
+        # PING send still succeeds — otherwise the price freezes indefinitely.
+        self.stale_reconnect_s = float(stale_reconnect_s)
         self._latest: dict = {}            # (topic, symbol) -> (price, ts_ms, observed_ts)
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -160,6 +165,7 @@ class RTDSClient:
                     ws.send(sub)
                     self.connected = True
                     last_ping = time.time()
+                    last_data = time.time()
                     while not self._stop.is_set():
                         now = time.time()
                         if now - last_ping >= PING_INTERVAL_S:
@@ -168,12 +174,20 @@ class RTDSClient:
                             except Exception:  # noqa: BLE001
                                 break
                             last_ping = now
+                        # Half-open watchdog: no frame in stale_reconnect_s -> reconnect.
+                        if (self.stale_reconnect_s > 0
+                                and now - last_data > self.stale_reconnect_s):
+                            logger.warning(
+                                "RTDS stale %.0fs (no data) — forcing reconnect",
+                                now - last_data)
+                            break
                         try:
                             msg = ws.recv(timeout=2.0)
                         except TimeoutError:
                             continue
                         except Exception:  # noqa: BLE001 — connection issue -> reconnect
                             break
+                        last_data = time.time()   # any frame (incl. heartbeat) = live socket
                         parsed = self._parse_update(msg)
                         if parsed:
                             self._record(*parsed)
