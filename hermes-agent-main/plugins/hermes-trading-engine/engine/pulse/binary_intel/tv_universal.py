@@ -17,9 +17,10 @@ from engine.pulse.tv_rsi_overlay import (
 )
 
 
-# Canonical INDEX symbols for Bot 3 (Chainlink settlement oracle).
-BTC_SYMBOLS = ("BTCUSD", "INDEX:BTCUSD", "BTC")
-ETH_SYMBOLS = ("ETHUSD", "INDEX:ETHUSD", "ETH")
+# Bot 3 chart symbols per lane: INDEX *USD (15m/Chainlink) + *USDT (1h/Binance).
+# Both are candidates so the universal 5m feed resolves whichever lane fired.
+BTC_SYMBOLS = ("BTCUSD", "INDEX:BTCUSD", "BTC", "BTCUSDT", "BINANCE:BTCUSDT")
+ETH_SYMBOLS = ("ETHUSD", "INDEX:ETHUSD", "ETH", "ETHUSDT", "BINANCE:ETHUSDT")
 
 
 def _asset_from_window(window) -> str:

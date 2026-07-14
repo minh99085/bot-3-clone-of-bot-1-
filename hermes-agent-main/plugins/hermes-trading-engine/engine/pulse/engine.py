@@ -486,7 +486,10 @@ class PulseConfig:
     # Enabled only when a shared secret is set. Bound to 127.0.0.1 by default (private to host);
     # alerts are candidate signals only — they can never place/resize/bypass a paper trade.
     tradingview_secret: str = ""
-    tradingview_allowed_symbols: tuple = ("BTCUSD", "INDEX:BTCUSD", "BTC/USD", "BTC", "XBTUSD")
+    tradingview_allowed_symbols: tuple = (
+        "BTCUSD", "INDEX:BTCUSD", "BTC/USD", "BTC", "XBTUSD",
+        "ETHUSD", "INDEX:ETHUSD",
+        "BTCUSDT", "BINANCE:BTCUSDT", "ETHUSDT", "BINANCE:ETHUSDT")
     tradingview_bot_name: str = "hermes"
     tradingview_event_id_suffix: str = ""
     tradingview_webhook_host: str = "127.0.0.1"
@@ -1137,7 +1140,8 @@ class PulseConfig:
             tradingview_allowed_symbols=tuple(
                 s.strip().upper() for s in os.getenv(
                     "TRADINGVIEW_ALLOWED_SYMBOLS",
-                    "BTCUSD,INDEX:BTCUSD,BTC/USD,BTC,XBTUSD").split(",")
+                    "BTCUSD,INDEX:BTCUSD,BTC/USD,BTC,XBTUSD,ETHUSD,INDEX:ETHUSD,"
+                    "BTCUSDT,BINANCE:BTCUSDT,ETHUSDT,BINANCE:ETHUSDT").split(",")
                 if s.strip()),
             # bot name: TRADINGVIEW_BOT_NAME takes precedence, else BOT_NAME, else "hermes"
             tradingview_bot_name=((os.getenv("TRADINGVIEW_BOT_NAME") or os.getenv("BOT_NAME")

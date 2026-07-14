@@ -108,3 +108,24 @@ def test_intake_stores_separate_fifo_per_symbol(tmp_path):
     sym1h, rows1h = resolve_bar_close_from_intake(intake, tv_symbol_for_window(w1h))
     assert sym15 == "BTCUSD" and rows15[-1]["direction"] == "DOWN"
     assert sym1h == "BTCUSDT" and rows1h[-1]["direction"] == "UP"
+
+
+def test_usdt_and_eth_symbols_accepted_default_allowlist():
+    """Operator lane charts: INDEX *USD (15m) + BINANCE *USDT (1h) must all land."""
+    from engine.pulse.tradingview import TradingViewIntake, normalize_symbol
+
+    intake = TradingViewIntake(
+        secret="s",
+        allowed_symbols=[
+            "BTCUSD", "INDEX:BTCUSD", "ETHUSD", "INDEX:ETHUSD",
+            "BTCUSDT", "BINANCE:BTCUSDT", "ETHUSDT", "BINANCE:ETHUSDT",
+        ],
+        bot_name="hermes",
+    )
+    for raw in ("INDEX:BTCUSD", "INDEX:ETHUSD", "BINANCE:BTCUSDT", "BINANCE:ETHUSDT",
+                "BTCUSDT", "ETHUSDT"):
+        assert intake._symbol_allowed(normalize_symbol(raw)), raw
+    # USDT must NOT collapse into the USD feature symbol (separate 1h-lane FIFO).
+    assert intake._storage_symbol("BINANCE:BTCUSDT") == "BTCUSDT"
+    assert intake._storage_symbol("BINANCE:ETHUSDT") == "ETHUSDT"
+    assert intake._storage_symbol("INDEX:BTCUSD") == "BTCUSD"
