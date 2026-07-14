@@ -279,6 +279,7 @@ class DirectionalTierEngine:
         self._day_key: Optional[int] = None
         self._daily_pnl: float = 0.0
         self.counts: dict = {t.value: 0 for t in Tier}
+        self.reason_counts: dict = {}        # decision reason -> count (WAIT diagnostics)
         self._last_decision: dict = {}       # immutable ENTRY decision -> grade at settle
 
     # ---- daily loss halt ----
@@ -364,6 +365,7 @@ class DirectionalTierEngine:
             ttc_s, sso, rising, jump_risk, mtf_terms, prior, fair_disp, open_corr,
             window_seconds=float(window_seconds or 3600.0), overlay=overlay)
         self.counts[dec.tier.value] = self.counts.get(dec.tier.value, 0) + 1
+        self.reason_counts[dec.reason] = self.reason_counts.get(dec.reason, 0) + 1
         return dec
 
     def record_entry(self, window_key: str, decision: TierDecision) -> None:
@@ -506,6 +508,8 @@ class DirectionalTierEngine:
             "enabled": True, "bankroll_usd": self.cfg.bankroll_usd,
             "daily_pnl": round(self._daily_pnl, 2), "halted": self._halted(),
             "tier_counts": dict(self.counts), "total_decisions": total,
+            "reason_counts": dict(sorted(
+                self.reason_counts.items(), key=lambda kv: kv[1], reverse=True)),
             "lr_table": self.lrs.table,
             "open_windows_tracked": len(self._last_decision),
         }
