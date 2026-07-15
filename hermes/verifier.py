@@ -91,8 +91,11 @@ def _match_bucket(signal: Signal, buckets: list[EdgeBucket]) -> Optional[EdgeBuc
 
 
 def _lessons_avoid(signal: Signal, lessons: str) -> list[str]:
+    """Return avoid-list hits scoped to this signal's series/sleeve."""
     hits: list[str] = []
     lower = lessons.lower()
+    series = signal.market_series or ""
+    sid = signal.substrategy_id or ""
     compact = lower.replace(" ", "")
     keys = [
         f"avoid:{signal.entry_mode.value}",
@@ -101,11 +104,14 @@ def _lessons_avoid(signal: Signal, lessons: str) -> list[str]:
         f"avoid:h{signal.hourly_bucket}",
     ]
     for k in keys:
-        if k.replace(" ", "") in compact:
+        if k.replace(" ", "") not in compact:
+            continue
+        if series and f"`{series}`" in lower:
+            hits.append(k)
+        elif sid and sid in lessons:
             hits.append(k)
     if signal.avoid_bucket_hit:
         hits.append("signal.avoid_bucket_hit=True")
-    # Explicit osmani gate
     if signal.entry_mode == EntryMode.OSMANI_LANE:
         hits.append("osmani_lane gated by policy")
     return hits

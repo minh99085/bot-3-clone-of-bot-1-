@@ -181,6 +181,9 @@ def avoid_bucket_hit(
     hour: int,
     buckets: list[EdgeBucket],
     lessons: str,
+    *,
+    series: str = "",
+    substrategy_id: str = "",
 ) -> bool:
     for b in buckets:
         if b.avoid and b.entry_mode == mode:
@@ -188,8 +191,16 @@ def avoid_bucket_hit(
         if b.avoid and b.regime == regime and b.hourly_bucket == hour:
             return True
     lower = lessons.lower()
-    if f"avoid:{mode.value}" in lower.replace(" ", ""):
-        return True
+    compact = lower.replace(" ", "")
+    mode_key = f"avoid:{mode.value}"
+    if mode_key in compact:
+        # Series/sleeve-scoped AVOID only — do not block eth5 on btc5 lesson.
+        if series and f"`{series}`" in lower:
+            return True
+        if substrategy_id and substrategy_id in lessons:
+            return True
+        if f"hour={hour}" in lower and series and f"`{series}`" in lower:
+            return True
     if LANE_STATUS.get(mode) in (LaneStatus.GATED, LaneStatus.KILLED):
         return True
     return False
@@ -305,7 +316,14 @@ def generate_signal(
             tier = ConfidenceTier.C
 
     hit_avoid = avoid_bucket_hit(
-        mode, candidate.regime, candidate.hourly_bucket, buckets, lessons
+        mode,
+        candidate.regime,
+        candidate.hourly_bucket,
+        buckets,
+        lessons,
+        series=infer_market_series(
+            candidate.market_id, candidate.slug, candidate.question
+        ),
     )
     stable = pre_entry_stability(candidate)
 

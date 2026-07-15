@@ -19,10 +19,10 @@ risk_budget: 0.20
 # Baseline product floor is 0.06 / 0.92 / 0.78|0.22; production modes use
 # stricter values. Keep min_edge ≥ 0.12 — lower values can trip hard-DD lockout.
 min_edge: 0.12
-min_conviction: 0.94
-min_conviction_guard: 0.96
-extreme_q_high: 0.86
-extreme_q_low: 0.14
+min_conviction: 0.90
+min_conviction_guard: 0.94
+extreme_q_high: 0.85
+extreme_q_low: 0.15
 early_exit_conviction: 0.35
 
 # Drawdown / rolling WR guards

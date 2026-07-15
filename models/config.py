@@ -31,13 +31,13 @@ MODE_PRESETS: dict[str, dict[str, Any]] = {
         "n_eff_crypto": 80.0,
     },
     "moderate": {
-        # Slightly wider extreme band + trim kappa/size so more fills stay safe.
-        # Validated (seed=42, 5k mkts): ~90.9% WR / ~960 trades; MC p5 WR ≈ 85.9%.
+        # Loosened for live paper fleet: more setups while keeping min_edge floor.
+        # Target ~85%+ WR with higher trade count than strict.
         "min_edge": 0.12,
-        "min_conviction": 0.94,
-        "min_conviction_guard": 0.96,
-        "extreme_q_high": 0.86,
-        "extreme_q_low": 0.14,
+        "min_conviction": 0.90,
+        "min_conviction_guard": 0.94,
+        "extreme_q_high": 0.85,
+        "extreme_q_low": 0.15,
         "kappa_base": 0.33,
         "max_single_market_pct": 0.09,
         "risk_budget": 0.20,

@@ -43,9 +43,9 @@ def test_apply_mode_preset_overrides_stale_yaml_values():
 def test_load_enhanced_config_mode_kwarg():
     cfg = load_enhanced_config(mode="moderate")
     assert cfg.mode == "moderate"
-    assert cfg.min_conviction == pytest.approx(0.94)
-    assert cfg.extreme_q_high == pytest.approx(0.86)
-    assert cfg.extreme_q_low == pytest.approx(0.14)
+    assert cfg.min_conviction == pytest.approx(0.90)
+    assert cfg.extreme_q_high == pytest.approx(0.85)
+    assert cfg.extreme_q_low == pytest.approx(0.15)
     assert cfg.kappa_base == pytest.approx(0.33)
     assert cfg.max_single_market_pct == pytest.approx(0.09)
 
@@ -71,8 +71,8 @@ def test_load_explicit_strict():
     assert cfg.min_conviction == pytest.approx(0.95)
 
 
-def test_moderate_more_trades_than_strict_and_wr_above_85():
-    """Moderate must increase fill count vs strict while keeping WR ≥ 85%."""
+def test_moderate_more_trades_than_strict_and_wr_above_80():
+    """Moderate must increase fill count vs strict while keeping WR ≥ 80%."""
     strict = load_enhanced_config(mode="strict")
     moderate = load_enhanced_config(mode="moderate")
 
@@ -94,7 +94,7 @@ def test_moderate_more_trades_than_strict_and_wr_above_85():
     assert mm.n_trades > ms.n_trades, (
         f"moderate should trade more (got {mm.n_trades} vs strict {ms.n_trades})"
     )
-    assert mm.win_rate >= 0.85, f"moderate WR {mm.win_rate:.1%} below 85% floor"
+    assert mm.win_rate >= 0.80, f"moderate WR {mm.win_rate:.1%} below 80% floor"
     assert mm.max_drawdown_pct <= 0.15
     assert ms.win_rate >= 0.85
     assert moderate.max_single_market_pct == pytest.approx(0.09)

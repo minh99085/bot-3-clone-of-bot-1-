@@ -126,13 +126,60 @@ def lesson_from_settlement(stl: Settlement) -> Lesson:
             severity = "low"
             promote = "ALPHA_RESEARCH_SKILL"
         else:
-            rule = (
-                f"AVOID:{mode} on `{series}` at hour={hour} ({tf}) after loss "
-                f"pnl=${stl.pnl_usd:.2f} until bucket WR>65%. "
-                f"{size_advice}{series_note} "
-                f"If series WR<55% over ≥8 trades → SKIP:{series} until recovery."
-            )
-            severity = "high"
+            n_rows = 0
+            hour_n = 0
+            hour_wr = 1.0
+            series_wr = 1.0
+            try:
+                from hermes.state_io import ledger_path, read_jsonl
+
+                rows = [
+                    r
+                    for r in read_jsonl(ledger_path(paper=stl.paper))
+                    if (r.get("event") == "settlement" or r.get("won") is not None)
+                    and (
+                        str(r.get("market_series", "")) == series
+                        or str(r.get("substrategy_id", "")).startswith(series + "|")
+                    )
+                ]
+                n_rows = len(rows)
+                if rows:
+                    wins = sum(
+                        1 for r in rows if r.get("won") or float(r.get("pnl_usd", 0)) > 0
+                    )
+                    series_wr = wins / n_rows
+                    hour_rows = [
+                        r for r in rows if int(r.get("hourly_bucket") or -1) == hour
+                    ]
+                    hour_n = len(hour_rows)
+                    if hour_n:
+                        hour_wr = sum(
+                            1
+                            for r in hour_rows
+                            if r.get("won") or float(r.get("pnl_usd", 0)) > 0
+                        ) / hour_n
+            except Exception:  # noqa: BLE001
+                n_rows = 0
+
+            # Single loss → sleeve-scoped REDUCE, not fleet-wide AVOID.
+            if n_rows >= 5 and series_wr < 0.55:
+                rule = (
+                    f"AVOID:{mode} on `{series}` after series WR={series_wr:.0%} "
+                    f"n={n_rows} (pnl=${stl.pnl_usd:.2f}). Skip until WR>65%."
+                )
+                severity = "high"
+            elif hour_n >= 3 and hour_wr < 0.50:
+                rule = (
+                    f"SKIP:`{series}` hour={hour} ({tf}) after hour WR={hour_wr:.0%} "
+                    f"n={hour_n} (last pnl=${stl.pnl_usd:.2f})."
+                )
+                severity = "medium"
+            else:
+                rule = (
+                    f"REDUCE:`{sid}` after loss pnl=${stl.pnl_usd:.2f} on `{series}` "
+                    f"h{hour} ({tf}). Keep ≤0.5% until n≥3 on sleeve.{series_note}"
+                )
+                severity = "medium"
             promote = "ALPHA_RESEARCH_SKILL"
     elif stl.won:
         rule = (
@@ -399,23 +446,38 @@ def process_rejection(signal: Signal, report: VerificationReport) -> Optional[Le
         return None
     if report.decision == VerifierDecision.DEFER:
         return None
+    reasons = report.rejection_reasons
+    reasons_str = " ".join(reasons).lower()
+    alloc_hit = any("allocation" in r for r in reasons)
+    # Circular meta-lessons (pretrade skip / avoid echo) must not be re-persisted.
+    if alloc_hit and any(
+        k in reasons_str
+        for k in (
+            "pretrade_skip",
+            "avoid:mispricing",
+            "avoid_bucket_hit",
+            "enhanced_filter_failed",
+            "window_expired",
+        )
+    ):
+        return None
+    if alloc_hit:
+        return None
     interesting = {
         "bucket_below_threshold",
         "lane:gated",
         "lane:killed",
         "entry_quality",
     }
-    reasons = set(report.rejection_reasons)
-    alloc_hit = any("allocation" in r for r in report.rejection_reasons)
+    reasons_set = set(reasons)
     if (
-        not alloc_hit
-        and not (reasons & interesting)
+        not (reasons_set & interesting)
         and not any(
             r.startswith("AVOID:") or r.startswith("avoid:") or "osmani" in r.lower()
-            for r in report.rejection_reasons
+            for r in reasons
         )
     ):
-        if not any(r.startswith("live_ev") for r in report.rejection_reasons):
+        if not any(r.startswith("live_ev") for r in reasons):
             return None
         if signal.confidence_tier.value not in ("A", "B"):
             return None

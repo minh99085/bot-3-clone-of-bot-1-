@@ -140,6 +140,24 @@ if lessons_path.is_file():
     marker = "<!-- lessons_engine appends new dated lessons below -->"
     if marker in text:
         lessons_path.write_text(text.split(marker)[0] + marker + "\n")
+    # Drop runtime ALLOCATION_REJECT / hour-21 AVOID blocks from prior session
+    import re
+    text = lessons_path.read_text()
+    text = re.sub(
+        r"\n### \[.*?ALLOCATION_REJECT.*?(?=\n### |\Z)",
+        "",
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(
+        r"\n### \[.*?AVOID:mispricing.*?(?=\n### |\Z)",
+        "",
+        text,
+        flags=re.DOTALL,
+    )
+    if marker in text:
+        head = text.split(marker)[0]
+        lessons_path.write_text(head + marker + "\n")
 PY
 
 echo "  reset knowledge/STATE.md + trimmed LESSONS.md"

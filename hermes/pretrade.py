@@ -272,21 +272,28 @@ def analyze_signal(
     else:
         max_pct, min_ev = MAX_SIZE_PCT, MIN_LIVE_EV
 
-    # Binding lesson cuts
+    # Binding lesson cuts — series/sleeve scoped (no cross-asset mispricing blocks)
     for rule in lesson_hits:
         rl = rule.lower()
+        series = signal.market_series or ""
         if rl.startswith("cut:") or "weight cap=0" in rl or "model_broken" in rl:
-            skip = True
-            reasons.append(f"lesson_CUT: {rule[:120]}")
-        if "avoid:" in rl.replace(" ", "")[:40] and (
-            sid.split("|")[1] in rl or signal.market_series in rl
-        ):
-            if "until" in rl or "gated" in rl or "skip" in rl:
+            if sid in rule or (series and f"`{series}`" in rule):
+                skip = True
+                reasons.append(f"lesson_CUT: {rule[:120]}")
+        if "avoid:" in rl[:40]:
+            if series and f"`{series}`" in rule:
+                if "until" in rl or "gated" in rl or "skip" in rl:
+                    skip = True
+                    reasons.append(f"lesson_AVOID: {rule[:120]}")
+            elif sid in rule:
                 skip = True
                 reasons.append(f"lesson_AVOID: {rule[:120]}")
-        if "skip:" in rl and (signal.timeframe in rl or signal.market_series in rl):
+        if "skip:" in rl and series and f"`{series}`" in rule:
             skip = True
             reasons.append(f"lesson_SKIP: {rule[:120]}")
+        if rl.startswith("reduce:") and (sid in rule or (series and f"`{series}`" in rule)):
+            reasons.append(f"lesson_REDUCE: {rule[:80]}")
+            # REDUCE halves size later via conf_scale; do not hard-skip
 
     if sid in proposal.cut_list:
         skip = True
