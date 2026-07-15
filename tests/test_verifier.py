@@ -173,3 +173,64 @@ def test_verifier_rejects_pretrade_skip():
     )
     assert report.decision == VerifierDecision.REJECT
     assert any("pretrade" in r for r in report.rejection_reasons)
+
+
+def test_scoped_mispricing_allows_single_sleeve_hhi(monkeypatch):
+    """Option D: one active 5m sleeve → HHI=1.0 must still PASS (not starve trades)."""
+    from hermes.models import AllocationProposal
+
+    monkeypatch.setenv("HERMES_SCOPE_BTC_UPDOWN_ONLY", "1")
+    sig = _signal(
+        market_id="mkt_btc_5m",
+        slug="btc-updown-5m-1784125200",
+        question="Bitcoin Up or Down - 5 Minutes",
+        market_series="btc_updown_5m",
+        timeframe="5m",
+        direction=Direction.YES,
+        entry_mode=EntryMode.MISPRICING,
+        confidence_tier=ConfidenceTier.A,
+        conviction=0.85,
+        fair_value=0.62,
+        market_price=0.40,
+        expected_edge=0.18,
+        live_ev=0.12,
+        regime=Regime.LOW_VOL,
+        hourly_bucket=14,
+        size_usd_suggested=10.0,
+        allocation_usd=10.0,
+        allocation_weight=1.0,
+        size_pct_recommended=0.005,
+        entry_vwap_target=0.40,
+        pre_entry_stability_ok=False,  # softened when mispricing + VWAP set
+        oracle_alignment=0.7,
+        oracle_source="chainlink",
+        oracle_price=65000.0,
+        meta={
+            "paper": True,
+            "asset": "BTC",
+            "mispricing_active": True,
+            "mispricing_conviction": 0.9,
+            "mispricing_dislocation": 0.22,
+            "bandit_arm": "explore",
+            "bandit_size_scale": 0.5,
+            "sources_agree": True,
+            "oracle_return_proxy": 0.002,
+        },
+    )
+    proposal = AllocationProposal(
+        capital_usd=2000.0,
+        weights={"btc_updown_5m|mispricing|low_vol|h14|5m": 1.0},
+        signal_sizes_usd={sig.signal_id: 10.0},
+        diversification_ratio=1.0,
+        concentration_hhi=1.0,
+    )
+    report = verify_signal(
+        sig,
+        buckets=[],  # cold-start OK via mispricing evidence
+        state={"capital_usd": 2000, "max_drawdown_pct": 0.0, "open_exposure_usd": 0},
+        lessons="",
+        proposal=proposal,
+    )
+    assert report.decision == VerifierDecision.PASS, report.rejection_reasons
+    assert report.sized_usd > 0
+    assert not any("concentration_hhi" in r for r in report.rejection_reasons)

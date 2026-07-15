@@ -210,15 +210,23 @@ def _allocation_ok(
     annotate_signal(signal)
     sid = signal.substrategy_id
     action = SubStrategyAction.HOLD.value
-    # Only 2 scoped markets → HHI≈0.5–1.0 is normal; do not block
-    max_hhi = 0.95 if scope_enabled() else MAX_HHI
+    # Scoped BTC 5m/15m universe is only 2 series. A single active sleeve
+    # yields HHI=1.0 by definition — blocking that starves Option D of trades.
+    # Use 1.01 so float rounding of exactly 1.0 never rejects.
+    max_hhi = 1.01 if scope_enabled() else MAX_HHI
 
     if proposal is not None:
         if sid in proposal.cut_list:
             return False, "substrategy_CUT", SubStrategyAction.CUT.value
         if signal.allocation_usd <= 0 and signal.allocation_weight <= 0:
             return False, "zero_allocation_weight", action
-        if proposal.concentration_hhi > max_hhi and signal.allocation_weight > 0.15:
+        # Also skip HHI when ≤2 sleeves (the entire allowed universe)
+        n_sleeves = len(proposal.weights) if proposal.weights else 1
+        if (
+            proposal.concentration_hhi > max_hhi
+            and signal.allocation_weight > 0.15
+            and not (scope_enabled() and n_sleeves <= 2)
+        ):
             return (
                 False,
                 f"concentration_hhi={proposal.concentration_hhi:.3f}>{max_hhi}",
