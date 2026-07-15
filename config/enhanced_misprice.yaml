@@ -2,27 +2,27 @@
 # options: strict | moderate | aggressive
 #
 #   strict     — max WR, fewest trades (extreme_q 0.88/0.12, conv 0.95)
-#   moderate   — more trades, WR safely above 85% (MC p5 ≈ 85.8% on synthetic)
+#   moderate   — more trades, WR safely above 85% (MC p5 ≈ 85.9% on synthetic)
 #   aggressive — highest frequency, ~80–83% WR on synthetic
 #
 # Tip: set mode alone; the preset overwrites the threshold fields below.
-mode: strict
+mode: moderate
 
 # --- Active thresholds (mirrored from the selected mode; do not hand-edit
 #     unless you also change `mode` or pass CLI --filter-mode) ---
-kappa_base: 0.35
+kappa_base: 0.33
 kappa_guard: 0.20
-max_single_market_pct: 0.10
+max_single_market_pct: 0.09
 risk_budget: 0.20
 
 # Hard Bayesian entry filter (selectivity → 80%+ WR when model is calibrated)
 # Baseline product floor is 0.06 / 0.92 / 0.78|0.22; production modes use
 # stricter values. Keep min_edge ≥ 0.12 — lower values can trip hard-DD lockout.
 min_edge: 0.12
-min_conviction: 0.95
-min_conviction_guard: 0.97
-extreme_q_high: 0.88
-extreme_q_low: 0.12
+min_conviction: 0.94
+min_conviction_guard: 0.96
+extreme_q_high: 0.86
+extreme_q_low: 0.14
 early_exit_conviction: 0.35
 
 # Drawdown / rolling WR guards
