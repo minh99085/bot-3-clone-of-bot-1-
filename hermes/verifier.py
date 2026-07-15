@@ -205,23 +205,28 @@ def _allocation_ok(
     proposal: Optional[AllocationProposal],
 ) -> tuple[bool, str, str]:
     """Approve both signal AND proposed size/allocation (Ruuj layer)."""
+    from hermes.market_scope import scope_enabled
+
     annotate_signal(signal)
     sid = signal.substrategy_id
     action = SubStrategyAction.HOLD.value
+    # Only 2 scoped markets → HHI≈0.5–1.0 is normal; do not block
+    max_hhi = 0.95 if scope_enabled() else MAX_HHI
 
     if proposal is not None:
         if sid in proposal.cut_list:
             return False, "substrategy_CUT", SubStrategyAction.CUT.value
         if signal.allocation_usd <= 0 and signal.allocation_weight <= 0:
             return False, "zero_allocation_weight", action
-        if proposal.concentration_hhi > MAX_HHI and signal.allocation_weight > 0.15:
+        if proposal.concentration_hhi > max_hhi and signal.allocation_weight > 0.15:
             return (
                 False,
-                f"concentration_hhi={proposal.concentration_hhi:.3f}>{MAX_HHI}",
+                f"concentration_hhi={proposal.concentration_hhi:.3f}>{max_hhi}",
                 action,
             )
         if (
-            proposal.diversification_ratio < MIN_DIV_RATIO
+            not scope_enabled()
+            and proposal.diversification_ratio < MIN_DIV_RATIO
             and len(proposal.weights) > 1
             and signal.allocation_weight > 0.20
         ):
@@ -459,14 +464,18 @@ def verify_signal(
         rejections.extend(avoid_hits)
 
     # 7. Pre-entry stability + VWAP (execution-drag fix)
+    mp_active = bool((signal.meta or {}).get("mispricing_active"))
     stable_ok = signal.pre_entry_stability_ok and signal.entry_vwap_target is not None
+    # Mispricing entries are time-critical — require VWAP target, soften stability
+    if mp_active and signal.entry_vwap_target is not None:
+        stable_ok = True
     checks.append(
         CheckResult(
             name="entry_quality",
             passed=stable_ok,
             detail=(
                 f"stable={signal.pre_entry_stability_ok} "
-                f"vwap={signal.entry_vwap_target}"
+                f"vwap={signal.entry_vwap_target} mp={mp_active}"
             ),
         )
     )
