@@ -1,0 +1,44 @@
+kappa_base: 0.35
+kappa_guard: 0.20
+max_single_market_pct: 0.10
+risk_budget: 0.20
+
+# Hard Bayesian entry filter (selectivity → 80%+ WR when model is calibrated)
+# Baseline product floor is 0.06 / 0.92 / 0.78|0.22; production uses
+# stricter values below to clear 80%+ WR when Brier < 0.18.
+min_edge: 0.12
+min_conviction: 0.95
+min_conviction_guard: 0.97
+extreme_q_high: 0.86
+extreme_q_low: 0.14
+early_exit_conviction: 0.35
+
+# Drawdown / rolling WR guards
+dd_guard_pct: 0.08
+rolling_wr_window: 20
+rolling_wr_floor: 0.75
+max_drawdown_hard_pct: 0.15
+
+# Effective sample size by category (Beta prior strength)
+n_eff:
+  elections: 120
+  crypto: 80
+  sports: 80
+  economics: 100
+  default: 70
+
+# Paper / loop
+bankroll: 2000.0
+slippage_bps_min: 50
+slippage_bps_max: 200
+loop_interval_seconds: 300
+paper_only: true
+
+# Scope: keep Hermes restricted to BTC fast markets in production
+scope_btc_updown_only: true
+
+# Backtest — calibrated model noise (Brier target < 0.18)
+synthetic_n_markets: 8000
+synthetic_seed: 42
+brier_noise_calibrated: 0.05
+market_noise: 0.16

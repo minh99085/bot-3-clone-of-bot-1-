@@ -359,6 +359,14 @@ def analyze_signal(
                 reasons.append(
                     f"mispricing_disloc={float(meta.get('mispricing_dislocation') or 0):+.3f}"
                 )
+            # Enhanced Kelly override when Bayesian hard filter passed
+            if meta.get("enhanced_passes") and float(meta.get("kelly_f") or 0) > 0:
+                kelly_pct = min(0.10, float(meta["kelly_f"]))
+                size_pct = kelly_pct
+                reasons.append(
+                    f"enhanced_kelly f*={meta.get('kelly_f_star')} "
+                    f"f={meta.get('kelly_f')} kappa={meta.get('kelly_kappa')}"
+                )
         else:
             size_pct = min(
                 MAX_SIZE_PCT,

@@ -23,6 +23,13 @@ RUN pip install -r requirements.txt
 
 COPY hermes/ hermes/
 COPY connectors/ connectors/
+COPY strategy/ strategy/
+COPY risk/ risk/
+COPY models/ models/
+COPY backtest/ backtest/
+COPY paper_trader/ paper_trader/
+COPY utils/ utils/
+COPY config/ config/
 COPY knowledge/ knowledge/
 COPY dashboard.py .
 COPY .streamlit/ .streamlit/

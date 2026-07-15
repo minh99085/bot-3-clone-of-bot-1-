@@ -184,6 +184,13 @@ def mispricing_dashboard_snapshot() -> dict[str, Any]:
         if mp:
             out["last_dislocation"] = mp[-1].get("mispricing_dislocation")
             out["last_entry_source"] = mp[-1].get("entry_source")
+        enh = [p for p in pts if p.get("enhanced_passes")]
+        out["enhanced_pass_n"] = len(enh)
+        out["last_kelly_f"] = (enh[-1].get("kelly_f") if enh else None)
+        out["last_enhanced_conviction"] = (
+            enh[-1].get("enhanced_conviction") if enh else None
+        )
+        out["last_risk_unit"] = enh[-1].get("risk_unit") if enh else None
     return out
 
 

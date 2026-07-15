@@ -300,6 +300,57 @@ def generate_signal(
     decision = bandit.decide(mp, candidate.hourly_bucket)
     bandit.record_pull(decision)
 
+    capital = float(
+        state.get("capital_usd", state.get("capital", state.get("starting_bankroll_usd", 2000)))
+        or 2000
+    )
+    size = min(capital * 0.02, capital * abs(edge) * 0.25)
+    size = max(10.0, size)
+
+    # Enhanced misprice layer (Kelly + Beta conviction) — wraps Option D
+    enhanced_meta: dict = {}
+    try:
+        from strategy.enhanced_misprice import (
+            enhance_from_hermes_mispricing,
+            opportunity_to_signal_meta,
+        )
+
+        opp = enhance_from_hermes_mispricing(
+            market_id=candidate.market_id,
+            slug=candidate.slug,
+            pm_implied_up=float(candidate.yes_price),
+            cex_implied_up=float(mp.cex_implied_up),
+            dislocation=float(mp.dislocation),
+            mp_conviction=float(mp.conviction),
+            timeframe=str(tf),
+            liquidity_usd=float(getattr(candidate, "liquidity", None) or 5_000),
+            volume_24h=float(getattr(candidate, "volume_24h", None) or 10_000),
+            seconds_to_resolution=300.0 if tf == "5m" else 900.0,
+            chainlink_vs_cex_bps=float(mp.chainlink_vs_cex_bps),
+            active=bool(mp.active),
+            bankroll=capital,
+        )
+        enhanced_meta = opportunity_to_signal_meta(opp)
+        if opp.passes_hard_filter:
+            # Prefer enhanced direction + Kelly-suggested size
+            if opp.side.value in ("YES", "UP"):
+                direction = Direction.UP if tf in ("5m", "15m") else Direction.YES
+                fair = opp.q
+                mkt = candidate.yes_price
+            else:
+                direction = Direction.DOWN if tf in ("5m", "15m") else Direction.NO
+                fair = 1.0 - opp.q
+                mkt = candidate.no_price
+            mode = EntryMode.MISPRICING
+            edge = max(edge, opp.edge)
+            ev = live_ev_after_costs(edge, mkt)
+            conv = min(1.0, max(conv, opp.conviction))
+            tier = ConfidenceTier.A if conv >= 0.75 else ConfidenceTier.B
+            size = max(10.0, min(float(opp.size_usd), capital * 0.10))
+    except Exception as exc:  # noqa: BLE001 — never break the loop
+        logger.warning("enhanced_misprice failed: %s", exc)
+        enhanced_meta = {"enhanced_misprice": False, "enhanced_error": str(exc)[:120]}
+
     rules_fired = [
         f"down_bias={bias:.2f}",
         f"regime={candidate.regime.value}",
@@ -309,25 +360,27 @@ def generate_signal(
     ]
     if mp.active:
         rules_fired.append(f"mispricing={mp.dislocation:+.3f}")
+    if enhanced_meta.get("enhanced_passes"):
+        rules_fired.append(
+            f"enhanced_kelly={enhanced_meta.get('kelly_f')} "
+            f"conv={enhanced_meta.get('enhanced_conviction')}"
+        )
     if bucket_edge > 0:
         rules_fired.append(f"exploit_bucket_edge={bucket_edge:.3f}")
 
-    capital = float(
-        state.get("capital_usd", state.get("capital", state.get("starting_bankroll_usd", 2000)))
-        or 2000
-    )
-    size = min(capital * 0.02, capital * abs(edge) * 0.25)
-    size = max(10.0, size)
-    if decision.arm == "explore":
-        size = max(10.0, size * 0.5)
-    elif decision.arm == "exploit" and mp.active:
-        size = min(capital * 0.02, size * (1.0 + 0.5 * mp.conviction))
+    if not enhanced_meta.get("enhanced_passes"):
+        if decision.arm == "explore":
+            size = max(10.0, size * 0.5)
+        elif decision.arm == "exploit" and mp.active:
+            size = min(capital * 0.02, size * (1.0 + 0.5 * mp.conviction))
 
     oracle_align = float(raw.get("oracle_alignment") or 0.5)
     if tf in ("5m", "15m") and raw.get("asset"):
         conv = min(1.0, conv * (0.75 + 0.25 * oracle_align))
         if mp.active:
             conv = min(1.0, max(conv, mp.conviction * 0.9))
+        if enhanced_meta.get("enhanced_passes"):
+            conv = min(1.0, max(conv, float(enhanced_meta.get("enhanced_conviction") or conv)))
         if conv >= 0.75:
             tier = ConfidenceTier.A
         elif conv >= 0.55:
@@ -347,6 +400,7 @@ def generate_signal(
         "oracle_return_proxy": raw.get("oracle_return_proxy"),
         **mp.as_meta(),
         **decision.as_meta(),
+        **enhanced_meta,
         "cex_mid": mp.cex_mid,
         "cex_ret_60s": mp.features.get("ret_60s", 0.0),
     }
@@ -371,6 +425,7 @@ def generate_signal(
         rationale=(
             f"{mode.value} {tf} h{candidate.hourly_bucket}; "
             f"edge={edge:.3f} ev={ev:.3f} bandit={decision.arm}; "
+            f"enhanced={enhanced_meta.get('enhanced_passes')}; "
             f"{mp.reason or 'no_mispricing'}"
         ),
         alpha_rules_fired=rules_fired + [f"tf={tf}", f"oracle_align={oracle_align:.2f}"],
@@ -388,7 +443,7 @@ def generate_signal(
             if direction in (Direction.YES, Direction.UP) and raw.get("yes_token_id")
             else (str(raw["no_token_id"]) if raw.get("no_token_id") else None)
         ),
-        generator_model="alpha-research-agent+mispricing-bandit",
+        generator_model="alpha-research-agent+mispricing-bandit+enhanced-kelly",
         meta=meta,
     )
 

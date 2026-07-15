@@ -186,6 +186,14 @@ with right:
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
+    st.subheader("Enhanced Kelly / Beta")
+    st.markdown(
+        f"- Enhanced PASS (recent): **{mp_snap.get('enhanced_pass_n', 0)}**  \n"
+        f"- Last Kelly f: `{mp_snap.get('last_kelly_f')}`  \n"
+        f"- Last β-conviction: `{mp_snap.get('last_enhanced_conviction')}`  \n"
+        f"- Last risk unit: `{mp_snap.get('last_risk_unit')}`"
+    )
+
     st.subheader("Bandit (explore / exploit)")
     st.markdown(
         f"- Pulls: **{bandit.get('global_pulls', 0)}**  \n"

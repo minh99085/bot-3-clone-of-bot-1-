@@ -423,6 +423,9 @@ def verify_signal(
         min_ev = 0.035
     elif mp_active:
         min_ev = 0.045
+    # Enhanced Kelly setups already cleared Bayesian hard filters
+    if (signal.meta or {}).get("enhanced_passes"):
+        min_ev = min(min_ev, 0.04)
     ev_ok = signal.live_ev >= min_ev
     checks.append(
         CheckResult(
