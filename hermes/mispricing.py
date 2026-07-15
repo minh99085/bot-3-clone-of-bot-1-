@@ -79,8 +79,10 @@ def detect_mispricing(
     """Core detector — safe to call every turn for scoped BTC up/down markets."""
     tf = candidate.timeframe or (candidate.raw or {}).get("timeframe") or "5m"
     pm_up = float(candidate.yes_price)
+    from hermes.market_scope import resolve_asset
+
     raw = candidate.raw or {}
-    asset = str(raw.get("asset") or "BTC").upper()
+    asset = resolve_asset(candidate.slug or "", meta=raw)
     snap = snapshot
     if snap is None:
         snap = get_asset_snapshot(asset)

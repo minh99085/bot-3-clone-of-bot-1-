@@ -20,6 +20,7 @@ from hermes.lessons_engine import process_settlement
 from hermes.market_scope import (
     is_window_expired,
     parse_slug,
+    resolve_asset,
     window_step_seconds,
 )
 from hermes.models import (
@@ -56,16 +57,20 @@ def _open_positions(paper: bool = True) -> list[dict]:
 
 
 def _resolve_asset(slug: str, meta: dict) -> str:
-    sm = parse_slug(slug) if slug else None
-    if sm:
-        return sm.asset.upper()
-    raw = str(meta.get("asset") or "BTC").upper()
-    return raw if raw in ("BTC", "ETH", "SOL") else "BTC"
+    return resolve_asset(slug, meta=meta)
 
 
 def _cap_win_pnl(pnl: float, size: float) -> float:
     cap = size * MAX_WIN_PNL_MULTIPLE
     return min(pnl, cap) if pnl > 0 else pnl
+
+
+def _cex_plausible(asset: str, px: float) -> bool:
+    if px <= 0:
+        return False
+    bands = {"BTC": (1_000.0, 500_000.0), "ETH": (100.0, 50_000.0), "SOL": (1.0, 5_000.0)}
+    lo, hi = bands.get(asset.upper(), (0.0, 1e12))
+    return lo <= px <= hi
 
 
 def settle_expired_paper_positions(paper: bool = True) -> list[Settlement]:
@@ -107,8 +112,10 @@ def settle_expired_paper_positions(paper: bool = True) -> list[Settlement]:
 
         entry_px = float(pos.get("entry_price") or 0.5)
         size = float(pos.get("size_usd") or 0)
+        entry_asset = _resolve_asset(slug, meta)
         entry_cex = float(meta.get("cex_mid") or 0)
-        entry_asset = str(meta.get("cex_asset") or asset).upper()
+        if not _cex_plausible(entry_asset, entry_cex):
+            entry_cex = 0.0
         exit_cex = get_asset_mid(entry_asset, force_rest=True)
 
         if entry_cex <= 0 or exit_cex <= 0:

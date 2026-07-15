@@ -55,6 +55,9 @@ WINDOW_SETTLE_GRACE_SEC = int(os.environ.get("HERMES_WINDOW_SETTLE_GRACE_SEC", "
 # Block penny / resolved-side paper fills (matches verifier + discovery).
 EXTREME_PRICE_LOW = float(os.environ.get("HERMES_EXTREME_PRICE_LOW", "0.02"))
 EXTREME_PRICE_HIGH = float(os.environ.get("HERMES_EXTREME_PRICE_HIGH", "0.98"))
+# Verifier/signal: reject lottery tickets on either contract side.
+MIN_TRADABLE_ENTRY_LOW = float(os.environ.get("HERMES_MIN_TRADABLE_ENTRY_LOW", "0.10"))
+MIN_TRADABLE_ENTRY_HIGH = float(os.environ.get("HERMES_MIN_TRADABLE_ENTRY_HIGH", "0.90"))
 
 # Legacy preferred seeds (also listed in market_filters.yaml)
 PREFERRED_SLUGS = (
@@ -368,7 +371,44 @@ def entry_price_for_side(yes_price: float, direction: str) -> float:
 
 
 def is_extreme_entry_price(yes_price: float, direction: str) -> bool:
-    return is_extreme_market_price(entry_price_for_side(yes_price, direction))
+    px = entry_price_for_side(yes_price, direction)
+    return px <= MIN_TRADABLE_ENTRY_LOW or px >= MIN_TRADABLE_ENTRY_HIGH
+
+
+def resolve_asset(
+    slug: str = "",
+    *,
+    meta: Optional[dict] = None,
+    default: str = "BTC",
+) -> str:
+    """Resolve BTC/ETH/SOL from slug, then meta — never guess wrong asset for SOL."""
+    sm = parse_slug(slug) if slug else None
+    if sm:
+        return sm.asset.upper()
+    meta = meta or {}
+    slug = slug or str(meta.get("slug") or "")
+    if slug:
+        sm = parse_slug(slug)
+        if sm:
+            return sm.asset.upper()
+    for key in ("cex_asset", "asset"):
+        val = meta.get(key)
+        if val:
+            au = str(val).upper()
+            if au in ("BTC", "ETH", "SOL"):
+                return au
+    series = str(meta.get("scoped_series") or meta.get("market_series") or "")
+    for prefix, asset in (("btc_", "BTC"), ("eth_", "ETH"), ("sol_", "SOL")):
+        if series.startswith(prefix):
+            return asset
+    blob = f"{slug} {meta.get('question', '')}".lower()
+    if "sol" in blob or "solana" in blob:
+        return "SOL"
+    if "eth" in blob or "ethereum" in blob:
+        return "ETH"
+    if "btc" in blob or "bitcoin" in blob:
+        return "BTC"
+    return default.upper()
 
 
 def current_window_ts(timeframe: str, *, now: Optional[float] = None) -> int:

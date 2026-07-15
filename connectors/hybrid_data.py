@@ -39,13 +39,24 @@ class HybridSnapshot:
     meta: dict[str, Any] = field(default_factory=dict)
 
 
-def detect_asset(slug: str, question: str = "") -> Optional[str]:
-    blob = f"{slug} {question}".lower()
-    if "btc" in blob or "bitcoin" in blob:
-        return "BTC"
-    if "eth" in blob or "ethereum" in blob:
-        return "ETH"
-    return None
+def detect_asset(
+    slug: str,
+    question: str = "",
+    raw: Optional[dict[str, Any]] = None,
+) -> Optional[str]:
+    from hermes.market_scope import parse_slug, resolve_asset
+
+    sm = parse_slug(slug) if slug else None
+    if sm:
+        return sm.asset.upper()
+    if raw:
+        prior = raw.get("asset")
+        if prior:
+            au = str(prior).upper()
+            if au in ("BTC", "ETH", "SOL"):
+                return au
+    resolved = resolve_asset(slug, meta=raw or {}, default="")
+    return resolved if resolved in ("BTC", "ETH", "SOL") else None
 
 
 def oracle_alignment_score(
@@ -105,10 +116,13 @@ class HybridDataService:
             (candidate.raw or {}).get("timeframe")
             or infer_timeframe(candidate.slug, candidate.question)
         )
-        asset = detect_asset(candidate.slug, candidate.question)
+        raw_in = dict(candidate.raw or {})
+        asset = detect_asset(candidate.slug, candidate.question, raw_in)
+        if not asset:
+            asset = str(raw_in.get("asset") or "").upper() or None
         oracle = None
         oracle_ret = 0.0
-        if asset:
+        if asset in ("BTC", "ETH"):
             try:
                 # Warm cache then measure proxy return
                 self.cl.get_price(asset)
@@ -116,6 +130,14 @@ class HybridDataService:
                 oracle = self.cl.get_price(asset)
             except Exception as exc:  # noqa: BLE001
                 logger.debug("oracle enrich failed: %s", exc)
+        elif asset == "SOL":
+            try:
+                from connectors.cex_realtime import get_asset_snapshot
+
+                snap_cex = get_asset_snapshot("SOL", force_rest=True)
+                oracle_ret = float(snap_cex.ret_60s or 0.0)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("SOL cex oracle enrich failed: %s", exc)
 
         book = None
         yes_token = (candidate.raw or {}).get("yes_token_id")
@@ -172,10 +194,18 @@ class HybridDataService:
         candidate.spread_bps = snap.spread_bps
         candidate.regime = snap.regime
         raw = dict(candidate.raw or {})
+        prior_asset = str(raw.get("asset") or "").upper()
+        asset_out = snap.asset or (
+            prior_asset if prior_asset in ("BTC", "ETH", "SOL") else None
+        )
+        if not asset_out:
+            from hermes.market_scope import resolve_asset
+
+            asset_out = resolve_asset(candidate.slug, meta=raw)
         raw.update(
             {
                 "timeframe": snap.timeframe,
-                "asset": snap.asset,
+                "asset": asset_out,
                 "oracle_alignment": snap.oracle_alignment,
                 "oracle_return_proxy": snap.oracle_return_proxy,
                 "oracle_price": snap.oracle.price_usd if snap.oracle else None,

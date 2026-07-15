@@ -11,6 +11,7 @@ import logging
 import os
 from typing import Optional
 
+from connectors.cex_realtime import get_asset_mid
 from hermes.models import Fill, OrderIntent
 
 logger = logging.getLogger(__name__)
@@ -56,15 +57,19 @@ class BrokerClient:
         slip_bps = 20.0
         oracle_note = ""
 
-        # Chainlink context (non-blocking)
-        if asset in ("BTC", "ETH"):
+        asset_u = (asset or "").upper()
+        if asset_u in ("BTC", "ETH", "SOL"):
             try:
-                from connectors.chainlink import ChainlinkClient
+                if asset_u == "SOL":
+                    mid = get_asset_mid("SOL", force_rest=True)
+                    oracle_note = f" cex_sol={mid:.2f}" if mid > 0 else ""
+                else:
+                    from connectors.chainlink import ChainlinkClient
 
-                px = ChainlinkClient().get_price(asset)
-                oracle_note = f" cl={px.price_usd:.2f}@{px.source}"
+                    px = ChainlinkClient().get_price(asset_u)
+                    oracle_note = f" cl={px.price_usd:.2f}@{px.source}"
             except Exception as exc:  # noqa: BLE001
-                logger.debug("chainlink context skipped: %s", exc)
+                logger.debug("oracle context skipped: %s", exc)
 
         # Walk orderbook when token_id known
         if token_id:

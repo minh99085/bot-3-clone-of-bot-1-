@@ -39,8 +39,10 @@ def test_extreme_price_blocks_penny_entries():
     assert is_extreme_market_price(0.01) is True
     assert is_extreme_market_price(0.99) is True
     assert is_extreme_market_price(0.50) is False
-    assert is_extreme_entry_price(0.03, "UP") is False
+    assert is_extreme_entry_price(0.50, "UP") is False
+    assert is_extreme_entry_price(0.03, "UP") is True
     assert is_extreme_entry_price(0.01, "UP") is True
+    assert is_extreme_entry_price(0.925, "DOWN") is True
     assert is_extreme_entry_price(0.99, "DOWN") is True
 
 
@@ -106,6 +108,52 @@ def test_settlement_uses_asset_cex_and_caps_pnl(monkeypatch, tmp_path):
     assert out[0].won is True
     assert out[0].pnl_usd == 300.0
     assert "asset=ETH" in (out[0].notes or "")
+
+
+def test_settlement_rejects_btc_cex_on_sol_slug(monkeypatch, tmp_path):
+    import hermes.settlement_fast as stl_mod
+    from hermes.state_io import append_jsonl
+
+    paper = tmp_path / "paper" / "sol5"
+    paper.mkdir(parents=True)
+    ledger_file = paper / "trade_ledger.jsonl"
+    monkeypatch.setattr(stl_mod, "ledger_path", lambda paper=True, _p=ledger_file: _p)
+    monkeypatch.setattr(stl_mod, "process_settlement", lambda _s: None)
+
+    old_ts = int(time.time()) - 7200
+    slug = f"sol-updown-5m-{old_ts - (old_ts % 300)}"
+
+    append_jsonl(
+        ledger_file,
+        {
+            "event": "position_open",
+            "signal_id": "sig_sol",
+            "position_id": "pos_sol",
+            "slug": slug,
+            "direction": "DOWN",
+            "entry_price": 0.35,
+            "size_usd": 60.0,
+            "opened_at": "2026-07-15T10:00:00Z",
+            "meta": {
+                "cex_mid": 64872.95,
+                "cex_asset": "BTC",
+                "slug": slug,
+            },
+        },
+    )
+
+    calls: list[str] = []
+
+    def fake_mid(asset: str, *, force_rest: bool = False) -> float:
+        calls.append(asset)
+        return 148.5 if asset == "SOL" else 65000.0
+
+    monkeypatch.setattr(stl_mod, "get_asset_mid", fake_mid)
+
+    out = stl_mod.settle_expired_paper_positions(paper=True)
+    assert len(out) == 1
+    assert calls == ["SOL"]
+    assert "asset=SOL" in (out[0].notes or "")
 
 
 def test_verifier_rejects_expired_window_and_extreme_price(monkeypatch):

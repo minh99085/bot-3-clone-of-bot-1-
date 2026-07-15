@@ -11,6 +11,12 @@ import logging
 from typing import Optional
 
 from hermes.decorators import loop
+from hermes.market_scope import (
+    is_extreme_entry_price,
+    is_extreme_market_price,
+    is_window_tradeable,
+    resolve_asset,
+)
 from hermes.models import (
     ConfidenceTier,
     Direction,
@@ -230,6 +236,7 @@ def generate_signal(
 
     raw = candidate.raw or {}
     tf = candidate.timeframe or raw.get("timeframe") or "1h"
+    asset_u = resolve_asset(candidate.slug or "", meta=raw)
 
     from hermes.market_scope import is_extreme_market_price, is_window_tradeable
 
@@ -281,6 +288,15 @@ def generate_signal(
             fair = mp.cex_implied_up
         else:
             fair = 1.0 - mp.cex_implied_up
+
+    if is_extreme_entry_price(float(candidate.yes_price), direction.value):
+        logger.info(
+            "signal skip extreme entry yes=%.4f dir=%s slug=%s",
+            candidate.yes_price,
+            direction.value,
+            candidate.slug,
+        )
+        return None
 
     if direction in (Direction.YES, Direction.UP):
         mkt = candidate.yes_price
@@ -439,13 +455,13 @@ def generate_signal(
         "paper": paper,
         "down_bias": bias,
         "bucket_edge_prior": bucket_edge,
-        "asset": raw.get("asset") or "BTC",
+        "asset": asset_u,
         "oracle_return_proxy": raw.get("oracle_return_proxy"),
         **mp.as_meta(),
         **decision.as_meta(),
         **enhanced_meta,
         "cex_mid": mp.cex_mid,
-        "cex_asset": str(raw.get("asset") or "BTC").upper(),
+        "cex_asset": asset_u,
         "yes_price": float(candidate.yes_price),
         "cex_ret_60s": mp.features.get("ret_60s", 0.0),
     }

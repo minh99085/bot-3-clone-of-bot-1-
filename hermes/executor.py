@@ -11,6 +11,7 @@ import os
 from typing import Optional
 
 from hermes.decorators import loop
+from hermes.market_scope import resolve_asset
 from hermes.models import (
     Fill,
     OrderIntent,
@@ -66,7 +67,10 @@ def execute_intent(intent: OrderIntent, signal: Optional[Signal] = None) -> Fill
 
         broker = BrokerClient(paper=intent.paper)
         token_id = signal.clob_token_id if signal else None
-        asset = (signal.meta or {}).get("asset") if signal else None
+        asset = resolve_asset(
+            signal.slug if signal else "",
+            meta=(signal.meta or {}) if signal else {},
+        )
         return broker.execute(intent, token_id=token_id, asset=asset)
     except Exception as exc:  # noqa: BLE001
         logger.warning("broker connector fallback fill (%s)", exc)
@@ -165,9 +169,10 @@ def executor_tick(
                 "bandit_arm": (signal.meta or {}).get("bandit_arm"),
                 "bandit_context": (signal.meta or {}).get("bandit_context"),
                 "cex_mid": (signal.meta or {}).get("cex_mid"),
-                "cex_asset": (signal.meta or {}).get("cex_asset")
-                or (signal.meta or {}).get("asset")
-                or "BTC",
+                "cex_asset": resolve_asset(
+                    signal.slug or "",
+                    meta=(signal.meta or {}),
+                ),
             },
         })
         logger.info(
