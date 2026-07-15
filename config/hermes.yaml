@@ -1,0 +1,42 @@
+# Hermes v2 configuration
+
+mode: paper  # paper | live
+
+loop:
+  main_interval: 5m
+  risk_interval: 30s
+  discovery_limit: 25
+
+verifier:
+  model_hint: stronger  # use Opus / o-series in production
+  min_bucket_wr: 0.65
+  min_bucket_n: 20
+  min_live_ev: 0.06
+  preferred_live_ev: 0.08
+  min_conviction: 0.55
+  allowed_tiers: [A, B]
+
+risk:
+  max_drawdown_pct: 0.08
+  max_daily_loss_pct: 0.03
+  max_consecutive_losses: 4
+  min_rolling_wr_20: 0.55
+  min_rolling_pf_20: 1.2
+  max_single_position_pct: 0.03
+  max_open_exposure_pct: 0.20
+
+lanes:
+  osmani_lane: gated
+  news_shock: paper_only
+  grok_signal: paper_only
+  tv_signal: paper_only
+
+paths:
+  knowledge: knowledge
+  data: data
+  worktrees: .worktrees
+
+models:
+  generator: alpha-research-agent   # mid-tier
+  verifier: verifier-strong         # stronger / different family
+  lessons: lessons-distiller

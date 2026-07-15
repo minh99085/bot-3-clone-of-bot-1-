@@ -1,0 +1,20 @@
+# Financial Freedom Bot — Hermes v2
+# Install: pip install -r requirements.txt
+
+pyyaml>=6.0.1
+pydantic>=2.5.0
+httpx>=0.27.0
+pandas>=2.1.0
+pyarrow>=14.0.0
+python-dateutil>=2.8.2
+tenacity>=8.2.0
+structlog>=24.1.0
+rich>=13.7.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+
+# Optional LLM / agent backends (verifier prefers a stronger model)
+# openai>=1.30.0
+# anthropic>=0.28.0

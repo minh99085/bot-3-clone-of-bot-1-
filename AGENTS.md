@@ -2,13 +2,14 @@
 
 ## Cursor Cloud specific instructions
 
-This repository was reset after retiring **Bot 3**. It contains no application code until a new bot is scaffolded.
+**Financial Freedom Bot (Hermes v2)** — autonomous Polymarket trading loop.
 
-### VPS baseline (still available)
+### VPS baseline
 
 - **Host:** `207.246.96.45` (user `root`)
-- **State:** Wiped — no `/opt/Bot-3`, no running containers, no cron jobs
-- **SSH:** Cloud agent key at `~/.ssh/bot3_cloud_agent` (or `BOT3_VPS_SSH_PRIVATE_KEY` secret)
+- **Deploy path:** `/opt/financial-freedom-bot`
+- **SSH:** `~/.ssh/bot3_cloud_agent` (or `BOT3_VPS_SSH_PRIVATE_KEY`)
+- **Deploy:** `./deploy/deploy_vps.sh`
 
 ### VM baseline (cloud agent environment)
 
@@ -16,9 +17,20 @@ This repository was reset after retiring **Bot 3**. It contains no application c
 - Node.js v22
 - Docker available on VPS
 
-### When building the new bot
+### Install / run (keep in sync with README)
 
-1. Add application code and dependency manifests to the repo root.
-2. Document install/run commands in `README.md`.
-3. Create deploy scripts for the chosen VPS path.
-4. Set the VM update script to match the dependency install command documented in the new bot's README.
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+export PYTHONPATH=.
+python -m hermes.hermes_loop once          # paper turn
+python -m hermes.hermes_loop overnight     # cadence + risk monitor
+pytest -q
+```
+
+### Architecture pointers
+
+- Living skills: `knowledge/SKILL.md`, `ALPHA_RESEARCH_SKILL.md`
+- Memory: `knowledge/STATE.md`, `LESSONS.md`
+- Verifier is sacred: `hermes/verifier.py` — do not weaken gates casually
+- Paper default; live requires `HERMES_LIVE=1` + STATE `Live Enabled: true`

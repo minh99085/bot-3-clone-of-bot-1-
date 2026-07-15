@@ -1,0 +1,13 @@
+# Risk limits — mirrored in risk_monitor.py / verifier.py
+# Edit here for documentation; code constants are source of truth until YAML loader lands.
+
+max_drawdown_pct: 0.08
+max_daily_loss_pct: 0.03
+max_consecutive_losses: 4
+min_rolling_wr_20: 0.55
+min_rolling_pf_20: 1.2
+max_single_position_pct: 0.03
+max_correlated_exposure_pct: 0.08
+max_open_exposure_pct: 0.20
+profit_factor_target: 1.4
+win_rate_target: 0.80

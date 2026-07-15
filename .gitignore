@@ -21,5 +21,17 @@ node_modules/
 *.pem
 *.key
 
-# Local data
-data/
+# Local data (keep directory placeholders)
+data/paper/*
+!data/paper/.gitkeep
+data/live/*
+!data/live/.gitkeep
+data/handoff/*
+!data/handoff/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Worktrees + local env
+.worktrees/
+.env
+*.parquet
