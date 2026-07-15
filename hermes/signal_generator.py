@@ -30,6 +30,7 @@ from hermes.state_io import (
     read_state_md,
     write_handoff,
 )
+from hermes.substrategy import annotate_signal, infer_market_series
 
 logger = logging.getLogger(__name__)
 
@@ -291,6 +292,9 @@ def generate_signal(
         ),
         alpha_rules_fired=rules_fired,
         avoid_bucket_hit=hit_avoid,
+        market_series=infer_market_series(
+            candidate.market_id, candidate.slug, candidate.question
+        ),
         generator_model="alpha-research-agent",
         meta={"paper": paper, "down_bias": bias, "bucket_edge_prior": bucket_edge},
     )
@@ -317,7 +321,7 @@ def signal_generator_tick(
     for c in candidates:
         sig = generate_signal(c, alpha_text=alpha, buckets=buckets, state=state, paper=paper)
         if sig is not None:
-            signals.append(sig)
+            signals.append(annotate_signal(sig))
 
     tid = turn_id or "adhoc"
     path = write_handoff("signals", signals, tid)

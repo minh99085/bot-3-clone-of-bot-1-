@@ -1,7 +1,7 @@
 # STATE.md — Hermes Runtime Memory
 
-> Current capital, positions, performance, regime, and pause flags.
-> Updated by the loop every turn. The agent forgets; this file does not.
+> Capital, positions, performance, **portfolio metrics**, regime, pause flags.
+> Updated every turn. The agent forgets; this file does not.
 
 ## Current Snapshot
 
@@ -19,10 +19,24 @@
 - **Pause Reason**: none
 - **Down Bias**: 0.35
 - **Regime State**: unknown
+- **Diversification Ratio**: 1.000
+- **Concentration HHI**: 0.000
+- **Substrategies Active**: 0
+- **Substrategies Cut**: 0
+- **Substrategies Reduce**: 0
+- **Allocation Method**: none
 - **Last Turn**: none
 - **Last Turn At**: never
 - **Last Turn Summary**: boot
 - **Last Lessons Applied**: none
+
+## Portfolio Sleeves
+
+_Empty at boot — populated as sub-strategies settle._
+
+| Sub-strategy | Action | Weight Cap | Rolling EV | WR | Confidence |
+|--------------|--------|------------|------------|----|------------|
+| — | — | — | — | — | — |
 
 ## Open Positions
 
@@ -50,10 +64,10 @@ _None — paper book empty at boot._
 
 ## Goals in Flight
 
-- Boot goal: collect ≥ 20 paper settlements with verifier-pass provenance before considering live.
-- High-conviction pattern: `@goal` → 3+ verified signals or 48h pass.
+- Collect ≥ 20 paper settlements with verifier-pass + allocation provenance before live.
+- Maintain diversification ratio ≥ 1.2 and HHI ≤ 0.35 in steady state.
 
 ## Notes
 
-Cold start: verifier REJECT/DEFER live-API signals without matching edge buckets.
-Run `python -m hermes.hermes_loop demo` for a synthetic PASS → execute → lesson turn.
+Allocation layer: Ledoit-Wolf → HRP/edge-RP → Black-Litterman → cut/reduce caps.
+Verifier approves **signal + size**. Run `python -m hermes.hermes_loop demo` for a full turn.

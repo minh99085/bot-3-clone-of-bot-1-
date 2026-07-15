@@ -63,6 +63,15 @@ class LaneStatus(str, Enum):
     PAPER_ONLY = "paper_only"
 
 
+class SubStrategyAction(str, Enum):
+    """Ruuj Ch.5 cut/reduce actions — separate losing from model-broken."""
+
+    HOLD = "hold"
+    REDUCE = "reduce"
+    CUT = "cut"
+    BOOST = "boost"  # rare: only when confidence rising + diversifying
+
+
 class VerifierDecision(str, Enum):
     PASS = "PASS"
     REJECT = "REJECT"
@@ -132,9 +141,70 @@ class Signal(BaseModel):
     rationale: str = ""
     alpha_rules_fired: list[str] = Field(default_factory=list)
     avoid_bucket_hit: bool = False
+    # Portfolio / sub-strategy fields (Ruuj allocation layer)
+    market_series: str = "unknown"  # e.g. btc_updown, eth_updown
+    substrategy_id: str = ""  # market_series|mode|regime|hN
+    allocation_weight: float = 0.0  # proposed portfolio weight [0,1]
+    allocation_usd: float = 0.0  # proposed sized USD after HRP/BL
+    diversification_contrib: float = 0.0
+    view_confidence: float = 0.0  # Black-Litterman view strength
     generated_at: datetime = Field(default_factory=utc_now)
     generator_model: str = "alpha-research-agent"
     meta: dict[str, Any] = Field(default_factory=dict)
+
+
+class SubStrategyConfidence(BaseModel):
+    """Internal confidence per return source — drives HOLD/REDUCE/CUT."""
+
+    substrategy_id: str
+    market_series: str
+    entry_mode: EntryMode
+    regime: Regime
+    hourly_bucket: int
+    sample_n: int = 0
+    rolling_ev: float = 0.0  # after cost
+    rolling_wr: float = 0.0
+    wr_trend: float = 0.0  # positive = improving
+    ev_trend: float = 0.0
+    regime_stability: float = 1.0  # 1 = stable
+    brier_score: float = 0.25  # lower better; 0.25 = uninformative
+    internal_confidence: float = 0.5  # composite [0,1]
+    action: SubStrategyAction = SubStrategyAction.HOLD
+    weight_cap: float = 0.25  # max portfolio weight allowed
+    currently_losing: bool = False  # PnL streak — NOT the same as model broken
+    model_broken: bool = False  # reason-for-working degraded
+    notes: str = ""
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class AllocationProposal(BaseModel):
+    """Handoff artifact: risk-parity base + BL views → sized opportunities."""
+
+    proposal_id: str = Field(default_factory=lambda: new_id("alc_"))
+    method: str = "hrp_edge_bl"  # hrp | edge_rp | hrp_edge_bl
+    capital_usd: float
+    weights: dict[str, float] = Field(default_factory=dict)  # substrategy_id -> w
+    signal_sizes_usd: dict[str, float] = Field(default_factory=dict)  # signal_id -> $
+    diversification_ratio: float = 1.0
+    portfolio_vol_proxy: float = 0.0
+    concentration_hhi: float = 0.0  # Herfindahl; lower = more diversified
+    cut_list: list[str] = Field(default_factory=list)
+    reduce_list: list[str] = Field(default_factory=list)
+    view_tilts: dict[str, float] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utc_now)
+    notes: str = ""
+
+
+class PortfolioSnapshot(BaseModel):
+    taken_at: datetime = Field(default_factory=utc_now)
+    capital_usd: float
+    n_substrategies_active: int = 0
+    n_cut: int = 0
+    n_reduce: int = 0
+    diversification_ratio: float = 1.0
+    concentration_hhi: float = 0.0
+    open_exposure_usd: float = 0.0
+    top_weights: dict[str, float] = Field(default_factory=dict)
 
 
 class CheckResult(BaseModel):
@@ -152,6 +222,10 @@ class VerificationReport(BaseModel):
     score: float = 0.0
     rejection_reasons: list[str] = Field(default_factory=list)
     sized_usd: float = 0.0
+    allocation_weight: float = 0.0
+    allocation_approved: bool = False
+    substrategy_id: str = ""
+    substrategy_action: str = "hold"
     verifier_model: str = "verifier-strong"
     verified_at: datetime = Field(default_factory=utc_now)
     notes: str = ""
@@ -214,6 +288,8 @@ class Settlement(BaseModel):
     hourly_bucket: int
     entry_mode: EntryMode
     confidence_tier: ConfidenceTier
+    market_series: str = "unknown"
+    substrategy_id: str = ""
     settled_at: datetime = Field(default_factory=utc_now)
     paper: bool = True
     notes: str = ""

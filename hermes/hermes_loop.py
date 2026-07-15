@@ -22,6 +22,7 @@ from hermes.discovery import discovery_tick
 from hermes.executor import executor_tick
 from hermes.lessons_engine import lessons_engine_tick
 from hermes.models import LoopTurnResult, Settlement, VerifierDecision, new_id
+from hermes.portfolio import allocation_handoff
 from hermes.risk_monitor import risk_monitor_tick
 from hermes.signal_generator import signal_generator_tick
 from hermes.state_io import (
@@ -104,8 +105,11 @@ def run_one_turn(paper: bool = True, turn_id: Optional[str] = None) -> LoopTurnR
     signals = signal_generator_tick(candidates=candidates, turn_id=tid, paper=paper)
     result.signals_generated = len(signals)
 
-    # 3. Verification (maker-checker — different agent/instructions)
-    reports = verifier_tick(signals=signals, turn_id=tid)
+    # 2b. Handoff — portfolio allocation (HRP + Ledoit-Wolf + BL views)
+    proposal, signals = allocation_handoff(signals, turn_id=tid, paper=paper)
+
+    # 3. Verification (maker-checker — signal AND allocation)
+    reports = verifier_tick(signals=signals, turn_id=tid, proposal=proposal)
     result.signals_passed = sum(1 for r in reports if r.decision == VerifierDecision.PASS)
     result.signals_rejected = sum(
         1 for r in reports if r.decision == VerifierDecision.REJECT
@@ -118,8 +122,10 @@ def run_one_turn(paper: bool = True, turn_id: Optional[str] = None) -> LoopTurnR
     fills = executor_tick(signals=signals, reports=reports, turn_id=tid)
     result.orders_sent = len(fills)
 
-    # 5. Persistence — lessons from rejections (settlements arrive async)
-    lessons = lessons_engine_tick(signals=signals, reports=reports)
+    # 5. Persistence — lessons from rejections + allocation (settlements arrive async)
+    lessons = lessons_engine_tick(
+        signals=signals, reports=reports, proposal=proposal
+    )
     result.lessons_written = len(lessons)
 
     # Update STATE.md snapshot
@@ -127,7 +133,8 @@ def run_one_turn(paper: bool = True, turn_id: Optional[str] = None) -> LoopTurnR
     update_state_field(
         "Last Turn Summary",
         f"{result.candidates_found} cand / {result.signals_generated} sig / "
-        f"{result.signals_passed} pass / {result.orders_sent} fills",
+        f"{result.signals_passed} pass / {result.orders_sent} fills / "
+        f"div={proposal.diversification_ratio:.2f}",
     )
     update_state_field(
         "Last Turn At",
@@ -174,6 +181,8 @@ def simulate_settlement_for_demo(paper: bool = True) -> list[Settlement]:
         hourly_bucket=14,
         entry_mode=EntryMode.MEAN_REVERSION,
         confidence_tier=ConfidenceTier.A,
+        market_series="macro_rates",
+        substrategy_id="macro_rates|mean_reversion|mean_revert|h14",
         paper=paper,
         notes="demo settlement",
     )

@@ -15,6 +15,8 @@ Strict gates (all must pass for PASS):
   6. Pre-entry stability + entry VWAP present
   7. Confidence tier in {A, B} only
   8. Lane not GATED/KILLED
+  9. Allocation approved — size/weight does not degrade portfolio metrics
+ 10. Sub-strategy not CUT (model broken ≠ currently losing)
 """
 
 from __future__ import annotations
@@ -25,12 +27,14 @@ from typing import Optional
 from hermes.decorators import checker, loop
 from hermes.discovery import load_edge_buckets_from_alpha
 from hermes.models import (
+    AllocationProposal,
     CheckResult,
     ConfidenceTier,
     EdgeBucket,
     EntryMode,
     LaneStatus,
     Signal,
+    SubStrategyAction,
     VerificationReport,
     VerifierDecision,
 )
@@ -43,6 +47,7 @@ from hermes.state_io import (
     read_state_md,
     write_handoff,
 )
+from hermes.substrategy import annotate_signal
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +63,8 @@ MAX_BUCKET_DD = 0.12
 MAX_PORTFOLIO_DD = 0.08
 MAX_SINGLE_POSITION_PCT = 0.03
 MAX_CORRELATED_EXPOSURE_PCT = 0.08
+MAX_HHI = 0.45  # concentration reject if portfolio would become too peaked
+MIN_DIV_RATIO = 1.05  # reject if allocation destroys diversification
 ALLOWED_TIERS = {ConfidenceTier.A, ConfidenceTier.B}
 
 
@@ -105,9 +112,9 @@ def _sizing_ok(signal: Signal, state: dict) -> tuple[bool, float, str]:
     capital = float(state.get("capital_usd", state.get("capital", 10_000)) or 10_000)
     dd = float(state.get("max_drawdown_pct", state.get("drawdown_pct", 0)) or 0)
     open_exp = float(state.get("open_exposure_usd", 0) or 0)
-    suggested = signal.size_usd_suggested
+    # Prefer portfolio-layer size when present
+    suggested = signal.allocation_usd or signal.size_usd_suggested
 
-    # Shrink size as drawdown approaches 8%
     dd_scale = 1.0
     if dd >= MAX_PORTFOLIO_DD:
         return False, 0.0, f"portfolio DD {dd:.2%} >= {MAX_PORTFOLIO_DD:.0%}"
@@ -126,6 +133,55 @@ def _sizing_ok(signal: Signal, state: dict) -> tuple[bool, float, str]:
     return True, round(sized, 2), f"sized ${sized:.2f} (dd_scale={dd_scale:.2f})"
 
 
+def _allocation_ok(
+    signal: Signal,
+    proposal: Optional[AllocationProposal],
+) -> tuple[bool, str, str]:
+    """Approve both signal AND proposed size/allocation (Ruuj layer)."""
+    annotate_signal(signal)
+    sid = signal.substrategy_id
+    action = SubStrategyAction.HOLD.value
+
+    if proposal is not None:
+        if sid in proposal.cut_list:
+            return False, "substrategy_CUT", SubStrategyAction.CUT.value
+        if signal.allocation_usd <= 0 and signal.allocation_weight <= 0:
+            return False, "zero_allocation_weight", action
+        if proposal.concentration_hhi > MAX_HHI and signal.allocation_weight > 0.15:
+            return (
+                False,
+                f"concentration_hhi={proposal.concentration_hhi:.3f}>{MAX_HHI}",
+                action,
+            )
+        if (
+            proposal.diversification_ratio < MIN_DIV_RATIO
+            and len(proposal.weights) > 1
+            and signal.allocation_weight > 0.20
+        ):
+            return (
+                False,
+                f"div_ratio={proposal.diversification_ratio:.3f}<{MIN_DIV_RATIO}",
+                action,
+            )
+        if sid in proposal.reduce_list:
+            action = SubStrategyAction.REDUCE.value
+            # Still allow, but size must already be capped by allocator
+            if signal.allocation_usd > 0:
+                return True, f"REDUCE_ok size=${signal.allocation_usd:.2f}", action
+            return False, "reduce_sleeve_zero_size", action
+        return (
+            True,
+            f"alloc_w={signal.allocation_weight:.3f} ${signal.allocation_usd:.2f} "
+            f"div={proposal.diversification_ratio:.2f}",
+            action,
+        )
+
+    # No proposal yet — require non-toxic size suggestion only
+    if signal.size_usd_suggested <= 0:
+        return False, "no_size_suggested", action
+    return True, "no_proposal_soft_pass", action
+
+
 @checker(
     name="signal_verifier",
     model_hint="stronger",  # e.g. claude-opus / gpt-5.4 — NOT the generator model
@@ -139,6 +195,8 @@ def _sizing_ok(signal: Signal, state: dict) -> tuple[bool, float, str]:
         "tier A/B only",
         "pre-entry stability + VWAP",
         "lane active",
+        "allocation approved (HRP/BL size + concentration)",
+        "sub-strategy not CUT",
     ],
 )
 def verify_signal(
@@ -147,11 +205,13 @@ def verify_signal(
     buckets: Optional[list[EdgeBucket]] = None,
     state: Optional[dict] = None,
     lessons: Optional[str] = None,
+    proposal: Optional[AllocationProposal] = None,
 ) -> VerificationReport:
-    """Grade one signal. Default: REJECT until every gate passes."""
+    """Grade one signal + its allocation. Default: REJECT until every gate passes."""
     buckets = buckets if buckets is not None else load_edge_buckets_from_alpha()
     state = state if state is not None else parse_state_fields(read_state_md())
     lessons = lessons if lessons is not None else read_lessons_md()
+    annotate_signal(signal)
 
     checks: list[CheckResult] = []
     rejections: list[str] = []
@@ -316,6 +376,19 @@ def verify_signal(
     if not size_ok:
         rejections.append(size_detail)
 
+    # 9. Allocation approval (signal + size must both clear)
+    alloc_ok, alloc_detail, ss_action = _allocation_ok(signal, proposal)
+    checks.append(
+        CheckResult(
+            name="allocation_approval",
+            passed=alloc_ok,
+            detail=alloc_detail,
+            weight=1.5,
+        )
+    )
+    if not alloc_ok:
+        rejections.append(f"allocation:{alloc_detail}")
+
     # Score: weighted fraction of passed checks
     total_w = sum(c.weight for c in checks) or 1.0
     passed_w = sum(c.weight for c in checks if c.passed)
@@ -340,26 +413,35 @@ def verify_signal(
     else:
         decision = VerifierDecision.REJECT
 
+    final_size = sized if decision == VerifierDecision.PASS else 0.0
+    if decision == VerifierDecision.PASS and signal.allocation_usd > 0:
+        final_size = min(sized, signal.allocation_usd)
+
     report = VerificationReport(
         signal_id=signal.signal_id,
         decision=decision,
         checks=checks,
         score=round(score, 4),
         rejection_reasons=rejections,
-        sized_usd=sized if decision == VerifierDecision.PASS else 0.0,
+        sized_usd=final_size,
+        allocation_weight=signal.allocation_weight,
+        allocation_approved=alloc_ok and decision == VerifierDecision.PASS,
+        substrategy_id=signal.substrategy_id,
+        substrategy_action=ss_action,
         verifier_model="verifier-strong",  # swap to opus / o-series in prod
         notes=(
-            "PASS — all gates cleared"
+            "PASS — signal + allocation cleared"
             if decision == VerifierDecision.PASS
             else f"{decision.value}: {', '.join(rejections[:6])}"
         ),
     )
 
     logger.info(
-        "verify %s → %s score=%.2f reasons=%s",
+        "verify %s → %s score=%.2f alloc=%s reasons=%s",
         signal.signal_id,
         report.decision.value,
         report.score,
+        alloc_ok,
         report.rejection_reasons[:3],
     )
     return report
@@ -369,8 +451,9 @@ def verify_signal(
 def verifier_tick(
     signals: Optional[list[Signal]] = None,
     turn_id: Optional[str] = None,
+    proposal: Optional[AllocationProposal] = None,
 ) -> list[VerificationReport]:
-    """Verify a batch of signals. Only PASS reports proceed to executor."""
+    """Verify a batch of signals + allocations. Only PASS reports proceed."""
     ensure_dirs()
     if signals is None:
         return []
@@ -380,7 +463,10 @@ def verifier_tick(
     lessons = read_lessons_md()
 
     reports = [
-        verify_signal(s, buckets=buckets, state=state, lessons=lessons) for s in signals
+        verify_signal(
+            s, buckets=buckets, state=state, lessons=lessons, proposal=proposal
+        )
+        for s in signals
     ]
     tid = turn_id or "adhoc"
     write_handoff("verifications", reports, tid)

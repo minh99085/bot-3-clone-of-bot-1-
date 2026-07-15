@@ -1,28 +1,20 @@
 # ALPHA_RESEARCH_SKILL.md
 
-> Alpha-specific living skill. Read by `signal_generator` and `verifier` every turn.
-> Grows via `lessons_engine` promotions from LESSONS.md.
+> Alpha + **allocation** living skill. Read by `signal_generator`, `portfolio`,
+> and `verifier` every turn. Grows via `lessons_engine` promotions from LESSONS.md.
 
 ## Objective
 
-Produce signals with positive live EV after realistic fees + slippage, in buckets
-with historical WR ≥ 65%, so the verifier can pass a sparse set of high-quality
-trades rather than a firehose of mediocre ones.
+Produce sparse, high-EV signals **and** allocate capital across sub-strategies
+so the book hits **consistent 80%+ WR** with DD &lt; 8% and PF &gt; 1.4.
 
-**Win rate target:** 80%+ on settled trades (paper → live).
-**Expectancy:** live EV ≥ 0.06 (prefer ≥ 0.08).
-**Profit factor:** ≥ 1.4. **Max DD:** < 8%.
+Every unique `(market_series | entry_mode | regime | hourly_bucket)` is a
+**sub-strategy / return source**. Allocation is first-class — not an afterthought.
 
 ## Regime Filters
 
 Trade only when regime ∈ {`mean_revert`, `trending_up`, `trending_down`, `low_vol`}.
 Reject `unknown`. Be defensive in `high_vol` (require tier A + EV ≥ 0.08).
-
-Multi-timeframe check (verifier enforces):
-
-1. Higher timeframe regime not violently opposing the signal direction
-2. Hourly bucket not on the AVOID list
-3. Pre-entry stability OK (price wobble within threshold)
 
 ## Confidence Tiers
 
@@ -30,78 +22,112 @@ Multi-timeframe check (verifier enforces):
 |------|------------|----------|
 | A | ≥ 0.75 | Eligible |
 | B | ≥ 0.55 | Eligible |
-| C | ≥ 0.35 | **REJECT** |
-| D | < 0.35 | **REJECT** |
+| C / D | &lt; 0.55 | **REJECT** |
 
 ## Entry Modes
 
 | Mode | Status | Notes |
 |------|--------|-------|
-| `mean_reversion` | ACTIVE | Preferred with DOWN bias in mid-day buckets |
+| `mean_reversion` | ACTIVE | Preferred with DOWN bias mid-day |
 | `momentum` | ACTIVE | Require clean trend regime |
-| `liquidity_sweep` | ACTIVE | Need tight spread + stability |
-| `news_shock` | PAPER_ONLY | Until event-study sample ≥ 30 |
-| `grok_signal` | PAPER_ONLY | External LLM signal — verify hard |
-| `tv_signal` | PAPER_ONLY | TradingView webhook — verify hard |
-| `osmani_lane` | **GATED** | Kill/gate until backtest WR > 65% and +EV |
+| `liquidity_sweep` | ACTIVE | Tight spread + stability |
+| `news_shock` / `grok_signal` / `tv_signal` | PAPER_ONLY | Hard verify |
+| `osmani_lane` | **GATED** | CUT when degrading; never raw-cov size |
 
-### osmani_lane gate (Hermes weakness)
+## Portfolio Construction (Ruuj layer)
 
-Do **not** promote to ACTIVE without:
+### Robust base
 
-- Walk-forward backtest WR > 65%
-- Profit factor > 1.4
-- Positive EV after 100 bps fees + 40 bps slippage
-- Sample n ≥ 40 in the exact bucket
+1. Build sub-strategy return matrix from settlements
+2. **Ledoit-Wolf shrink** covariance — never raw sample cov
+3. Base weights = **HRP** (n≥2, T≥8) else **edge-weighted risk parity**
+4. Cap single sleeve ≤ 25%; gross new risk ≤ 35% of capital
 
-## DOWN Bias (explicit + dynamic)
+### Black-Litterman views
 
-DOWN/NO bias is a first-class parameter, not a buried constant.
+Blend prior with views from:
 
-- Base bias from STATE.md `Down Bias` (default 0.35)
-- `trending_down`: bias += 0.25
-- `trending_up`: bias -= 0.40 (can go slightly negative → allow YES)
-- `high_vol`: bias += 0.10 (more defensive)
-- Signal generator tilts YES vs NO edges by this bias before proposing
+- Grok conviction (`meta.grok_conviction`)
+- TV alignment (`meta.tv_alignment`)
+- Live EV + tier + conviction
+
+Low-confidence views barely move weights; high-confidence tilts meaningfully (`tau=0.05`).
+
+### Dynamic sizing in Handoff
+
+`allocation_handoff()` sizes each signal by:
+
+- Sleeve HRP/BL weight
+- Edge share within sleeve
+- Diversification contribution
+- Cut/reduce weight caps
+
+### Verifier allocation gates
+
+PASS requires **signal AND allocation**:
+
+- Sub-strategy not on CUT list
+- Non-zero approved size
+- HHI ≤ 0.45 (reject oversized adds into concentrated books)
+- Diversification ratio not collapsing below 1.05 on large adds
+
+## Cut / Reduce Logic (Chapter 5)
+
+Track per-sleeve **internal confidence** from:
+
+- Rolling EV after cost
+- WR + WR trend
+- EV trend
+- Regime stability
+- Brier score
+
+| Condition | Action | Meaning |
+|-----------|--------|---------|
+| Model broken (EV&lt;0.02, WR trend broken, brier bad, regime unstable, osmani degrading) | **CUT** | Reason-for-working broken — weight=0 even if still +PnL |
+| Degrading confidence / currently_losing + neg EV trend | **REDUCE** | Cap ≤ 8% — temporary pain ≠ model death |
+| Rising confidence + diversifying | **BOOST** | Rare; still capped |
+
+**Never confuse currently_losing with model_broken.**
 
 ## Edge Buckets — EXPLOIT
 
-| Regime | Hour (UTC) | Mode | Tier | Dir bias | n | WR | Edge | PF | Action |
-|--------|------------|------|------|----------|---|----|------|----|--------|
-| mean_revert | 14 | mean_reversion | A | DOWN | 48 | 78% | 0.09 | 1.90 | EXPLOIT |
-| trending_down | 20 | momentum | B | DOWN | 35 | 71% | 0.07 | 1.55 | EXPLOIT |
+| Regime | Hour | Mode | n | WR | Edge | PF |
+|--------|------|------|---|----|------|----|
+| mean_revert | 14 | mean_reversion | 48 | 78% | 0.09 | 1.90 |
+| trending_down | 20 | momentum | 35 | 71% | 0.07 | 1.55 |
 
 ## Edge Buckets — AVOID
 
-| Regime | Hour | Mode | Reason |
-|--------|------|------|--------|
-| high_vol | * | osmani_lane | Unproven; gated |
-| unknown | * | * | No regime filter pass |
-| * | * | * | Any LESSONS.md `AVOID:` match |
+| Mode / Regime | Reason |
+|---------------|--------|
+| osmani_lane | Gated / CUT when degrading |
+| unknown regime | No filter pass |
+| LESSONS `AVOID:` / `CUT:` | Binding |
 
-## Execution Quality (drag fixes)
+## Allocation Heuristics (seed)
 
-- `entry_vwap_target`: sit **inside** the spread by ~50 bps — never chase
-- `pre_entry_stability_ok`: required true (wobble proxy from spread)
-- Abort if live book moves > stability threshold between verify and send
-- Fees assumption: 100 bps effective; slippage: 40 bps
+- REDUCE weight on `osmani_lane` when rolling EV &lt; threshold or in toxic hour buckets
+- Prefer diversifying `btc_updown` vs `eth_updown` sleeves when corr high under LW cov
+- After sleeve loss: REDUCE first; CUT only if confidence metrics say model broken
+- Do not chase concentration — HHI gate is hard
 
-## Daily / Rolling Performance Gates
+## DOWN Bias (explicit + dynamic)
 
-If any trip, pause the loop (STATE.md `Pause Loop: true`):
+Base from STATE `Down Bias` (0.35). Adjust by regime (see SKILL.md).
 
-- Rolling WR(20) < 55%
-- Rolling PF(20) < 1.2
-- Daily loss > 3% capital
-- Drawdown ≥ 8%
-- Consecutive losses ≥ 4
+## Execution Quality
 
-## Research Cadence
+- `entry_vwap_target` inside spread; `pre_entry_stability_ok` required
+- Fees 100 bps + slippage 40 bps in live EV
 
-- Research worktree: backtests, bucket refreshes, lane promotion proposals
-- Signal worktree: live/paper signal gen + verify
-- Risk worktree: 30s monitor — never blocks execution path
+## Daily / Rolling Gates
+
+Pause if WR(20)&lt;55%, PF(20)&lt;1.2, daily loss&gt;3%, DD≥8%, consec losses≥4.
+
+## Auto-Promoted Allocation Rules
+
+<!-- lessons_engine appends CUT/REDUCE/ALLOCATION rules here -->
 
 ## Auto-Promoted Rules
 
-<!-- lessons_engine appends below this heading -->
+<!-- lessons_engine appends signal rules here -->

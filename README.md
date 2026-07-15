@@ -1,170 +1,132 @@
 # Financial Freedom Bot — Hermes v2
 
-Autonomous Polymarket prediction-market trading loop built on **Loop Engineering** (Addy Osmani) and Roan-style quant patterns. Paper-first. Self-improving. Verifier-gated.
+Autonomous Polymarket (BTC/ETH up-down + peers) trading loop: **Loop Engineering** (Osmani) + Roan self-improving skills + **Ruuj robust portfolio construction**. Paper-first. Verifier-gated. Allocation-aware.
 
-**Targets:** 80%+ win rate on settled trades · max drawdown &lt; 8% · profit factor &gt; 1.4 · positive expectancy after fees/slippage.
+**Targets:** consistent 80%+ WR on settled trades · DD &lt; 8% · PF &gt; 1.4 · positive EV after fees/slippage.
+
+The path from ~62% fragility to stable 80%+ is the triad: **Verifier + Lessons Engine + Portfolio Allocation Layer**.
 
 ---
 
-## Five Moves × Six Parts
+## Five Moves × Six Parts × Portfolio Layer
 
-| Move | What happens | Hermes module |
-|------|----------------|---------------|
-| **Discovery** | Find markets worth trading (no human task list) | `hermes/discovery.py` |
-| **Handoff** | Isolate work (git worktrees + JSON/parquet) | `hermes/worktrees.py`, `data/handoff/` |
-| **Verification** | Separate checker says NO by default | `hermes/verifier.py` |
-| **Persistence** | Memory on disk, not in the context window | `knowledge/*`, trade ledger |
-| **Scheduling** | Cadence + stop conditions | `@loop` / `@goal` in `hermes_loop.py` |
+| Move | What happens | Module |
+|------|----------------|--------|
+| **Discovery** | Find markets / sleeves worth trading | `discovery.py` |
+| **Handoff** | Worktrees + **HRP/BL sizing** of opportunities | `worktrees.py`, **`portfolio.py`** |
+| **Verification** | Checker approves **signal AND allocation** | `verifier.py` |
+| **Persistence** | STATE (incl. portfolio metrics), LESSONS, ledger | `knowledge/*` |
+| **Scheduling** | `@loop` cadence + `@goal` stops | `hermes_loop.py` |
 
 | Part | Material |
 |------|----------|
-| Automations | `@loop(interval=...)`, `@goal(...)` |
-| Skills | `knowledge/SKILL.md`, `ALPHA_RESEARCH_SKILL.md` |
-| Memory | `STATE.md`, `LESSONS.md`, `data/**/trade_ledger.jsonl` |
-| Sub-agents (maker-checker) | Generator ≠ Verifier (different instructions + stronger model hint) |
+| Automations | `@loop` / `@goal` |
+| Skills | `SKILL.md`, `ALPHA_RESEARCH_SKILL.md` (alpha **+ allocation** rules) |
+| Memory | `STATE.md`, `LESSONS.md` (drives signal **and** weight heuristics) |
+| Verifier | Separate stronger-model checker — assume broken until proven |
 | Worktrees | `.worktrees/{research,signal,risk}` |
-| Connectors | `connectors/` — Polymarket, CEX, broker, Slack/Telegram |
+| Connectors | Polymarket, CEX, broker, alerts |
 
-> The hard part of a loop isn't the loop — it's putting something inside it that can say **no**. That something is `verifier.py`.
+### Sub-strategies = return sources
+
+Every unique `(market_series | entry_mode | regime | hourly_bucket)` is a portfolio sleeve. Capital is allocated across sleeves, not “the latest signal.”
+
+---
+
+## Portfolio Construction (wired into the loop)
+
+```
+Settlements → return matrix
+     → Ledoit-Wolf shrinkage (never raw sample cov)
+     → HRP base  (or edge-weighted RP if T small)
+     → Black-Litterman tilt (Grok / TV / conviction views)
+     → Cut/Reduce caps (internal confidence)
+     → sized signals in Handoff
+     → Verifier must approve size/weight
+```
+
+| Piece | Behavior |
+|-------|----------|
+| **Robust base** | LW cov + HRP / edge-RP |
+| **Dynamic sizing** | Edge quality × diversification × sleeve health |
+| **BL views** | Low conf barely moves weights; high conf tilts |
+| **Cut / Reduce** | `model_broken` → CUT; `currently_losing` → REDUCE |
+| **Self-improve** | Lessons promote `CUT:`/`REDUCE:` into ALPHA skill |
 
 ---
 
 ## Quick start (paper)
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 export PYTHONPATH=.
 
-# One turn
-python -m hermes.hermes_loop once
-
-# Full demo: turn + settlement + lesson
-python -m hermes.hermes_loop demo
-# or
-python examples/full_loop_turn.py
-
-# Overnight (main loop 5m, risk monitor 30s)
-python -m hermes.hermes_loop overnight --interval 300
-
-# Convenience
-chmod +x scripts/*.sh deploy/*.sh
-./scripts/run_paper.sh once
-./scripts/run_paper.sh demo
+python -m hermes.hermes_loop demo       # discovery→alloc→verify→fill→lesson
+python -m hermes.hermes_loop overnight  # 5m main + 30s risk
+pytest -q
 ```
 
-### Enable live (only after paper evidence)
-
-1. Paper settled WR ≥ 80%, PF &gt; 1.4, DD &lt; 8% over a meaningful sample.
-2. Set `**Live Enabled**: true` in `knowledge/STATE.md`.
-3. `export HERMES_LIVE=1`
-4. `./scripts/run_live.sh`
-
-Live broker path raises until CLOB/wallet MCP is wired — by design.
+Live: paper evidence first, then `Live Enabled: true` in STATE + `HERMES_LIVE=1`.
 
 ---
 
-## One full loop turn
+## One full turn
 
 ```
-┌─────────────┐   handoff    ┌──────────────────┐   handoff   ┌────────────┐
-│  Discovery  │ ──────────►  │ Signal Generator │ ──────────► │  Verifier  │
-│  (skill)    │  candidates  │ (ALPHA skill)    │  signals    │ (checker)  │
-└─────────────┘              └──────────────────┘             └─────┬──────┘
-                                                                    │
-                     REJECT/DEFER → LESSONS.md                      │ PASS only
-                     + human_inbox.jsonl                            ▼
-                                                            ┌────────────┐
-                                                            │  Executor  │
-                                                            │ (paper/live)│
-                                                            └─────┬──────┘
-                                                                  │ settle
-                                                                  ▼
-                                                            ┌────────────────┐
-                                                            │ Lessons Engine │
-                                                            │ → SKILL promote│
-                                                            └────────────────┘
-
-Parallel: risk_monitor @ 30s in .worktrees/risk ──► can set Pause Loop in STATE.md
+Discovery → Signals → Portfolio Handoff (LW/HRP/BL/cut)
+                           ↓
+                     Verifier (signal + allocation)
+                           ↓
+              PASS → Executor    REJECT → LESSONS (+ alloc rules)
+                           ↓
+                     Settlement → Lessons → update ALPHA allocation heuristics
 ```
 
-### Verifier gates (all must pass)
+Risk monitor @ 30s in its own worktree can pause the loop (DD, daily loss, rolling WR/PF).
 
-1. Historical edge in exact bucket/mode/regime above threshold (WR ≥ 65%, n ≥ 20, PF ≥ 1.4)
-2. Live EV after fees + slippage ≥ **0.06** (prefer 0.08)
-3. Regime filter + conviction ≥ 0.55
-4. Not on any `AVOID:` rule from `LESSONS.md`
-5. Sizing respects drawdown + correlation caps
-6. Tier A/B only; lane not GATED/KILLED
-7. `pre_entry_stability_ok` + `entry_vwap_target` present
+---
 
-### Hermes v1 weaknesses addressed
+## Verifier gates (signal + allocation)
 
-| Weakness | Fix |
-|----------|-----|
-| `osmani_lane` bleed | GATED until backtest WR &gt; 65% +EV |
-| Weak regime/hour/tier guards | First-class in discovery + verifier |
-| Execution drag | Tighter VWAP + stability filter |
-| Implicit DOWN bias | Explicit dynamic bias from STATE |
-| No performance pause | Daily/rolling gates in `risk_monitor` |
+1. Bucket WR ≥ 65%, n ≥ 20, PF ≥ 1.4  
+2. Live EV ≥ 0.06 after fees/slippage  
+3. Regime + conviction; tier A/B only  
+4. Not on AVOID; lane not gated  
+5. Entry VWAP + stability  
+6. DD / correlation sizing  
+7. **Allocation approved** — not CUT, size &gt; 0, HHI / div-ratio OK  
 
 ---
 
 ## Model choices
 
-| Role | Suggestion | Why |
-|------|------------|-----|
-| Signal generator | Mid-tier (Sonnet-class) | Throughput |
-| **Verifier** | **Stronger / different family** (Opus / o-series) | Skeptical; different blind spots |
-| Lessons | Mid-tier structured JSON | Cheap frequent writes |
-| Risk | Deterministic code | Numbers don't need an LLM |
-
-Wire LLM backends later behind `GENERATOR_MODEL` / `VERIFIER_MODEL`; numeric gates already run without an API key so overnight paper works offline.
+| Role | Bias |
+|------|------|
+| Generator | Mid-tier throughput |
+| **Verifier** | **Stronger / different family** |
+| Allocation | Deterministic (numpy) — no LLM required |
+| Lessons | Mid-tier structured writes |
 
 ---
 
 ## Repo layout
 
 ```
-hermes/           # core loop modules
-connectors/       # Polymarket, CEX, broker, alerts
-knowledge/        # SKILL, ALPHA, STATE, LESSONS (living layer)
-config/           # hermes.yaml, risk_limits.yaml
-data/             # paper/live ledgers + handoffs (gitignored contents)
-scripts/          # run_paper.sh, run_live.sh
-deploy/           # deploy_vps.sh → /opt/financial-freedom-bot
-examples/         # full_loop_turn.py
-tests/            # verifier + lessons + discovery
-```
-
----
-
-## Deploy (VPS)
-
-Host default: `207.246.96.45` → `/opt/financial-freedom-bot`
-
-```bash
-./deploy/deploy_vps.sh
-```
-
-Install on VPS matches README: `python3 -m venv .venv && pip install -r requirements.txt`.
-
----
-
-## Tests
-
-```bash
-PYTHONPATH=. pytest -q
+hermes/
+  hermes_loop.py      # orchestrator
+  portfolio.py        # LW + HRP + BL + sizing
+  substrategy.py      # sleeve IDs + cut/reduce confidence
+  verifier.py         # signal + allocation checker
+  lessons_engine.py   # signal + allocation lessons
+  ...
+knowledge/            # SKILL, ALPHA (allocation rules), STATE, LESSONS
 ```
 
 ---
 
 ## Safety
 
-- Circuit breakers in `risk_monitor.py` + `SKILL.md`
-- Human inbox: `data/paper/human_inbox.jsonl`
-- Every decision logged with turn handoffs under `data/handoff/`
-- Live double-gated (`HERMES_LIVE` + STATE.md)
+Circuit breakers, human inbox, full handoff logs, live double-gate. Stay outside the loop: tune skills, thresholds, and the verifier — not individual morning prompts.
 
-Stay the engineer outside the loop: tune skills, thresholds, and the verifier — not individual prompts each morning.
+Git: **commit and push directly to `main`** (no feature branches).

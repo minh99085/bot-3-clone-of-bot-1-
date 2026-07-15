@@ -15,16 +15,17 @@ Paper mode is default. Live trading is opt-in only after paper evidence clears t
 | Field | Value |
 |-------|-------|
 | Codename | Hermes v2 |
-| Architecture | Loop Engineering (Addy Osmani) + Roan quant patterns |
+| Architecture | Loop Engineering (Osmani) + Roan self-improve + Ruuj portfolio |
 | Mode | `paper` until STATE.md says otherwise |
 | Verifier model hint | Stronger / different architecture than generator |
+| Allocation | Ledoit-Wolf → HRP/edge-RP → Black-Litterman → cut/reduce |
 
 ## Five Moves (every turn)
 
 1. **Discovery** — find markets worth trading (`discovery.py`)
-2. **Handoff** — isolate into worktrees + parquet/JSON handoffs
-3. **Verification** — separate checker says PASS/REJECT/DEFER (`verifier.py`)
-4. **Persistence** — STATE.md, LESSONS.md, trade ledger
+2. **Handoff** — worktrees + **portfolio allocation** (`portfolio.py`) sizes by HRP/BL
+3. **Verification** — checker approves **signal + allocation** (`verifier.py`)
+4. **Persistence** — STATE.md (incl. portfolio metrics), LESSONS.md, ledger
 5. **Scheduling** — `@loop` cadence + `@goal` stop conditions (`hermes_loop.py`)
 
 ## Six Parts (materials)
@@ -50,6 +51,9 @@ Paper mode is default. Live trading is opt-in only after paper evidence clears t
 8. **We never go live without `HERMES_LIVE=1` AND `live_enabled: true` in STATE.md**.
 9. **We never trade confidence tier C or D** — verifier rejects them by policy.
 10. **We never clear LESSONS.md** to "start fresh" without archiving — memory is the edge.
+11. **We never size with raw sample covariance** — Ledoit-Wolf only (Ruuj).
+12. **We never confuse currently_losing with model_broken** — REDUCE vs CUT.
+13. **We never skip allocation verification** — size/weight must clear HHI + div gates.
 
 ## Circuit Breakers
 
