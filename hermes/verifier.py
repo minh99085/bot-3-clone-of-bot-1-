@@ -311,6 +311,55 @@ def verify_signal(
         if not scoped_ok:
             rejections.append(f"out_of_scope:{signal.slug or signal.market_series}")
 
+    # 0b. Tradeable window + price sanity (paper desk guardrails)
+    from hermes.market_scope import (
+        is_extreme_entry_price,
+        is_window_tradeable,
+    )
+
+    if signal.slug:
+        tradeable = is_window_tradeable(signal.slug)
+        checks.append(
+            CheckResult(
+                name="window_tradeable",
+                passed=tradeable,
+                detail=f"slug={signal.slug}",
+            )
+        )
+        if not tradeable:
+            rejections.append("window_expired_or_too_late")
+
+    yes_px = float((signal.meta or {}).get("yes_price") or signal.market_price or 0.5)
+    extreme = is_extreme_entry_price(yes_px, signal.direction.value)
+    checks.append(
+        CheckResult(
+            name="extreme_price",
+            passed=not extreme,
+            detail=f"yes={yes_px:.4f} dir={signal.direction.value}",
+        )
+    )
+    if extreme:
+        rejections.append("extreme_entry_price")
+
+    meta = signal.meta or {}
+    if meta.get("enhanced_misprice") and not meta.get("enhanced_passes"):
+        checks.append(
+            CheckResult(
+                name="enhanced_hard_filter",
+                passed=False,
+                detail=str((meta.get("enhanced_reasons") or [])[:3]),
+            )
+        )
+        rejections.append("enhanced_filter_failed")
+    elif meta.get("enhanced_misprice"):
+        checks.append(
+            CheckResult(
+                name="enhanced_hard_filter",
+                passed=True,
+                detail="enhanced_passes",
+            )
+        )
+
     # 0. Circuit / pause — coerce string flags carefully ("clear" must not trip)
     paused = bool(state.get("loop_paused") or state.get("pause_loop"))
     cb_raw = state.get("circuit_breaker", "clear")

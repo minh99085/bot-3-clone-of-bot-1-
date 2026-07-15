@@ -365,3 +365,43 @@ def get_feed() -> RealtimeBtcFeed:
 
 def get_btc_snapshot(*, force_rest: bool = False) -> BtcSnapshot:
     return get_feed().get_snapshot(force_rest=force_rest)
+
+
+ASSET_CEX_SYMBOLS: dict[str, str] = {
+    "BTC": "BTCUSDT",
+    "ETH": "ETHUSDT",
+    "SOL": "SOLUSDT",
+}
+
+
+def get_asset_mid(asset: str, *, force_rest: bool = False) -> float:
+    """Binance futures mid for BTC / ETH / SOL (REST; BTC uses feed when available)."""
+    asset_u = (asset or "BTC").upper()
+    if asset_u == "BTC":
+        return get_btc_snapshot(force_rest=force_rest).mid
+    symbol = ASSET_CEX_SYMBOLS.get(asset_u)
+    if not symbol:
+        return 0.0
+    try:
+        url = f"{BINANCE_FUTURES_REST}/fapi/v1/ticker/bookTicker"
+        with httpx.Client(timeout=8.0) as client:
+            resp = client.get(url, params={"symbol": symbol})
+            resp.raise_for_status()
+            data = resp.json()
+        bid = float(data.get("bidPrice") or 0)
+        ask = float(data.get("askPrice") or 0)
+        if bid > 0 and ask > 0:
+            return (bid + ask) / 2.0
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("asset mid %s failed: %s", symbol, exc)
+    return 0.0
+
+
+def get_asset_snapshot(asset: str, *, force_rest: bool = False) -> BtcSnapshot:
+    """CEX snapshot for mispricing/settlement — BTC uses WS feed; alt assets REST mid."""
+    asset_u = (asset or "BTC").upper()
+    if asset_u == "BTC":
+        return get_btc_snapshot(force_rest=force_rest)
+    mid = get_asset_mid(asset_u, force_rest=force_rest)
+    tick = BtcTick(price=mid, bid=mid, ask=mid, source=f"binance_rest_{asset_u.lower()}")
+    return BtcSnapshot(binance=tick, mid=mid, momentum=0.0, sources_agree=True)

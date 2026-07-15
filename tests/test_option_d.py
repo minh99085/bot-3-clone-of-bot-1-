@@ -38,8 +38,8 @@ def test_mispricing_detects_cex_lead(monkeypatch):
         bybit = None
 
     monkeypatch.setattr(
-        "hermes.mispricing.get_btc_snapshot",
-        lambda force_rest=False: FakeSnap(),
+        "hermes.mispricing.get_asset_snapshot",
+        lambda asset, force_rest=False: FakeSnap(),
     )
     # PM still prices UP cheaply at 0.42 while CEX implies much higher
     mp = detect_mispricing(_candidate(yes_price=0.42, no_price=0.58))

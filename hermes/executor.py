@@ -126,6 +126,14 @@ def executor_tick(
         if signal is None:
             logger.error("PASS report %s has no matching signal", report.signal_id)
             continue
+        meta = signal.meta or {}
+        if meta.get("enhanced_misprice") and not meta.get("enhanced_passes"):
+            logger.warning(
+                "executor skip %s: enhanced_passes=False (%s)",
+                signal.signal_id,
+                (meta.get("enhanced_reasons") or [])[:2],
+            )
+            continue
         intent = build_intent(signal, report, paper=paper)
         fill = execute_intent(intent, signal=signal)
         pos = open_position(fill)
@@ -157,6 +165,9 @@ def executor_tick(
                 "bandit_arm": (signal.meta or {}).get("bandit_arm"),
                 "bandit_context": (signal.meta or {}).get("bandit_context"),
                 "cex_mid": (signal.meta or {}).get("cex_mid"),
+                "cex_asset": (signal.meta or {}).get("cex_asset")
+                or (signal.meta or {}).get("asset")
+                or "BTC",
             },
         })
         logger.info(

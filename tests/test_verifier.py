@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import time
+
 import pytest
+
+from hermes.market_scope import current_window_ts, window_step_seconds
 
 from hermes.models import (
     ConfidenceTier,
@@ -180,9 +184,10 @@ def test_scoped_mispricing_allows_single_sleeve_hhi(monkeypatch):
     from hermes.models import AllocationProposal
 
     monkeypatch.setenv("HERMES_SCOPE_BTC_UPDOWN_ONLY", "1")
+    live_slug = f"btc-updown-5m-{current_window_ts('5m') + window_step_seconds('5m')}"
     sig = _signal(
         market_id="mkt_btc_5m",
-        slug="btc-updown-5m-1784125200",
+        slug=live_slug,
         question="Bitcoin Up or Down - 5 Minutes",
         market_series="btc_updown_5m",
         timeframe="5m",
@@ -208,6 +213,9 @@ def test_scoped_mispricing_allows_single_sleeve_hhi(monkeypatch):
         meta={
             "paper": True,
             "asset": "BTC",
+            "enhanced_misprice": True,
+            "enhanced_passes": True,
+            "yes_price": 0.40,
             "mispricing_active": True,
             "mispricing_conviction": 0.9,
             "mispricing_dislocation": 0.22,

@@ -196,7 +196,12 @@ class PolymarketClient:
                 continue
             if c is None:
                 continue
-            if c.yes_price <= 0.01 or c.yes_price >= 0.99:
+            if c.yes_price <= 0.02 or c.yes_price >= 0.98:
+                continue
+            from hermes.market_scope import is_window_tradeable
+
+            if not is_window_tradeable(slug):
+                logger.debug("skip expired/untradeable slug %s", slug)
                 continue
             asset_u = sm.asset.upper()
             c.timeframe = sm.timeframe

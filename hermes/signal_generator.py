@@ -219,6 +219,20 @@ def generate_signal(
 
     raw = candidate.raw or {}
     tf = candidate.timeframe or raw.get("timeframe") or "1h"
+
+    from hermes.market_scope import is_extreme_market_price, is_window_tradeable
+
+    if candidate.slug and not is_window_tradeable(candidate.slug):
+        logger.info("signal skip expired/late window slug=%s", candidate.slug)
+        return None
+    if is_extreme_market_price(float(candidate.yes_price)):
+        logger.info(
+            "signal skip extreme yes_price=%.4f slug=%s",
+            candidate.yes_price,
+            candidate.slug,
+        )
+        return None
+
     cl_price = None
     try:
         if raw.get("oracle_price") is not None:
@@ -314,6 +328,13 @@ def generate_signal(
             enhance_from_hermes_mispricing,
             opportunity_to_signal_meta,
         )
+        from hermes.market_scope import window_remaining_seconds
+
+        rem = window_remaining_seconds(candidate.slug) if candidate.slug else None
+        if rem is not None:
+            sec_res = max(30.0, float(rem))
+        else:
+            sec_res = 300.0 if tf == "5m" else 900.0
 
         opp = enhance_from_hermes_mispricing(
             market_id=candidate.market_id,
@@ -325,12 +346,19 @@ def generate_signal(
             timeframe=str(tf),
             liquidity_usd=float(getattr(candidate, "liquidity", None) or 5_000),
             volume_24h=float(getattr(candidate, "volume_24h", None) or 10_000),
-            seconds_to_resolution=300.0 if tf == "5m" else 900.0,
+            seconds_to_resolution=sec_res,
             chainlink_vs_cex_bps=float(mp.chainlink_vs_cex_bps),
             active=bool(mp.active),
             bankroll=capital,
         )
         enhanced_meta = opportunity_to_signal_meta(opp)
+        if not opp.passes_hard_filter:
+            logger.info(
+                "signal skip enhanced filter fail slug=%s reasons=%s",
+                candidate.slug,
+                (opp.reasons or [])[:3],
+            )
+            return None
         if opp.passes_hard_filter:
             # Prefer enhanced direction + Kelly-suggested size
             if opp.side.value in ("YES", "UP"):
@@ -349,7 +377,10 @@ def generate_signal(
             size = max(10.0, min(float(opp.size_usd), capital * 0.10))
     except Exception as exc:  # noqa: BLE001 — never break the loop
         logger.warning("enhanced_misprice failed: %s", exc)
-        enhanced_meta = {"enhanced_misprice": False, "enhanced_error": str(exc)[:120]}
+        return None
+
+    if not enhanced_meta.get("enhanced_passes"):
+        return None
 
     rules_fired = [
         f"down_bias={bias:.2f}",
@@ -367,12 +398,6 @@ def generate_signal(
         )
     if bucket_edge > 0:
         rules_fired.append(f"exploit_bucket_edge={bucket_edge:.3f}")
-
-    if not enhanced_meta.get("enhanced_passes"):
-        if decision.arm == "explore":
-            size = max(10.0, size * 0.5)
-        elif decision.arm == "exploit" and mp.active:
-            size = min(capital * 0.02, size * (1.0 + 0.5 * mp.conviction))
 
     oracle_align = float(raw.get("oracle_alignment") or 0.5)
     if tf in ("5m", "15m") and raw.get("asset"):
@@ -402,6 +427,8 @@ def generate_signal(
         **decision.as_meta(),
         **enhanced_meta,
         "cex_mid": mp.cex_mid,
+        "cex_asset": str(raw.get("asset") or "BTC").upper(),
+        "yes_price": float(candidate.yes_price),
         "cex_ret_60s": mp.features.get("ret_60s", 0.0),
     }
 
@@ -476,25 +503,29 @@ def signal_generator_tick(
         if sig is not None:
             signals.append(annotate_signal(sig))
 
-    # Rotator: keep only the single highest-conviction ticket this turn
+    # Rotator: only enhanced-pass signals; keep single highest conviction
     from hermes.market_scope import is_rotator
 
-    if is_rotator() and len(signals) > 1:
-        def _conv(s: Signal) -> float:
-            meta = s.meta or {}
-            return float(
-                meta.get("enhanced_conviction_score")
-                or meta.get("enhanced_conviction")
-                or s.confidence
-                or 0.0
-            )
+    if is_rotator():
+        signals = [s for s in signals if (s.meta or {}).get("enhanced_passes")]
+        if not signals:
+            logger.info("rotator: no enhanced_pass signals this turn")
+        elif len(signals) > 1:
+            def _conv(s: Signal) -> float:
+                meta = s.meta or {}
+                return float(
+                    meta.get("enhanced_conviction_score")
+                    or meta.get("enhanced_conviction")
+                    or s.confidence
+                    or 0.0
+                )
 
-        signals = [max(signals, key=_conv)]
-        logger.info(
-            "rotator: kept top conviction signal slug=%s conv=%.4f",
-            signals[0].slug,
-            _conv(signals[0]),
-        )
+            signals = [max(signals, key=_conv)]
+            logger.info(
+                "rotator: kept top conviction signal slug=%s conv=%.4f",
+                signals[0].slug,
+                _conv(signals[0]),
+            )
 
     tid = turn_id or "adhoc"
     path = write_handoff("signals", signals, tid)

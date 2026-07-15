@@ -241,6 +241,16 @@ def analyze_signal(
             if extra not in lesson_hits:
                 lesson_hits.append(extra)
 
+    from hermes.market_scope import is_rotator
+
+    if is_rotator():
+        # Ignore circular meta-lessons from prior bad paper settlement cycles.
+        lesson_hits = [
+            r
+            for r in lesson_hits
+            if "ALLOCATION_REJECT" not in r and "pretrade_skip" not in r.lower()
+        ]
+
     live_ev, slip_bps, ev_note = _recalc_live_ev(signal)
     fast = _fast_btc_scope(signal)
 

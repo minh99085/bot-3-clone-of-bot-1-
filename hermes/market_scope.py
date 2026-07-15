@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -46,6 +47,14 @@ MAX_SIZE_PCT_FAST = 0.02  # 2% cap until lessons prove edge
 MIN_SIZE_PCT_FAST = 0.005
 MIN_LIVE_EV_FAST = 0.04
 MIN_ORACLE_ALIGN = 0.55
+
+# Reject entries too close to window end or on already-expired slugs.
+MIN_WINDOW_REMAINING_SEC = int(os.environ.get("HERMES_MIN_WINDOW_REMAINING_SEC", "60"))
+WINDOW_SETTLE_GRACE_SEC = int(os.environ.get("HERMES_WINDOW_SETTLE_GRACE_SEC", "15"))
+
+# Block penny / resolved-side paper fills (matches verifier + discovery).
+EXTREME_PRICE_LOW = float(os.environ.get("HERMES_EXTREME_PRICE_LOW", "0.02"))
+EXTREME_PRICE_HIGH = float(os.environ.get("HERMES_EXTREME_PRICE_HIGH", "0.98"))
 
 # Legacy preferred seeds (also listed in market_filters.yaml)
 PREFERRED_SLUGS = (
@@ -306,6 +315,62 @@ def window_step_seconds(timeframe: str) -> int:
     return 300 if timeframe == "5m" else 900
 
 
+def window_end_ts_for_slug(slug: str) -> Optional[int]:
+    """Unix timestamp when the up/down window closes."""
+    sm = parse_slug(slug)
+    if not sm:
+        return None
+    return sm.window_ts + window_step_seconds(sm.timeframe)
+
+
+def window_remaining_seconds(slug: str, *, now: Optional[float] = None) -> Optional[float]:
+    """Seconds until window end; negative if already expired."""
+    end = window_end_ts_for_slug(slug)
+    if end is None:
+        return None
+    t = float(now if now is not None else time.time())
+    return float(end) - t
+
+
+def is_window_tradeable(slug: str, *, now: Optional[float] = None) -> bool:
+    """True when the window is open and enough time remains to enter."""
+    sm = parse_slug(slug)
+    if sm is None:
+        return True  # non up/down slugs: other gates handle scope
+    rem = window_remaining_seconds(slug, now=now)
+    if rem is None:
+        return False
+    return rem >= MIN_WINDOW_REMAINING_SEC
+
+
+def is_window_expired(
+    slug: str, *, now: Optional[float] = None, grace_sec: int = WINDOW_SETTLE_GRACE_SEC
+) -> bool:
+    """True when window end + grace has passed (ok to settle)."""
+    rem = window_remaining_seconds(slug, now=now)
+    if rem is None:
+        return True
+    return rem <= -grace_sec
+
+
+def is_extreme_market_price(yes_price: float) -> bool:
+    """True when YES is at lottery/resolution tail — not tradable for paper desk."""
+    p = float(yes_price)
+    return p <= EXTREME_PRICE_LOW or p >= EXTREME_PRICE_HIGH
+
+
+def entry_price_for_side(yes_price: float, direction: str) -> float:
+    """Price paid for the chosen contract side."""
+    d = (direction or "").upper()
+    if d in ("UP", "YES"):
+        return float(yes_price)
+    return 1.0 - float(yes_price)
+
+
+def is_extreme_entry_price(yes_price: float, direction: str) -> bool:
+    return is_extreme_market_price(entry_price_for_side(yes_price, direction))
+
+
 def current_window_ts(timeframe: str, *, now: Optional[float] = None) -> int:
     step = window_step_seconds(timeframe)
     t = int(now if now is not None else datetime.now(timezone.utc).timestamp())
@@ -326,11 +391,13 @@ def candidate_slugs_for_filter(
         sm = parse_slug(pref)
         if sm and sm.filter_key == filter_key:
             out.append(sm.slug)
-    for off in (-1, 0, 1, 2, 3):
+    # Current + upcoming windows only (no -1: that slug is usually already expired).
+    for off in (0, 1, 2, 3):
         slug = f"{spec.slug_prefix}{base + off * step}"
-        if slug not in out:
+        if slug not in out and is_window_tradeable(slug, now=now):
             out.append(slug)
-    return out
+    # Drop stale preferred seeds
+    return [s for s in out if is_window_tradeable(s, now=now)]
 
 
 def candidate_slugs_for_series(timeframe: str, *, now: Optional[float] = None) -> list[str]:

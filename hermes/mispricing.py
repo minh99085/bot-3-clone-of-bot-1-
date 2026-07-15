@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from connectors.cex_realtime import BtcSnapshot, get_btc_snapshot
+from connectors.cex_realtime import BtcSnapshot, get_asset_snapshot, get_btc_snapshot
 from hermes.models import Direction, MarketCandidate
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,11 @@ def detect_mispricing(
     """Core detector — safe to call every turn for scoped BTC up/down markets."""
     tf = candidate.timeframe or (candidate.raw or {}).get("timeframe") or "5m"
     pm_up = float(candidate.yes_price)
-    snap = snapshot or get_btc_snapshot()
+    raw = candidate.raw or {}
+    asset = str(raw.get("asset") or "BTC").upper()
+    snap = snapshot
+    if snap is None:
+        snap = get_asset_snapshot(asset)
 
     out = MispricingSignal(
         cex_momentum=snap.momentum,
