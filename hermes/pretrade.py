@@ -283,8 +283,13 @@ def analyze_signal(
         reasons.append("allocation_policy: sleeve on CUT list")
 
     if live_ev < min_ev:
-        skip = True
-        reasons.append(f"live_ev={live_ev:.4f}<{min_ev} ({ev_note})")
+        # Mispricing explore may clear a softer floor later; still skip if terrible
+        meta0 = signal.meta or {}
+        if meta0.get("mispricing_active") and meta0.get("bandit_arm") == "explore" and live_ev >= 0.03:
+            reasons.append(f"explore_ev_soft_pass live_ev={live_ev:.4f}")
+        else:
+            skip = True
+            reasons.append(f"live_ev={live_ev:.4f}<{min_ev} ({ev_note})")
 
     wr_floor = 0.50 if fast else MIN_SLEEVE_WR
     n_floor = 8 if fast else 10
@@ -293,6 +298,9 @@ def analyze_signal(
         reasons.append(f"sleeve_wr={merged['wr']:.2%} n={merged['n']} below {wr_floor:.0%}")
 
     align_floor = 0.55 if fast else 0.45
+    meta_pre = signal.meta or {}
+    if meta_pre.get("mispricing_active") and meta_pre.get("sources_agree", True):
+        align_floor = 0.35  # CEX lead setups may diverge briefly from PM-implied align
     if signal.oracle_alignment < align_floor and signal.timeframe in ("5m", "15m"):
         skip = True
         reasons.append(f"oracle_alignment={signal.oracle_alignment:.2f} too low for HF")
@@ -327,13 +335,30 @@ def analyze_signal(
         if sid in proposal.reduce_list:
             conf_scale *= 0.5
 
-        if fast:
-            # Ladder sets hard cap; edge/conf only scale within it
+        # Option D — bandit arm modulates size / skip
+        meta = signal.meta or {}
+        bandit_arm = str(meta.get("bandit_arm") or "")
+        bandit_scale = float(meta.get("bandit_size_scale") or 0.0)
+        mp_active = bool(meta.get("mispricing_active"))
+        if bandit_arm == "skip":
+            skip = True
+            size_pct = 0.0
+            reasons.append(f"bandit_SKIP: {meta.get('bandit_reason', '')[:100]}")
+        elif fast:
             size_pct = max_pct * edge_scale * conf_scale
-            size_pct = min(max_pct, max(MIN_SIZE_PCT if not fast else max_pct * 0.5, size_pct))
-            # Cold start: force exact small size
+            size_pct = min(max_pct, max(max_pct * 0.5, size_pct))
             if merged["n"] < 5:
                 size_pct = max_pct
+            if bandit_arm == "explore":
+                size_pct = min(size_pct, max_pct * 0.5)
+                reasons.append("bandit_EXPLORE half-size probe")
+            elif bandit_arm == "exploit" and mp_active:
+                size_pct = min(max_pct * 1.5, size_pct * max(1.0, bandit_scale))
+                reasons.append(f"bandit_EXPLOIT scale={bandit_scale:.2f}")
+            if mp_active:
+                reasons.append(
+                    f"mispricing_disloc={float(meta.get('mispricing_dislocation') or 0):+.3f}"
+                )
         else:
             size_pct = min(
                 MAX_SIZE_PCT,
@@ -381,6 +406,11 @@ def analyze_signal(
         lessons_applied=lesson_hits,
         reasons=reasons,
         oracle_alignment=float(signal.oracle_alignment or 0.5),
+        mispricing_active=bool((signal.meta or {}).get("mispricing_active")),
+        mispricing_dislocation=float((signal.meta or {}).get("mispricing_dislocation") or 0),
+        bandit_arm=str((signal.meta or {}).get("bandit_arm") or ""),
+        bandit_context=str((signal.meta or {}).get("bandit_context") or ""),
+        entry_source=str((signal.meta or {}).get("entry_source") or "baseline"),
     )
     return analysis
 

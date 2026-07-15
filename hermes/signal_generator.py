@@ -43,6 +43,7 @@ LANE_STATUS: dict[EntryMode, LaneStatus] = {
     EntryMode.OSMANI_LANE: LaneStatus.GATED,  # Hermes weakness: gate hard
     EntryMode.MOMENTUM: LaneStatus.ACTIVE,
     EntryMode.MEAN_REVERSION: LaneStatus.ACTIVE,
+    EntryMode.MISPRICING: LaneStatus.ACTIVE,
     EntryMode.NEWS_SHOCK: LaneStatus.PAPER_ONLY,
     EntryMode.LIQUIDITY_SWEEP: LaneStatus.ACTIVE,
     EntryMode.GROK_SIGNAL: LaneStatus.PAPER_ONLY,
@@ -202,6 +203,9 @@ def generate_signal(
     state: dict,
     paper: bool = True,
 ) -> Optional[Signal]:
+    from hermes.bandit import get_bandit
+    from hermes.mispricing import detect_mispricing
+
     lessons = read_lessons_md()
     mode = pick_entry_mode(candidate, buckets)
     if LANE_STATUS.get(mode) == LaneStatus.KILLED:
@@ -212,6 +216,18 @@ def generate_signal(
         return None
     if LANE_STATUS.get(mode) == LaneStatus.PAPER_ONLY and not paper:
         return None
+
+    raw = candidate.raw or {}
+    tf = candidate.timeframe or raw.get("timeframe") or "1h"
+    cl_price = None
+    try:
+        if raw.get("oracle_price") is not None:
+            cl_price = float(raw["oracle_price"])
+    except (TypeError, ValueError):
+        cl_price = None
+
+    # Option D: CEX↔PM mispricing (primary alpha for fast BTC windows)
+    mp = detect_mispricing(candidate, chainlink_price=cl_price)
 
     # Pull EXPLOIT bucket prior if available
     bucket_edge = 0.0
@@ -231,6 +247,16 @@ def generate_signal(
     bias = dynamic_down_bias(candidate.regime, state)
     direction = choose_direction(candidate, fair, bias)
 
+    # Mispricing overrides direction when active and strong enough
+    if mp.active and mp.direction is not None and mp.conviction >= 0.45:
+        direction = mp.direction
+        mode = EntryMode.MISPRICING
+        # Fair ≈ CEX-implied for the chosen side
+        if direction in (Direction.UP, Direction.YES):
+            fair = mp.cex_implied_up
+        else:
+            fair = 1.0 - mp.cex_implied_up
+
     if direction in (Direction.YES, Direction.UP):
         mkt = candidate.yes_price
         edge = fair - mkt
@@ -238,43 +264,70 @@ def generate_signal(
         mkt = candidate.no_price
         edge = (1.0 - fair) - mkt
 
-    # EXPLOIT bucket prior: historical avg_edge is evidence of expectancy
-    if bucket_edge > 0:
+    # Boost edge from dislocation magnitude (must clear soft EV after fees)
+    if mp.active:
+        edge = max(edge, abs(mp.dislocation) * 1.15, 0.055 * mp.conviction + 0.03)
+
+    if bucket_edge > 0 and not mp.active:
         edge = max(edge, bucket_edge * 0.85)
 
-    if edge <= 0:
+    # Allow mispricing-driven signals even if classic edge was flat
+    if edge <= 0 and not (mp.active and mp.conviction >= 0.5):
         return None
+    if edge <= 0 and mp.active:
+        edge = max(0.02, abs(mp.dislocation) * 0.7)
 
     ev = live_ev_after_costs(edge, mkt)
     conv, tier = conviction_score(
         edge, candidate, ConfidenceTier.B, bucket_edge=bucket_edge, bucket_wr=bucket_wr
     )
+    if mp.active:
+        conv = min(1.0, max(conv, 0.45 + 0.5 * mp.conviction))
+        if conv >= 0.75:
+            tier = ConfidenceTier.A
+        elif conv >= 0.55:
+            tier = ConfidenceTier.B
+        else:
+            tier = ConfidenceTier.C
+
     hit_avoid = avoid_bucket_hit(
         mode, candidate.regime, candidate.hourly_bucket, buckets, lessons
     )
     stable = pre_entry_stability(candidate)
+
+    # Bandit: explore / exploit / skip recommendation (pretrade enforces skip)
+    bandit = get_bandit()
+    decision = bandit.decide(mp, candidate.hourly_bucket)
+    bandit.record_pull(decision)
 
     rules_fired = [
         f"down_bias={bias:.2f}",
         f"regime={candidate.regime.value}",
         f"mode={mode.value}",
         f"hour={candidate.hourly_bucket}",
+        f"bandit={decision.arm}",
     ]
+    if mp.active:
+        rules_fired.append(f"mispricing={mp.dislocation:+.3f}")
     if bucket_edge > 0:
         rules_fired.append(f"exploit_bucket_edge={bucket_edge:.3f}")
-    if "DOWN" in read_alpha_skill():
-        rules_fired.append("alpha:DOWN_bias_active")
 
-    capital = float(state.get("capital_usd", state.get("capital", state.get("starting_bankroll_usd", 2000))) or 2000)
+    capital = float(
+        state.get("capital_usd", state.get("capital", state.get("starting_bankroll_usd", 2000)))
+        or 2000
+    )
     size = min(capital * 0.02, capital * abs(edge) * 0.25)
-    size = max(25.0, size)
+    size = max(10.0, size)
+    if decision.arm == "explore":
+        size = max(10.0, size * 0.5)
+    elif decision.arm == "exploit" and mp.active:
+        size = min(capital * 0.02, size * (1.0 + 0.5 * mp.conviction))
 
-    raw = candidate.raw or {}
-    tf = candidate.timeframe or raw.get("timeframe") or "1h"
-    # For HF markets, lean on oracle alignment in conviction
     oracle_align = float(raw.get("oracle_alignment") or 0.5)
     if tf in ("5m", "15m") and raw.get("asset"):
-        conv = min(1.0, conv * (0.7 + 0.3 * oracle_align))
+        conv = min(1.0, conv * (0.75 + 0.25 * oracle_align))
+        if mp.active:
+            conv = min(1.0, max(conv, mp.conviction * 0.9))
         if conv >= 0.75:
             tier = ConfidenceTier.A
         elif conv >= 0.55:
@@ -283,6 +336,20 @@ def generate_signal(
             tier = ConfidenceTier.C
         else:
             tier = ConfidenceTier.D
+
+    # Soft-skip: still emit signal so lessons/dashboard see bandit SKIP,
+    # but mark for pretrade to size 0
+    meta = {
+        "paper": paper,
+        "down_bias": bias,
+        "bucket_edge_prior": bucket_edge,
+        "asset": raw.get("asset") or "BTC",
+        "oracle_return_proxy": raw.get("oracle_return_proxy"),
+        **mp.as_meta(),
+        **decision.as_meta(),
+        "cex_mid": mp.cex_mid,
+        "cex_ret_60s": mp.features.get("ret_60s", 0.0),
+    }
 
     return Signal(
         market_id=candidate.market_id,
@@ -302,9 +369,9 @@ def generate_signal(
         entry_vwap_target=entry_vwap_target(mkt, direction),
         pre_entry_stability_ok=stable,
         rationale=(
-            f"{mode.value} on {candidate.regime.value} h{candidate.hourly_bucket} {tf}; "
-            f"edge={edge:.3f} ev={ev:.3f} bias={bias:.2f} "
-            f"oracle_align={oracle_align:.2f}"
+            f"{mode.value} {tf} h{candidate.hourly_bucket}; "
+            f"edge={edge:.3f} ev={ev:.3f} bandit={decision.arm}; "
+            f"{mp.reason or 'no_mispricing'}"
         ),
         alpha_rules_fired=rules_fired + [f"tf={tf}", f"oracle_align={oracle_align:.2f}"],
         avoid_bucket_hit=hit_avoid,
@@ -321,14 +388,8 @@ def generate_signal(
             if direction in (Direction.YES, Direction.UP) and raw.get("yes_token_id")
             else (str(raw["no_token_id"]) if raw.get("no_token_id") else None)
         ),
-        generator_model="alpha-research-agent",
-        meta={
-            "paper": paper,
-            "down_bias": bias,
-            "bucket_edge_prior": bucket_edge,
-            "asset": raw.get("asset"),
-            "oracle_return_proxy": raw.get("oracle_return_proxy"),
-        },
+        generator_model="alpha-research-agent+mispricing-bandit",
+        meta=meta,
     )
 
 

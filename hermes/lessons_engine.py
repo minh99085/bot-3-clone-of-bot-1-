@@ -366,6 +366,31 @@ def process_settlement(stl: Settlement) -> Lesson:
     lesson = lesson_from_settlement(stl)
     append_lesson(lesson)
     promote_lesson(lesson)
+    # Option D — update contextual bandit with realized reward
+    try:
+        from hermes.bandit import get_bandit
+
+        notes = (stl.notes or "").lower()
+        # Prefer explicit fields from notes/meta embedded in notes
+        arm = "exploit"
+        ctx = ""
+        if "bandit_arm=" in notes:
+            arm = notes.split("bandit_arm=")[1].split()[0].strip(",;")
+        if "bandit_ctx=" in notes:
+            ctx = notes.split("bandit_ctx=")[1].split()[0].strip(",;")
+        # Fallback: infer from substrategy timeframe
+        if not ctx:
+            tf = stl.timeframe or ("5m" if "5m" in stl.substrategy_id else "15m")
+            ctx = f"{tf}|unknown|flat|us"
+        reward = 1.0 if stl.won else 0.0
+        # Partial credit from PnL magnitude
+        if stl.size_usd > 0:
+            ret = stl.pnl_usd / stl.size_usd
+            reward = max(0.0, min(1.0, 0.5 + ret))
+        if arm in ("exploit", "explore", "skip"):
+            get_bandit().update_reward(ctx, arm, reward)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("bandit reward update skipped: %s", exc)
     return lesson
 
 

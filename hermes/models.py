@@ -47,6 +47,7 @@ class EntryMode(str, Enum):
     OSMANI_LANE = "osmani_lane"  # gated until WR>65% + positive EV
     GROK_SIGNAL = "grok_signal"
     TV_SIGNAL = "tv_signal"
+    MISPRICING = "mispricing"  # CEX↔Polymarket dislocation (Option D)
 
 
 class ConfidenceTier(str, Enum):
@@ -229,6 +230,12 @@ class PreTradeAnalysis(BaseModel):
     lessons_applied: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
     oracle_alignment: float = 0.5
+    # Option D — mispricing + bandit
+    mispricing_active: bool = False
+    mispricing_dislocation: float = 0.0
+    bandit_arm: str = ""
+    bandit_context: str = ""
+    entry_source: str = "baseline"  # mispricing | baseline
     created_at: datetime = Field(default_factory=utc_now)
 
 

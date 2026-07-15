@@ -117,6 +117,14 @@
 - **Promote to**: ALPHA_RESEARCH_SKILL
 - **Retired**: false
 
+### [2026-07-15] `les_seed_option_d_mispricing` — HIGH (alpha)
+
+- **Rule**: EXPLOIT:CEX↔Polymarket dislocations on `btc_updown_5m`/`btc_updown_15m` when |dislocation|≥0.04 and bandit arm≠skip. Prefer Binance perp lead; confirm with Bybit when available. AGGRESSIVE on strong aligned momentum; CONSERVATIVE/SKIP when sources disagree.
+- **Evidence**: Option D — idle scanning fixed by mispricing + Thompson bandit explore/exploit.
+- **Applies to**: mispricing, bandit, btc_updown_5m, btc_updown_15m, pretrade, verifier
+- **Promote to**: ALPHA_RESEARCH_SKILL
+- **Retired**: false
+
 ## Active Lessons
 
 <!-- lessons_engine appends new dated lessons below -->

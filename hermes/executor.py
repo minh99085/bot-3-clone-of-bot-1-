@@ -134,10 +134,30 @@ def executor_tick(
         append_jsonl(ledger_path(paper=paper), {
             "event": "fill",
             **fill.model_dump(mode="json"),
+            "slug": signal.slug,
+            "meta": {
+                **(signal.meta or {}),
+                "slug": signal.slug,
+                "substrategy_id": signal.substrategy_id,
+                "market_series": signal.market_series,
+                "timeframe": signal.timeframe,
+            },
         })
         append_jsonl(ledger_path(paper=paper), {
             "event": "position_open",
             **pos.model_dump(mode="json"),
+            "slug": signal.slug,
+            "meta": {
+                **(signal.meta or {}),
+                "slug": signal.slug,
+                "substrategy_id": signal.substrategy_id,
+                "market_series": signal.market_series,
+                "timeframe": signal.timeframe,
+                "entry_source": (signal.meta or {}).get("entry_source"),
+                "bandit_arm": (signal.meta or {}).get("bandit_arm"),
+                "bandit_context": (signal.meta or {}).get("bandit_context"),
+                "cex_mid": (signal.meta or {}).get("cex_mid"),
+            },
         })
         logger.info(
             "EXECUTE %s %s $%.2f @ %.3f paper=%s",

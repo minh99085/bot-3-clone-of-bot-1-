@@ -132,6 +132,16 @@ def run_one_turn(paper: bool = True, turn_id: Optional[str] = None) -> LoopTurnR
     fills = executor_tick(signals=signals, reports=reports, turn_id=tid)
     result.orders_sent = len(fills)
 
+    # 4b. Settle expired BTC 5m/15m paper windows (feeds bandit + lessons)
+    try:
+        from hermes.settlement_fast import settle_expired_paper_positions
+
+        settled = settle_expired_paper_positions(paper=paper)
+        if settled:
+            logger.info("settled %d expired paper positions", len(settled))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("fast settlement skipped: %s", exc)
+
     # 5. Persistence — lessons from rejections + allocation (settlements arrive async)
     lessons = lessons_engine_tick(
         signals=signals, reports=reports, proposal=proposal
@@ -214,6 +224,13 @@ async def run_overnight(paper: bool = True, main_interval: float = 300.0) -> Non
         paper = True
     setup_logging("bot")
     ensure_dirs()
+    # Option D — start Binance WS / REST BTC feed before overnight cadence
+    try:
+        from connectors.cex_realtime import get_feed
+
+        get_feed().start()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("CEX realtime feed start failed: %s", exc)
     start_health_server()
     write_heartbeat(summary="overnight_start")
     stop = asyncio.Event()

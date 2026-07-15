@@ -208,4 +208,4 @@ pip install -r requirements.txt pytest
 PYTHONPATH=. pytest -q
 ```
 
-Git workflow: push directly to `main` (no feature branches unless asked).
+Git workflow: **always push to `main` → sync VPS → `compose down --remove-orphans` → `up -d --build --remove-orphans`** (via `./deploy/deploy_vps.sh`).

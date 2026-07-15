@@ -354,9 +354,27 @@ def verify_signal(
     if not tier_ok:
         rejections.append(f"tier:{signal.confidence_tier.value}")
 
-    # 3. Historical bucket edge
+    # 3. Historical bucket edge (mispricing evidence can substitute cold-start)
     bucket = _match_bucket(signal, buckets)
-    if bucket is None:
+    mp_active = bool((signal.meta or {}).get("mispricing_active"))
+    mp_conv = float((signal.meta or {}).get("mispricing_conviction") or 0)
+    if bucket is None and (
+        signal.entry_mode == EntryMode.MISPRICING
+        or (mp_active and mp_conv >= 0.5 and signal.timeframe in ("5m", "15m"))
+    ):
+        bucket_ok = True
+        checks.append(
+            CheckResult(
+                name="historical_bucket",
+                passed=True,
+                detail=(
+                    f"mispricing_evidence dislocation="
+                    f"{(signal.meta or {}).get('mispricing_dislocation')} "
+                    f"conv={mp_conv:.2f} (cold-start OK for scoped BTC HF)"
+                ),
+            )
+        )
+    elif bucket is None:
         # No history → DEFER to inbox rather than blind PASS
         checks.append(
             CheckResult(
@@ -386,13 +404,18 @@ def verify_signal(
         if not bucket_ok:
             rejections.append("bucket_below_threshold")
 
-    # 4. Live EV
-    ev_ok = signal.live_ev >= MIN_LIVE_EV
+    # 4. Live EV (slightly lower floor for mispricing explore probes)
+    min_ev = MIN_LIVE_EV
+    if mp_active and (signal.meta or {}).get("bandit_arm") == "explore":
+        min_ev = 0.035
+    elif mp_active:
+        min_ev = 0.045
+    ev_ok = signal.live_ev >= min_ev
     checks.append(
         CheckResult(
             name="live_ev",
             passed=ev_ok,
-            detail=f"live_ev={signal.live_ev:.4f} (min={MIN_LIVE_EV})",
+            detail=f"live_ev={signal.live_ev:.4f} (min={min_ev})",
             weight=1.5,
         )
     )

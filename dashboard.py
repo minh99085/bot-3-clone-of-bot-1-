@@ -28,10 +28,12 @@ import streamlit as st
 
 from hermes.dashboard_data import (
     STARTING_BANKROLL,
+    bandit_dashboard_state,
     equity_curve,
     load_positions_open,
     load_pretrade,
     load_state,
+    mispricing_dashboard_snapshot,
     oracle_alignment_snapshot,
     portfolio_metrics,
     recent_lessons,
@@ -101,19 +103,30 @@ oracle = oracle_alignment_snapshot()
 st.title("Hermes v2 · BTC Up/Down Paper Desk")
 st.caption(
     f"Starting bankroll **${bankroll:,.0f}** USDC · **ONLY** BTC 5m + 15m Up/Down · "
-    f"Mode `{state.get('mode', 'paper')}` · Auto-refresh 5 min · Chainlink + CLOB"
+    f"Option D: CEX mispricing + bandit · Mode `{state.get('mode', 'paper')}` · Auto-refresh 5 min"
 )
+
+mp_snap = mispricing_dashboard_snapshot()
+bandit = bandit_dashboard_state()
 
 # ── Top metrics ─────────────────────────────────────────────────────────────
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Equity", f"${equity_now:,.2f}", f"{pnl:+.2f} PnL")
 c2.metric("Bankroll", f"${capital:,.2f}")
-c3.metric("Div. Ratio", f"{pm['diversification_ratio']:.3f}")
-c4.metric("Concentration HHI", f"{pm['concentration_hhi']:.3f}")
+c3.metric(
+    "CEX BTC",
+    f"${mp_snap.get('cex_mid') or 0:,.0f}" if mp_snap.get("cex_mid") else "—",
+    f"mom {mp_snap.get('momentum', 0):+.2f}",
+)
+c4.metric(
+    "Dislocation",
+    f"{float(mp_snap.get('last_dislocation') or 0):+.3f}",
+    f"mp n={mp_snap.get('recent_mispricing_n', 0)}",
+)
 c5.metric(
-    "Circuit",
-    str(state.get("circuit_breaker", "clear")).upper(),
-    str(state.get("pause_loop", False)),
+    "Bandit explore%",
+    f"{float(bandit.get('explore_rate') or 0):.0%}",
+    f"pulls={bandit.get('global_pulls', 0)}",
 )
 
 st.subheader("Scoped markets — BTC Up/Down only")
@@ -161,6 +174,29 @@ with left:
         st.write("_No paper fills yet — verifier/sizing may be skipping._")
 
 with right:
+    st.subheader("CEX ↔ Polymarket mispricing")
+    st.markdown('<div class="block-card">', unsafe_allow_html=True)
+    st.markdown(
+        f"**Binance** `${mp_snap.get('cex_mid') or 0:,.2f}` "
+        f"({mp_snap.get('source')}) · Bybit `{mp_snap.get('bybit') or '—'}`  \n"
+        f"ret60s `{float(mp_snap.get('ret_60s') or 0):+.4%}` · "
+        f"agree `{mp_snap.get('sources_agree')}`  \n"
+        f"last disloc `{mp_snap.get('last_dislocation')}` · "
+        f"source `{mp_snap.get('last_entry_source')}`"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.subheader("Bandit (explore / exploit)")
+    st.markdown(
+        f"- Pulls: **{bandit.get('global_pulls', 0)}**  \n"
+        f"- Exploit / Explore / Skip: "
+        f"**{bandit.get('global_exploit', 0)}** / "
+        f"**{bandit.get('global_explore', 0)}** / "
+        f"**{bandit.get('global_skip', 0)}**  \n"
+        f"- Explore rate: **{float(bandit.get('explore_rate') or 0):.0%}**  \n"
+        f"- Recent arms: `{mp_snap.get('recent_bandit_arms')}`"
+    )
+
     st.subheader("Chainlink BTC")
     st.markdown('<div class="block-card">', unsafe_allow_html=True)
     if oracle.get("btc"):
@@ -193,6 +229,9 @@ if pt:
         [
             {
                 "sleeve": p.get("substrategy_id"),
+                "source": p.get("entry_source"),
+                "bandit": p.get("bandit_arm"),
+                "disloc": p.get("mispricing_dislocation"),
                 "skip": p.get("skip"),
                 "size_%": p.get("recommended_size_pct"),
                 "size_$": p.get("recommended_size_usd"),

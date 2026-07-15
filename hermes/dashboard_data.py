@@ -151,6 +151,42 @@ def recent_lessons(limit: int = 8) -> list[str]:
     return rules[-limit:][::-1]
 
 
+def bandit_dashboard_state() -> dict[str, Any]:
+    try:
+        from hermes.bandit import get_bandit
+
+        return get_bandit().summary()
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+
+
+def mispricing_dashboard_snapshot() -> dict[str, Any]:
+    """Latest mispricing + CEX mid for the desk."""
+    out: dict[str, Any] = {"cex_mid": None, "source": "none"}
+    try:
+        from connectors.cex_realtime import get_btc_snapshot
+
+        snap = get_btc_snapshot(force_rest=True)
+        out["cex_mid"] = snap.mid
+        out["momentum"] = snap.momentum
+        out["ret_60s"] = snap.ret_60s
+        out["ret_3m"] = snap.ret_3m
+        out["sources_agree"] = snap.sources_agree
+        out["source"] = (snap.binance.source if snap.binance else "none")
+        out["bybit"] = snap.bybit.price if snap.bybit else None
+    except Exception as exc:  # noqa: BLE001
+        out["error"] = str(exc)
+    pts = load_pretrade()[-20:]
+    if pts:
+        mp = [p for p in pts if p.get("mispricing_active")]
+        out["recent_mispricing_n"] = len(mp)
+        out["recent_bandit_arms"] = [p.get("bandit_arm") for p in pts[-8:]]
+        if mp:
+            out["last_dislocation"] = mp[-1].get("mispricing_dislocation")
+            out["last_entry_source"] = mp[-1].get("entry_source")
+    return out
+
+
 def scoped_market_cards() -> list[dict[str, Any]]:
     """Performance cards for the two allowed BTC up/down series only."""
     from hermes.market_scope import SERIES_5M, SERIES_15M, preferred_slugs
