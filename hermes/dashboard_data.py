@@ -19,7 +19,73 @@ from hermes.state_io import (
 )
 
 STARTING_BANKROLL = 2000.0
-INSTANCE_IDS = ("btc5", "btc15", "eth5", "sol5", "rotator", "legacy", "default")
+PER_INSTANCE_BANKROLL = STARTING_BANKROLL
+FLEET_INSTANCE_COUNT = 5
+FLEET_BANKROLL = STARTING_BANKROLL * FLEET_INSTANCE_COUNT  # $10,000
+INSTANCE_IDS = ("btc5", "btc15", "eth5", "sol5", "rotator")
+
+# Display metadata for each docker instance (order = dashboard columns)
+INSTANCE_METAS: list[dict[str, Any]] = [
+    {
+        "id": "btc5",
+        "label": "BTC 5m",
+        "subtitle": "BTC Up/Down · 5-minute",
+        "filter": "btc5",
+        "accent": "#f59e0b",
+        "series": ["btc_updown_5m"],
+    },
+    {
+        "id": "btc15",
+        "label": "BTC 15m",
+        "subtitle": "BTC Up/Down · 15-minute",
+        "filter": "btc15",
+        "accent": "#eab308",
+        "series": ["btc_updown_15m"],
+    },
+    {
+        "id": "eth5",
+        "label": "ETH 5m",
+        "subtitle": "ETH Up/Down · 5-minute",
+        "filter": "eth5",
+        "accent": "#818cf8",
+        "series": ["eth_updown_5m"],
+    },
+    {
+        "id": "sol5",
+        "label": "SOL 5m",
+        "subtitle": "SOL Up/Down · 5-minute",
+        "filter": "sol5",
+        "accent": "#34d399",
+        "series": ["sol_updown_5m"],
+    },
+    {
+        "id": "rotator",
+        "label": "Rotator",
+        "subtitle": "Top conviction · all 4 lanes",
+        "filter": "rotator",
+        "accent": "#f472b6",
+        "series": [
+            "btc_updown_5m",
+            "btc_updown_15m",
+            "eth_updown_5m",
+            "sol_updown_5m",
+        ],
+    },
+]
+
+
+def instance_meta(instance_id: str) -> dict[str, Any]:
+    for m in INSTANCE_METAS:
+        if m["id"] == instance_id:
+            return m
+    return {
+        "id": instance_id,
+        "label": instance_id,
+        "subtitle": instance_id,
+        "filter": instance_id,
+        "accent": "#94a3b8",
+        "series": [],
+    }
 
 
 def paper_dir() -> Path:
@@ -45,22 +111,274 @@ def instance_paper_dirs() -> list[Path]:
 
 def load_state() -> dict[str, Any]:
     fields = parse_state_fields(read_state_md())
-    capital = float(
-        fields.get("capital_usd")
-        or fields.get("capital")
+    per = float(
+        fields.get("per_instance_bankroll_usd")
         or fields.get("starting_bankroll_usd")
         or STARTING_BANKROLL
     )
-    # Five instances × $2k = $10k fleet capital for desk headline
-    fields["capital_usd"] = capital
-    fields["starting_bankroll_usd"] = float(
-        fields.get("starting_bankroll_usd") or STARTING_BANKROLL
-    )
-    fields["fleet_bankroll_usd"] = float(
-        fields.get("fleet_bankroll_usd") or STARTING_BANKROLL * 5
-    )
-    fields["instance_count"] = 5
+    fields["per_instance_bankroll_usd"] = per
+    fields["starting_bankroll_usd"] = per  # legacy alias
+    fields["fleet_bankroll_usd"] = per * FLEET_INSTANCE_COUNT
+    fields["instance_count"] = FLEET_INSTANCE_COUNT
+    fields["capital_usd"] = fields["fleet_bankroll_usd"]
     return fields
+
+
+def trades_for_instance(instance_id: str) -> list[dict[str, Any]]:
+    return [t for t in load_trades() if t.get("instance_id") == instance_id]
+
+
+def settlements_for_instance(instance_id: str) -> list[dict[str, Any]]:
+    return [
+        t
+        for t in trades_for_instance(instance_id)
+        if t.get("event") == "settlement" or t.get("won") is not None
+    ]
+
+
+def pretrade_for_instance(instance_id: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for d in instance_paper_dirs():
+        if d.name == instance_id or (instance_id == "legacy" and d.name == "paper"):
+            rows.extend(read_jsonl(d / "pretrade_decisions.jsonl"))
+    return rows
+
+
+def equity_curve_for_instance(
+    instance_id: str, starting: float = STARTING_BANKROLL
+) -> list[dict[str, Any]]:
+    eq = starting
+    curve = [{"t": "start", "equity": starting, "pnl": 0.0, "instance_id": instance_id}]
+    for s in settlements_for_instance(instance_id):
+        pnl = float(s.get("pnl_usd", 0) or 0)
+        eq += pnl
+        curve.append(
+            {
+                "t": s.get("settled_at") or s.get("filled_at") or "",
+                "equity": round(eq, 2),
+                "pnl": round(pnl, 2),
+                "won": bool(s.get("won") or pnl > 0),
+                "instance_id": instance_id,
+                "slug": s.get("slug") or "",
+            }
+        )
+    return curve
+
+
+def fleet_equity_curve(starting: float = FLEET_BANKROLL) -> list[dict[str, Any]]:
+    """Aggregate fleet equity from all instance settlements (chronological)."""
+    events: list[dict[str, Any]] = []
+    for meta in INSTANCE_METAS:
+        iid = meta["id"]
+        for s in settlements_for_instance(iid):
+            events.append({**s, "instance_id": iid})
+    events.sort(key=lambda e: str(e.get("settled_at") or e.get("filled_at") or ""))
+
+    eq = starting
+    curve = [{"t": "start", "ts": "start", "equity": starting, "pnl": 0.0}]
+    for s in events:
+        pnl = float(s.get("pnl_usd", 0) or 0)
+        eq += pnl
+        ts = s.get("settled_at") or s.get("filled_at") or ""
+        curve.append(
+            {
+                "t": ts,
+                "ts": ts,
+                "equity": round(eq, 2),
+                "pnl": round(pnl, 2),
+                "won": bool(s.get("won") or pnl > 0),
+                "instance_id": s.get("instance_id"),
+                "slug": s.get("slug") or "",
+            }
+        )
+    return curve
+
+
+def fleet_total_pnl(starting: float = FLEET_BANKROLL) -> float:
+    curve = fleet_equity_curve(starting)
+    return round(curve[-1]["equity"] - starting, 2) if curve else 0.0
+
+
+def fleet_win_rate() -> Optional[float]:
+    settles = []
+    for meta in INSTANCE_METAS:
+        settles.extend(settlements_for_instance(meta["id"]))
+    if not settles:
+        return None
+    wins = sum(1 for s in settles if s.get("won") or float(s.get("pnl_usd", 0)) > 0)
+    return wins / len(settles)
+
+
+def open_positions_for_instance(instance_id: str) -> list[dict[str, Any]]:
+    settles = {
+        s.get("signal_id") or s.get("position_id")
+        for s in settlements_for_instance(instance_id)
+    }
+    out = []
+    for f in trades_for_instance(instance_id):
+        if f.get("event") != "fill":
+            continue
+        sid = f.get("signal_id")
+        if sid and sid in settles:
+            continue
+        out.append(f)
+    return out
+
+
+def instance_summary(instance_id: str) -> dict[str, Any]:
+    """Per-container desk card: $2k bankroll + isolated ledger stats."""
+    meta = instance_meta(instance_id)
+    bankroll = STARTING_BANKROLL
+    settles = settlements_for_instance(instance_id)
+    wins = sum(1 for s in settles if s.get("won") or float(s.get("pnl_usd", 0)) > 0)
+    losses = len(settles) - wins
+    pnls = [float(s.get("pnl_usd", 0) or 0) for s in settles]
+    curve = equity_curve_for_instance(instance_id, bankroll)
+    equity = curve[-1]["equity"] if curve else bankroll
+    pts = pretrade_for_instance(instance_id)
+    last_pt = pts[-1] if pts else {}
+    open_n = len(open_positions_for_instance(instance_id))
+    has_activity = bool(settles or open_n or pts)
+    status = "active" if (open_n or last_pt.get("skip") is False) else (
+        "watching" if pts else "idle"
+    )
+
+    return {
+        **meta,
+        "instance_id": instance_id,
+        "bankroll": bankroll,
+        "equity": round(equity, 2),
+        "pnl": round(equity - bankroll, 2),
+        "n_settled": len(settles),
+        "trades": len(settles),
+        "wins": wins,
+        "losses": losses,
+        "wr": (wins / len(settles)) if settles else None,
+        "win_rate": (wins / len(settles)) if settles else 0.0,
+        "open_n": open_n,
+        "open_positions": open_n,
+        "status": status if has_activity or instance_id else "idle",
+        "avg_size": (sum(float(s.get("size_usd", 0) or 0) for s in settles) / len(settles))
+        if settles
+        else None,
+        "last_skip": last_pt.get("skip"),
+        "last_slug": last_pt.get("slug") or (settles[-1].get("slug") if settles else ""),
+        "last_reasons": last_pt.get("reasons") or [],
+        "last_live_ev": last_pt.get("live_ev"),
+        "current_size_usd": last_pt.get("recommended_size_usd"),
+    }
+
+
+def instance_cards() -> list[dict[str, Any]]:
+    """One summary card per docker instance (btc5 … rotator)."""
+    return [instance_summary(m["id"]) for m in INSTANCE_METAS]
+
+
+def fleet_summary() -> dict[str, Any]:
+    cards = instance_cards()
+    fleet_eq = sum(c["equity"] for c in cards)
+    fleet_pnl = fleet_eq - FLEET_BANKROLL
+    total_settled = sum(c["n_settled"] for c in cards)
+    total_open = sum(c["open_n"] for c in cards)
+    total_wins = sum(c["wins"] for c in cards)
+    total_losses = sum(c["losses"] for c in cards)
+    with_data = sum(1 for c in cards if c["n_settled"] or c["open_n"])
+    return {
+        "fleet_bankroll": FLEET_BANKROLL,
+        "per_instance_bankroll": STARTING_BANKROLL,
+        "instance_count": FLEET_INSTANCE_COUNT,
+        "fleet_equity": round(fleet_eq, 2),
+        "fleet_pnl": round(fleet_pnl, 2),
+        "total_pnl": round(fleet_pnl, 2),
+        "fleet_wr": fleet_win_rate(),
+        "win_rate": fleet_win_rate() or 0.0,
+        "total_settled": total_settled,
+        "total_trades": total_settled,
+        "total_open": total_open,
+        "open_positions": total_open,
+        "wins": total_wins,
+        "losses": total_losses,
+        "instances_with_data": with_data,
+        "instances": cards,
+    }
+
+
+def instance_trade_history(instance_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    """Trades for one instance (newest first)."""
+    fills = {
+        f.get("signal_id"): f
+        for f in trades_for_instance(instance_id)
+        if f.get("event") == "fill"
+    }
+    settled_ids: set[str] = set()
+    rows: list[dict[str, Any]] = []
+
+    for s in settlements_for_instance(instance_id):
+        sid = s.get("signal_id")
+        if sid:
+            settled_ids.add(sid)
+        f = fills.get(sid, {})
+        rows.append(
+            {
+                "time": s.get("settled_at") or s.get("filled_at") or "",
+                "slug": s.get("slug") or f.get("slug") or "",
+                "direction": s.get("direction"),
+                "size": s.get("size_usd") or f.get("size_usd"),
+                "entry": f.get("fill_price") or s.get("entry_price"),
+                "exit": s.get("exit_price"),
+                "won": s.get("won"),
+                "pnl": s.get("pnl_usd"),
+                "status": "settled",
+                "entry_source": (f.get("meta") or {}).get("entry_source") or "",
+            }
+        )
+
+    for f in fills.values():
+        if f.get("signal_id") in settled_ids:
+            continue
+        meta = f.get("meta") or {}
+        rows.append(
+            {
+                "time": f.get("filled_at") or "",
+                "slug": f.get("slug") or meta.get("slug") or "",
+                "direction": f.get("direction"),
+                "size": f.get("size_usd"),
+                "entry": f.get("fill_price"),
+                "exit": "—",
+                "won": "open",
+                "pnl": 0.0,
+                "status": "open",
+                "entry_source": meta.get("entry_source") or "",
+            }
+        )
+
+    rows.sort(key=lambda r: str(r.get("time") or ""), reverse=True)
+    return rows[:limit]
+
+
+def bandit_states_all() -> dict[str, Any]:
+    """Per-instance bandit summaries keyed by instance_id."""
+    out: dict[str, Any] = {}
+    for meta in INSTANCE_METAS:
+        iid = meta["id"]
+        path = paper_dir() / iid / "bandit_state.json"
+        if not path.is_file():
+            out[iid] = {"pulls": 0, "explore_rate": 0.0}
+            continue
+        try:
+            raw = json.loads(path.read_text())
+            pulls = int(raw.get("global_pulls") or 0)
+            explore = int(raw.get("global_explore") or 0)
+            out[iid] = {
+                "pulls": pulls,
+                "explore_rate": explore / pulls if pulls else 0.0,
+                "exploit": raw.get("global_exploit", 0),
+                "explore": explore,
+                "skip": raw.get("global_skip", 0),
+            }
+        except Exception as exc:  # noqa: BLE001
+            out[iid] = {"error": str(exc)}
+    return out
 
 
 def load_trades() -> list[dict[str, Any]]:
@@ -109,29 +427,13 @@ def load_settlements() -> list[dict[str, Any]]:
     ]
 
 
-def equity_curve(starting: float = STARTING_BANKROLL) -> list[dict[str, Any]]:
-    """Cumulative equity from settlements."""
-    eq = starting
-    curve = [{"t": "start", "equity": starting, "pnl": 0.0}]
-    for s in load_settlements():
-        pnl = float(s.get("pnl_usd", 0) or 0)
-        eq += pnl
-        curve.append(
-            {
-                "t": s.get("settled_at") or s.get("filled_at") or "",
-                "equity": round(eq, 2),
-                "pnl": round(pnl, 2),
-                "won": bool(s.get("won") or pnl > 0),
-                "market_id": s.get("market_id"),
-                "substrategy_id": s.get("substrategy_id", ""),
-            }
-        )
-    return curve
+def equity_curve(starting: float = FLEET_BANKROLL) -> list[dict[str, Any]]:
+    """Fleet cumulative equity (default $10k start)."""
+    return fleet_equity_curve(starting)
 
 
-def total_pnl(starting: float = STARTING_BANKROLL) -> float:
-    curve = equity_curve(starting)
-    return round(curve[-1]["equity"] - starting, 2) if curve else 0.0
+def total_pnl(starting: float = FLEET_BANKROLL) -> float:
+    return fleet_total_pnl(starting)
 
 
 def substrategy_cards() -> list[dict[str, Any]]:
@@ -439,40 +741,11 @@ def portfolio_metrics() -> dict[str, Any]:
 
 
 def recent_trade_table(limit: int = 30) -> list[dict[str, Any]]:
-    """Flatten fills + matching settlements for dashboard table."""
-    fills = {f.get("signal_id"): f for f in load_fills()}
-    rows = []
-    for s in load_settlements()[-limit:]:
-        f = fills.get(s.get("signal_id"), {})
-        rows.append(
-            {
-                "market": s.get("market_id"),
-                "direction": s.get("direction"),
-                "entry": f.get("fill_price") or s.get("entry_price"),
-                "exit": s.get("exit_price"),
-                "won": s.get("won"),
-                "pnl": s.get("pnl_usd"),
-                "size": s.get("size_usd") or f.get("size_usd"),
-                "sleeve": s.get("substrategy_id", ""),
-                "reason": s.get("notes") or "",
-            }
-        )
-    # Also show unmatched recent fills as open
-    settled_ids = {s.get("signal_id") for s in load_settlements()}
-    for f in load_fills()[-limit:]:
-        if f.get("signal_id") in settled_ids:
-            continue
-        rows.append(
-            {
-                "market": f.get("market_id"),
-                "direction": f.get("direction"),
-                "entry": f.get("fill_price"),
-                "exit": "—",
-                "won": "open",
-                "pnl": 0,
-                "size": f.get("size_usd"),
-                "sleeve": "",
-                "reason": "open paper position",
-            }
-        )
-    return rows[-limit:][::-1]
+    """Flatten fills + settlements across fleet (newest first)."""
+    rows: list[dict[str, Any]] = []
+    for meta in INSTANCE_METAS:
+        iid = meta["id"]
+        for r in instance_trade_history(iid, limit=limit):
+            rows.append({**r, "instance": iid, "label": meta["label"]})
+    rows.sort(key=lambda r: str(r.get("time") or ""), reverse=True)
+    return rows[:limit]
