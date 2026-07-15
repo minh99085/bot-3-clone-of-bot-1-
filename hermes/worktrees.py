@@ -76,8 +76,11 @@ def ensure_worktree(name: str, branch: Optional[str] = None) -> WorktreeHandle:
     if path.exists() and (path / ".hermes_lane").exists():
         return WorktreeHandle(name=name, path=path, branch=branch, is_git_worktree=False)
 
-    # Prune stale registrations after manual rm -rf .worktrees
-    _git("worktree", "prune", check=False)
+    try:
+        # Prune stale registrations after manual rm -rf .worktrees
+        _git("worktree", "prune", check=False)
+    except FileNotFoundError:
+        return _fallback_dir(name, branch)
 
     try:
         existing = _git("branch", "--list", branch, check=False)
@@ -97,6 +100,8 @@ def ensure_worktree(name: str, branch: Optional[str] = None) -> WorktreeHandle:
             return _fallback_dir(name, branch)
         logger.info("worktree ready: %s -> %s", name, path)
         return WorktreeHandle(name=name, path=path, branch=branch)
+    except FileNotFoundError:
+        return _fallback_dir(name, branch)
     except Exception as exc:  # noqa: BLE001
         logger.warning("worktree unavailable (%s); using fallback dir", exc)
         return _fallback_dir(name, branch)
