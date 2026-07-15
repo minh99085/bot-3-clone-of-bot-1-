@@ -8,8 +8,11 @@
 - **Mode**: paper
 - **Live Enabled**: false
 - **Paper Only Lock**: true
+- **Per Instance Bankroll USD**: 2000
+- **Fleet Bankroll USD**: 10000
+- **Instance Count**: 5
 - **Starting Bankroll USD**: 2000
-- **Capital USD**: 2000
+- **Capital USD**: 10000
 - **Open Exposure USD**: 0
 - **Daily PnL USD**: 0
 - **Max Drawdown Pct**: 0.0
@@ -45,7 +48,7 @@ _Empty at boot — populated as sub-strategies settle._
 
 ## Open Positions
 
-_None — paper book empty at boot ($2000 USDC)._
+_None — 5× $2k paper instances at boot._
 
 ## Recent Performance
 
@@ -70,11 +73,10 @@ _None — paper book empty at boot ($2000 USDC)._
 
 ## Goals in Flight
 
-- Specialize on **BTC Up/Down 5m + 15m only** with Option D (CEX mispricing + bandit).
-- Grow $2000 paper bankroll toward 80%+ WR on these two series.
-- Cold-start size 0.5% bankroll; scale when lessons + bandit show positive EV.
+- 5 isolated instances: btc5, btc15, eth5, sol5, rotator ($2k each = $10k fleet).
+- Moderate filter mode; paper desk guardrails active.
+- Dashboard: http://<IP>/dashboard
 
 ## Notes
 
-**Market scope lock:** ONLY `btc-updown-5m-*` and `btc-updown-15m-*`.
-Dashboard: http://&lt;IP&gt;/dashboard
+**Fleet:** btc5 / btc15 / eth5 / sol5 / rotator — each $2,000 paper bankroll.
