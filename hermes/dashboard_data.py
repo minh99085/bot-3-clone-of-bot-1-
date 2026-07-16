@@ -96,17 +96,19 @@ def paper_dir() -> Path:
 
 
 def instance_paper_dirs() -> list[Path]:
+    """All per-instance paper dirs (fleet layout). Skip legacy flat ledger at root."""
     root = paper_dir()
     dirs: list[Path] = []
-    for child in sorted(root.iterdir()) if root.exists() else []:
-        if child.is_dir() and (child / "trade_ledger.jsonl").exists():
+    for iid in INSTANCE_IDS:
+        child = root / iid
+        if child.is_dir():
             dirs.append(child)
-    # Legacy flat ledger
+    if dirs:
+        return dirs
+    # Legacy flat ledger only when no fleet subdirs exist
     if (root / "trade_ledger.jsonl").exists():
-        dirs.append(root)
-    if not dirs:
-        dirs.append(root)
-    return dirs
+        return [root]
+    return [root]
 
 
 def load_state() -> dict[str, Any]:

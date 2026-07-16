@@ -36,6 +36,14 @@ for inst in "${INSTANCES[@]}"; do
   echo "  cleared data/paper/${inst}"
 done
 
+# Legacy flat ledger (pre-fleet) — dashboard falls back here when no instance ledgers exist
+if [[ -f data/paper/trade_ledger.jsonl ]]; then
+  cp data/paper/trade_ledger.jsonl "$ARCHIVE/paper/legacy_trade_ledger.jsonl" 2>/dev/null || true
+  rm -f data/paper/trade_ledger.jsonl
+  echo "  cleared legacy data/paper/trade_ledger.jsonl"
+fi
+rm -f data/paper/*.jsonl data/paper/pretrade_decisions.jsonl 2>/dev/null || true
+
 if compgen -G "data/handoff/*" >/dev/null 2>&1; then
   cp -a data/handoff/. "$ARCHIVE/handoff/" 2>/dev/null || true
   find data/handoff -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
