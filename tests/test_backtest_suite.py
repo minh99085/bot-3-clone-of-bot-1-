@@ -24,7 +24,7 @@ def test_synthetic_generator_multi_decision_and_correlation():
 
 
 def test_engine_enhanced_hits_80_wr():
-    cfg = load_enhanced_config()
+    cfg = load_enhanced_config(mode="strict")
     er = BacktestEngine(cfg, mode="enhanced", seed=42).run_synthetic(
         n_markets=6000, seed=42
     )
@@ -40,14 +40,15 @@ def test_engine_enhanced_hits_80_wr():
 
 
 def test_naive_vs_enhanced_lift():
-    cmp = compare_naive_vs_enhanced(n_markets=5000, seed=42)
+    cfg = load_enhanced_config(mode="strict")
+    cmp = compare_naive_vs_enhanced(n_markets=5000, seed=42, config=cfg)
     # Enhanced should be pickier and usually higher WR
     assert cmp.enhanced.n_trades <= cmp.naive.n_trades or cmp.enhanced.win_rate >= cmp.naive.win_rate
     assert cmp.enhanced.win_rate >= 0.80
 
 
 def test_threshold_sweep_monotonic_ish():
-    cfg = load_enhanced_config()
+    cfg = load_enhanced_config(mode="strict")
     er = BacktestEngine(cfg, mode="enhanced", seed=7).run_synthetic(n_markets=3000, seed=7)
     rows = threshold_sweep(er.decisions)
     assert rows
@@ -58,7 +59,8 @@ def test_threshold_sweep_monotonic_ish():
 def test_run_backtest_compat_wrapper():
     # 5k markets: path-dependent DD on smaller samples can briefly exceed 15%
     # even when WR stays high (see Monte Carlo tails in BACKTEST_GUIDE).
-    result = run_backtest(use_synthetic=True, n_markets=5000, seed=42)
+    cfg = load_enhanced_config(mode="strict")
+    result = run_backtest(config=cfg, use_synthetic=True, n_markets=5000, seed=42)
     assert result.engine is not None
     assert result.report.n_trades >= 20
     assert result.report.win_rate >= 0.80

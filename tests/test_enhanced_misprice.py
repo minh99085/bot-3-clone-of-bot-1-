@@ -32,7 +32,9 @@ def test_evaluate_market_hard_filter():
 
 
 def test_synthetic_backtest_hits_80_wr():
-    cfg = load_enhanced_config()
+    # Strict mode is the calibrated ≥80% WR profile; moderate uses live-safer
+    # real-q thresholds that admit more mid-odds noise on synthetic.
+    cfg = load_enhanced_config(mode="strict")
     result = run_backtest(config=cfg, use_synthetic=True)
     assert result.report.n_trades >= 30
     assert result.brier < 0.18

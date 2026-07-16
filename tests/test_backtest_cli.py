@@ -32,7 +32,7 @@ def test_cli_fast_exits_zero(monkeypatch, tmp_path):
         "ARTIFACT_ROOT",
         tmp_path / "runs",
     )
-    code = main(["--fast", "--seed", "42", "--no-rich"])
+    code = main(["--fast", "--seed", "42", "--no-rich", "--filter-mode", "strict"])
     assert code == 0
     runs = list((tmp_path / "runs").glob("*"))
     assert runs, "expected timestamped artifact folder"

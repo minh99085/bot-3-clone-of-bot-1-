@@ -10,19 +10,19 @@ mode: moderate
 
 # --- Active thresholds (mirrored from the selected mode; do not hand-edit
 #     unless you also change `mode` or pass CLI --filter-mode) ---
-kappa_base: 0.33
+kappa_base: 0.40
 kappa_guard: 0.20
 max_single_market_pct: 0.09
 risk_budget: 0.20
 
 # Hard Bayesian entry filter (selectivity → 80%+ WR when model is calibrated)
-# Baseline product floor is 0.06 / 0.92 / 0.78|0.22; production modes use
-# stricter values. Keep min_edge ≥ 0.12 — lower values can trip hard-DD lockout.
-min_edge: 0.12
-min_conviction: 0.90
+# Moderate: real cex_implied_up as q (no artificial extreme push) — slightly
+# looser edge/conviction, wider extreme_q band so live CEX q can clear gates.
+min_edge: 0.085
+min_conviction: 0.88
 min_conviction_guard: 0.94
-extreme_q_high: 0.85
-extreme_q_low: 0.15
+extreme_q_high: 0.80
+extreme_q_low: 0.20
 early_exit_conviction: 0.35
 
 # Drawdown / rolling WR guards

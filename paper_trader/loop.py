@@ -103,15 +103,35 @@ class EnhancedPaperLoop:
         self.risk = PortfolioRiskManager(self.cfg)
         self.risk.state.bankroll = self.sim.cash
 
+    def _reprice_markets(self, markets: list[MarketSnapshot]) -> list[MarketSnapshot]:
+        # Fixed: Removed artificial q pushing and stale q reuse. Bot now uses live(ish) model q and follows Polymarket CLOB more closely.
+        """Ensure each snapshot has latest Polymarket p and a fresh model q.
+
+        Call before entry selection and before early-exit checks so decisions
+        follow live CLOB prices, not beliefs frozen at loop start.
+        """
+        for m in markets:
+            # p is already the latest fetch for this turn; recompute q from it
+            m.q = float(self.model_fn(m))
+            logger.debug(
+                "reprice market_id=%s slug=%s live_p=%.4f fresh_q=%.4f",
+                m.market_id,
+                m.slug,
+                m.p,
+                m.q,
+            )
+        return markets
+
     async def turn(self) -> dict:
+        # Fixed: Removed artificial q pushing and stale q reuse. Bot now uses live(ish) model q and follows Polymarket CLOB more closely.
         markets = await fetch_live_markets(limit=30)
         if self.cfg.scope_btc_updown_only:
             from strategy.enhanced_misprice import filter_markets_by_scope
 
             markets = filter_markets_by_scope(markets) or markets[:0]
 
-        for m in markets:
-            m.q = self.model_fn(m)
+        # Live re-pricing before any entry decision
+        markets = self._reprice_markets(markets)
 
         selected = rank_and_select(markets, risk_manager=self.risk, config=self.cfg)
         fills = 0
@@ -150,15 +170,41 @@ class EnhancedPaperLoop:
         }
 
     def _manage_early_exits(self, markets: list[MarketSnapshot]) -> int:
+        # Fixed: Removed artificial q pushing and stale q reuse. Bot now uses live(ish) model q and follows Polymarket CLOB more closely.
         by_id = {m.market_id: m for m in markets}
         n = 0
         for pos in list(self.risk.state.open_positions):
             m = by_id.get(pos.market_id)
             if m is None:
                 continue
+            # Re-compute fresh q on every exit check so we follow live Polymarket, not stale beliefs.
+            live_p = float(m.p)
+            fresh_q = float(self.model_fn(m))
+            m.q = fresh_q
             bayes = bayesian_conviction(
-                m.q, m.p, self.cfg.n_eff.for_category(m.category), side=pos.side.value
+                fresh_q,
+                live_p,
+                self.cfg.n_eff.for_category(m.category),
+                side=pos.side.value,
             )
+            if fresh_q < live_p:
+                logger.info(
+                    "early_exit_check FADE YES: fresh_q=%.4f < live_p=%.4f "
+                    "conv=%.3f market=%s (real_q, not stale)",
+                    fresh_q,
+                    live_p,
+                    bayes.conviction,
+                    pos.market_id,
+                )
+            elif fresh_q > live_p:
+                logger.info(
+                    "early_exit_check FADE NO: fresh_q=%.4f > live_p=%.4f "
+                    "conv=%.3f market=%s (real_q, not stale)",
+                    fresh_q,
+                    live_p,
+                    bayes.conviction,
+                    pos.market_id,
+                )
             if self.risk.should_early_exit(pos, bayes.conviction):
                 pnl = -0.02 * pos.size_usd
                 trade = ClosedTrade(
@@ -178,7 +224,13 @@ class EnhancedPaperLoop:
                 self.risk.record_close(trade)
                 self.risk.state.bankroll = self.sim.cash
                 n += 1
-                logger.info("early_exit %s conv=%.3f", pos.market_id, bayes.conviction)
+                logger.info(
+                    "early_exit %s conv=%.3f fresh_q=%.4f live_p=%.4f",
+                    pos.market_id,
+                    bayes.conviction,
+                    fresh_q,
+                    live_p,
+                )
         return n
 
     async def run_forever(self) -> None:

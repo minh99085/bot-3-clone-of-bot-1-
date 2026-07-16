@@ -31,14 +31,15 @@ MODE_PRESETS: dict[str, dict[str, Any]] = {
         "n_eff_crypto": 80.0,
     },
     "moderate": {
-        # Loosened for live paper fleet: more setups while keeping min_edge floor.
-        # Target ~85%+ WR with higher trade count than strict.
-        "min_edge": 0.12,
-        "min_conviction": 0.90,
+        # Live paper: real cex_implied_up as q (no artificial 0.97/0.03 push).
+        # Wider extreme_q band + slightly looser edge/conviction so genuine
+        # CEX-implied probs can clear gates without fake q inflation.
+        "min_edge": 0.085,
+        "min_conviction": 0.88,
         "min_conviction_guard": 0.94,
-        "extreme_q_high": 0.85,
-        "extreme_q_low": 0.15,
-        "kappa_base": 0.33,
+        "extreme_q_high": 0.80,
+        "extreme_q_low": 0.20,
+        "kappa_base": 0.40,
         "max_single_market_pct": 0.09,
         "risk_budget": 0.20,
         "n_eff_crypto": 80.0,
