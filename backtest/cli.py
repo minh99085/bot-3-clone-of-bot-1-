@@ -403,12 +403,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--filter-mode",
-        choices=["strict", "moderate", "aggressive"],
+        choices=["strict", "strict_real", "moderate", "aggressive"],
         default=None,
         help=(
             "Entry-filter profile from config MODE_PRESETS "
             "(default: mode: in enhanced_misprice.yaml). "
-            "moderate = more trades with WR safely above 85%%."
+            "strict_real = high WR with real cex_implied_up as q; "
+            "moderate = more trades with looser real-q gates."
         ),
     )
     p.add_argument(
@@ -475,7 +476,7 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--config", default="config/enhanced_misprice.yaml")
         sp.add_argument(
             "--filter-mode",
-            choices=["strict", "moderate", "aggressive"],
+            choices=["strict", "strict_real", "moderate", "aggressive"],
             default=None,
         )
         sp.add_argument("--fast", action="store_true")

@@ -171,7 +171,7 @@ def main() -> None:
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<p class="sub-header">BTC / ETH / SOL lanes + rotator · moderate filter · paper only</p>',
+        '<p class="sub-header">BTC / ETH / SOL lanes + rotator · strict_real filter · paper only</p>',
         unsafe_allow_html=True,
     )
 
@@ -317,7 +317,7 @@ def main() -> None:
         st.subheader("Strategy config")
         st.json(
             {
-                "mode": cfg.get("mode", "moderate"),
+                "mode": cfg.get("mode", "strict_real"),
                 "min_edge": cfg.get("min_edge"),
                 "min_conviction": cfg.get("min_conviction"),
                 "extreme_q_high": cfg.get("extreme_q_high"),

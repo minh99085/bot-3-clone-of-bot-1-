@@ -81,26 +81,27 @@ python -m backtest --optimize --fast
 
 ---
 
-## Filter modes (strict / moderate / aggressive)
+## Filter modes (strict / strict_real / moderate / aggressive)
 
-Hermes ships three entry-filter profiles in `config/enhanced_misprice.yaml`:
+Hermes ships four entry-filter profiles in `config/enhanced_misprice.yaml`:
 
 ```yaml
-mode: strict   # or moderate | aggressive
+mode: strict_real   # or strict | moderate | aggressive
 ```
 
 Or from the CLI (does not conflict with `--mode synthetic|historical`):
 
 ```bash
-python -m backtest --filter-mode moderate --fast
-python -m backtest --filter-mode moderate --n-markets 5000 --seed 42
+python -m backtest --filter-mode strict_real --fast
+python -m backtest --filter-mode strict_real --n-markets 5000 --seed 42
 ```
 
 | Mode | Use when | Target |
 |------|----------|--------|
-| **strict** | You want maximum win rate | Fewest trades, WR ~90%+ |
-| **moderate** | You want more tickets without giving up the 85% floor | More fills, WR safely above 85% (MC p5 ≈ 85.8%) |
-| **aggressive** | You want frequency | Highest fills, WR ~80–83% |
+| **strict** | Legacy max-WR profile (inflated-q era) | Fewest trades, WR ~90%+ on old synthetic |
+| **strict_real** | Live paper / real `cex_implied_up` as q | High WR; edge 0.14 cuts weak mid-edge buckets |
+| **moderate** | More tickets with looser real-q gates | Higher fill rate; VPS showed ~58% WR under real q |
+| **aggressive** | Frequency | Highest fills, WR ~80–83% on synthetic |
 
 Presets live in `models/config.py` (`MODE_PRESETS`). Changing `mode:` alone is enough — preset values overwrite the threshold fields on load.
 

@@ -65,24 +65,26 @@ Wraps Option D CEX↔Polymarket mispricing with exact math in:
 ```bash
 export PYTHONPATH=.
 python -m backtest --fast
-python -m backtest --filter-mode moderate --fast   # more trades, WR safely >85%
+python -m backtest --filter-mode strict_real --fast   # high WR, real cex_implied_up as q
+python -m backtest --filter-mode moderate --fast      # more trades, looser real-q gates
 python -m backtest --n-markets 5000 --seed 42 --compare-baseline
 python -m backtest --optimize --n-markets 5000
 python -m backtest monte-carlo --n_runs 50
 pytest tests/test_kelly.py tests/test_bayesian_conviction.py tests/test_enhanced_misprice.py tests/test_backtest_suite.py tests/test_filter_modes.py -q
 ```
 
-### Filter modes (`strict` / `moderate` / `aggressive`)
+### Filter modes (`strict` / `strict_real` / `moderate` / `aggressive`)
 
 Set in `config/enhanced_misprice.yaml` or via `--filter-mode`:
 
-| Mode | Intent | Key thresholds | Synthetic (5k, seed 42) |
-|------|--------|----------------|-------------------------|
-| `strict` (default) | Max WR, fewest trades | edge 0.12 · conv 0.95 · q∈{≥0.88,≤0.12} · κ 0.35 · max 10% | ~91.4% WR · ~813 trades |
-| `moderate` | More fills, WR safely above 85% | edge 0.12 · conv 0.94 · q∈{≥0.86,≤0.14} · κ 0.33 · max 9% | ~90.9% WR · ~960 trades · MC p5 ≈ 85.9% |
-| `aggressive` | Highest frequency | edge 0.12 · conv 0.93 · q∈{≥0.85,≤0.15} · κ 0.30 · max 8% | ~82–83% WR · ~1060+ trades |
+| Mode | Intent | Key thresholds | Notes |
+|------|--------|----------------|-------|
+| `strict` | Max WR, fewest trades (legacy) | edge 0.12 · conv 0.95 · q∈{≥0.88,≤0.12} · κ 0.35 · max 10% | Extreme-q band from inflated-q era |
+| `strict_real` (active) | High WR with **real** `cex_implied_up` as q | edge 0.14 · conv 0.93 · q∈{≥0.85,≤0.15} · κ 0.35 · max 8% · risk 0.18 | Targets ≥80% WR; cuts weak edge&lt;0.15 buckets |
+| `moderate` | More fills, looser real-q gates | edge 0.085 · conv 0.88 · q∈{≥0.80,≤0.20} · κ 0.40 · max 9% | VPS 2026-07-16: ~58% WR under real q |
+| `aggressive` | Highest frequency | edge 0.12 · conv 0.93 · q∈{≥0.85,≤0.15} · κ 0.30 · max 8% | ~82–83% WR on synthetic (inflated-q era) |
 
-Keep `min_edge ≥ 0.12` — lower values can trip the hard-DD lockout early.
+Under real q, keep `min_edge ≥ 0.14` — VPS buckets below ~0.15 destroy win rate.
 
 ### Standalone enhanced paper loop
 
@@ -95,14 +97,14 @@ python -m paper_trader
 
 ### How to achieve 82%+ win rate (tuning guide)
 
-1. **Start with a mode** — `mode: strict` for max WR; `mode: moderate` for more trades while staying above 85% WR; `mode: aggressive` for frequency (≈80%+).
+1. **Start with a mode** — `mode: strict_real` for high WR with real q; `mode: moderate` for more fills; `mode: strict` only if revisiting legacy inflated-q backtests; `mode: aggressive` for frequency.
 2. **Keep the model calibrated** — Brier &lt; 0.18 is a hard prerequisite. If live Brier drifts above ~0.18, raise `min_conviction` before increasing size.
-3. **Prefer extreme q** — raise `extreme_q_high` / lower `extreme_q_low`, or switch toward `strict`.
-4. **Demand more edge** — keep `min_edge ≥ 0.12` (lowering further can hard-DD lock the book). For even pickier books try `0.14` via overrides after setting mode.
+3. **Prefer extreme q** — raise `extreme_q_high` / lower `extreme_q_low`, or switch toward `strict_real`.
+4. **Demand more edge** — under real q keep `min_edge ≥ 0.14` (VPS: only edge ≥0.15 stayed profitable). Do not loosen toward moderate without a fresh backtest.
 5. **Tighten Beta** — increase `n_eff.crypto` from 80 → 100 so conviction only clears when p is clearly on the wrong side of q.
 6. **Shrink Kelly** — `kappa_base: 0.25` (or let DD/WR guards auto-drop to `kappa_guard: 0.20`).
 7. **Cut weak buckets** — if WR by edge `0.10–0.15` &lt; 80%, raise `min_edge` until that bucket disappears.
-8. **Respect risk budget** — keep `risk_budget: 0.20` and never lift `max_single_market_pct` above `0.10`.
+8. **Respect risk budget** — `strict_real` uses `risk_budget: 0.18` and `max_single_market_pct: 0.08`; never lift max single above `0.10`.
 9. **Selectivity over frequency** — fewer high-conviction tickets beat exploring mid-odds; the bandit still probes small when enhanced filters fail.
 
 Synthetic reference (seeded, strict): ~813 trades, **WR ≈ 91%**, max DD &lt; 15%, Brier ≈ 0.14.

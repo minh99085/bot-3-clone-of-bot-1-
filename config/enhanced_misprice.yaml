@@ -1,28 +1,29 @@
 # Filter profile — switches entry thresholds via MODE_PRESETS in models/config.py
-# options: strict | moderate | aggressive
+# options: strict | strict_real | moderate | aggressive
 #
-#   strict     — max WR, fewest trades (extreme_q 0.88/0.12, conv 0.95)
-#   moderate   — more trades, WR safely above 85% (MC p5 ≈ 85.9% on synthetic)
-#   aggressive — highest frequency, ~80–83% WR on synthetic
+#   strict       — max WR, fewest trades (legacy extreme_q 0.88/0.12; inflated-q era)
+#   strict_real  — high WR with real cex_implied_up as q (edge 0.14, conv 0.93)
+#   moderate     — more trades, looser real-q gates (edge 0.085)
+#   aggressive   — highest frequency, ~80–83% WR on synthetic
 #
 # Tip: set mode alone; the preset overwrites the threshold fields below.
-mode: moderate
+mode: strict_real
 
 # --- Active thresholds (mirrored from the selected mode; do not hand-edit
 #     unless you also change `mode` or pass CLI --filter-mode) ---
-kappa_base: 0.40
+kappa_base: 0.35
 kappa_guard: 0.20
-max_single_market_pct: 0.09
-risk_budget: 0.20
+max_single_market_pct: 0.08
+risk_budget: 0.18
 
 # Hard Bayesian entry filter (selectivity → 80%+ WR when model is calibrated)
-# Moderate: real cex_implied_up as q (no artificial extreme push) — slightly
-# looser edge/conviction, wider extreme_q band so live CEX q can clear gates.
-min_edge: 0.085
-min_conviction: 0.88
-min_conviction_guard: 0.94
-extreme_q_high: 0.80
-extreme_q_low: 0.20
+# strict_real: real cex_implied_up as q — edge floor near the only profitable
+# VPS bucket (≥0.15); tighter conviction + extreme_q than moderate.
+min_edge: 0.14
+min_conviction: 0.93
+min_conviction_guard: 0.96
+extreme_q_high: 0.85
+extreme_q_low: 0.15
 early_exit_conviction: 0.35
 
 # Drawdown / rolling WR guards

@@ -8,16 +8,17 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
-FilterMode = Literal["strict", "moderate", "aggressive"]
+FilterMode = Literal["strict", "strict_real", "moderate", "aggressive"]
 
 # Mode presets control entry filters + sizing. Tuned on synthetic backtests
 # (seed=42, 5k markets + Monte Carlo) so that:
-#   strict    → max WR, fewest trades
-#   moderate  → more trades, WR safely above 85% (MC p5 ≥ 85%)
-#   aggressive→ highest frequency, still aiming ~80%+ WR
+#   strict      → max WR, fewest trades (legacy; extreme_q band assumes inflated q)
+#   strict_real → high WR with real cex_implied_up as q (edge ≥0.14 bucket)
+#   moderate    → more trades, looser real-q gates
+#   aggressive  → highest frequency, still aiming ~80%+ WR
 #
-# min_edge stays at 0.12 across modes: lowering it admits early losers that
-# trip the 15% hard-DD lockout and starve the rest of the run.
+# Keep min_edge high under real-q modes: edge <0.15 buckets destroy WR on
+# VPS backtests; only the ≥0.15 bucket stayed profitable (~75% WR).
 MODE_PRESETS: dict[str, dict[str, Any]] = {
     "strict": {
         "min_edge": 0.12,
@@ -28,6 +29,19 @@ MODE_PRESETS: dict[str, dict[str, Any]] = {
         "kappa_base": 0.35,
         "max_single_market_pct": 0.10,
         "risk_budget": 0.20,
+        "n_eff_crypto": 80.0,
+    },
+    "strict_real": {
+        # High-WR live paper: real cex_implied_up as q (no artificial push).
+        # Edge floor near the only profitable VPS bucket (≥0.15 ≈ 75% WR).
+        "min_edge": 0.14,
+        "min_conviction": 0.93,
+        "min_conviction_guard": 0.96,
+        "extreme_q_high": 0.85,
+        "extreme_q_low": 0.15,
+        "kappa_base": 0.35,
+        "max_single_market_pct": 0.08,
+        "risk_budget": 0.18,
         "n_eff_crypto": 80.0,
     },
     "moderate": {
@@ -45,7 +59,7 @@ MODE_PRESETS: dict[str, dict[str, Any]] = {
         "n_eff_crypto": 80.0,
     },
     "aggressive": {
-        # Highest frequency of the three; WR typically ~80–83% on synthetic.
+        # Highest frequency of the four; WR typically ~80–83% on synthetic.
         "min_edge": 0.12,
         "min_conviction": 0.93,
         "min_conviction_guard": 0.95,
@@ -195,8 +209,9 @@ def load_enhanced_config(
     Parameters
     ----------
     mode:
-        If set, forces that filter profile (strict / moderate / aggressive)
-        after YAML load. Otherwise uses ``mode:`` from the YAML (default strict).
+        If set, forces that filter profile (strict / strict_real / moderate /
+        aggressive) after YAML load. Otherwise uses ``mode:`` from the YAML
+        (default strict; production YAML pins strict_real).
     """
     cfg_path = Path(path) if path else Path("config/enhanced_misprice.yaml")
     raw: dict[str, Any] = {}

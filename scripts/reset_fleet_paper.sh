@@ -133,7 +133,7 @@ _None — 5× $2k paper instances reset._
 ## Goals in Flight
 
 - 5 isolated instances: btc5, btc15, eth5, sol5, rotator ($2k each).
-- Moderate filter mode; paper desk guardrails active.
+- strict_real filter mode; paper desk guardrails active.
 - Dashboard: http://<IP>/dashboard
 
 ## Notes

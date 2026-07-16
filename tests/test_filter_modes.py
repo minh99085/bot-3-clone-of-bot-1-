@@ -1,4 +1,4 @@
-"""Filter mode presets: strict / moderate / aggressive."""
+"""Filter mode presets: strict / strict_real / moderate / aggressive."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from models.config import (
 
 
 def test_mode_presets_defined():
-    assert set(MODE_PRESETS) == {"strict", "moderate", "aggressive"}
+    assert set(MODE_PRESETS) == {"strict", "strict_real", "moderate", "aggressive"}
     for name, preset in MODE_PRESETS.items():
         assert preset["min_edge"] >= 0.06, f"{name} min_edge too low"
         assert preset["extreme_q_low"] < preset["extreme_q_high"]
@@ -52,9 +52,9 @@ def test_load_enhanced_config_mode_kwarg():
 
 
 def test_load_default_is_strict_or_yaml_mode():
-    """Default preset is strict; production YAML may pin mode: moderate."""
+    """Default preset is strict; production YAML pins mode: strict_real."""
     cfg = load_enhanced_config()
-    assert cfg.mode in ("strict", "moderate", "aggressive")
+    assert cfg.mode in ("strict", "strict_real", "moderate", "aggressive")
     # Mode preset always applied — thresholds must match MODE_PRESETS[mode]
     from models.config import MODE_PRESETS
 
@@ -70,6 +70,28 @@ def test_load_explicit_strict():
     assert cfg.extreme_q_high == pytest.approx(0.88)
     assert cfg.extreme_q_low == pytest.approx(0.12)
     assert cfg.min_conviction == pytest.approx(0.95)
+
+
+def test_load_strict_real_preset():
+    cfg = load_enhanced_config(mode="strict_real")
+    assert cfg.mode == "strict_real"
+    assert cfg.min_edge == pytest.approx(0.14)
+    assert cfg.min_conviction == pytest.approx(0.93)
+    assert cfg.min_conviction_guard == pytest.approx(0.96)
+    assert cfg.extreme_q_high == pytest.approx(0.85)
+    assert cfg.extreme_q_low == pytest.approx(0.15)
+    assert cfg.kappa_base == pytest.approx(0.35)
+    assert cfg.max_single_market_pct == pytest.approx(0.08)
+    assert cfg.risk_budget == pytest.approx(0.18)
+
+
+def test_yaml_defaults_to_strict_real():
+    cfg = load_enhanced_config()
+    assert cfg.mode == "strict_real"
+    assert cfg.min_edge == pytest.approx(MODE_PRESETS["strict_real"]["min_edge"])
+    assert cfg.min_conviction == pytest.approx(
+        MODE_PRESETS["strict_real"]["min_conviction"]
+    )
 
 
 def test_moderate_more_trades_than_strict_and_wr_above_80():
@@ -105,6 +127,20 @@ def test_moderate_more_trades_than_strict_and_wr_above_80():
     ms = compute_metrics(er_s)
     assert ms.win_rate >= 0.85
     assert ms.n_trades >= 30
+
+
+def test_strict_real_tighter_than_moderate():
+    """strict_real raises edge/conviction vs moderate while keeping real-q band."""
+    moderate = load_enhanced_config(mode="moderate")
+    real = load_enhanced_config(mode="strict_real")
+    assert real.min_edge > moderate.min_edge
+    assert real.min_conviction > moderate.min_conviction
+    assert real.extreme_q_high > moderate.extreme_q_high
+    assert real.extreme_q_low < moderate.extreme_q_low
+    assert real.kappa_base < moderate.kappa_base
+    assert real.max_single_market_pct < moderate.max_single_market_pct
+    assert real.risk_budget < moderate.risk_budget
+
 
 def test_invalid_mode_raises():
     with pytest.raises(ValueError):
