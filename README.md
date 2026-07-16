@@ -9,6 +9,34 @@ Targets: consistent 80%+ WR · DD &lt; 15% (guard at 8%) · PF &gt; 1.4 · EV af
 
 ---
 
+## How the bot prints alpha without us (Autonomy Stack)
+
+The overnight fleet is **self-adjusting** on soft knobs only. Frozen production gates (`strict_real`, `min_edge=0.14`, `min_conviction=0.93`, κ/risk/DD) are **never** rewritten by optimizers.
+
+| Algorithm | What it does | When |
+|-----------|--------------|------|
+| **MCHB** | Hierarchical Thompson + LinUCB → exploit / explore / skip by vol·TTR·liq context | Every signal |
+| **CBPF** | Online Dirichlet reliability + ridge fusion (Brier + log-loss + calibration) | Every settlement; refit /25 |
+| **EHO** | CMA-ES lite over mutable weights/size multipliers; OOS WR≥82% & DD≤baseline to promote | 24h or /50 trades |
+| **RASP** | HMM regime detection + synthetic hard examples → regime-specific fusion weights | Every autonomy tick |
+| **RGMC** | Tighten soft κ / size on WR/DD dips; rollback if live WR&lt;78% | Every settlement |
+| **Lifecycle** | 15m Gamma/CLOB ingest, nightly parquet bulk, shadow registry (100 trades before prod) | Continuous |
+
+```bash
+export PYTHONPATH=. HERMES_PAPER_ONLY=1 DRY_RUN=true
+python -m autonomy.bootstrap          # download history + pre-train
+python -m autonomy.continuous         # forever loop (Hermes + autonomy)
+# Fleet default already calls autonomy_tick inside hermes overnight:
+python -m hermes.hermes_loop overnight
+pytest tests/test_autonomy_stack.py -q
+```
+
+Skills: `knowledge/skills/self_improve.md`, `data_ingest.md`, `risk_guardian.md`, `mchb.md`.
+
+Promote / rollback alerts: set `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` and/or `SLACK_WEBHOOK_URL`.
+
+---
+
 ## Quick Start — Validate 80% Win Rate
 
 **Step 1 — install**

@@ -42,3 +42,5 @@ artifacts/*
 # Backtest artifacts (regenerated locally)
 artifacts/backtest_runs/*
 !artifacts/backtest_runs/.gitkeep
+data/models/
+data/parquet/

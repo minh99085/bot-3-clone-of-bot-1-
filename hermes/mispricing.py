@@ -109,7 +109,7 @@ def _load_advanced_cfg() -> dict[str, Any]:
 
 
 def _fusion_weights_override(adv_cfg: dict[str, Any]) -> dict[str, Any]:
-    """Merge self-calibrated fusion weights when present."""
+    """Merge self-calibrated fusion weights when present (CBPF + legacy)."""
     try:
         from strategy.signal_calibration import load_fusion_overrides
 
@@ -121,6 +121,30 @@ def _fusion_weights_override(adv_cfg: dict[str, Any]) -> dict[str, Any]:
                 adv_cfg = {**adv_cfg, "market_blend": ov["market_blend"]}
     except Exception as exc:  # noqa: BLE001
         logger.debug("fusion override load failed: %s", exc)
+    # Prefer CBPF / autonomy mutable params when available
+    try:
+        from autonomy.orchestrator import load_autonomy_state
+
+        st = load_autonomy_state()
+        mp = st.mutable_params or {}
+        if "swarm_weight" in mp:
+            adv_cfg = {**adv_cfg, "swarm_weight": float(mp["swarm_weight"])}
+        if "market_blend" in mp:
+            adv_cfg = {**adv_cfg, "market_blend": float(mp["market_blend"])}
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("autonomy fusion override failed: %s", exc)
+    try:
+        from autonomy.cbpf import get_cbpf
+
+        export = get_cbpf().mutable_export()
+        if export.get("swarm_weight") is not None and get_cbpf().n_updates >= 25:
+            adv_cfg = {
+                **adv_cfg,
+                "swarm_weight": float(export["swarm_weight"]),
+                "market_blend": float(export["market_blend"]),
+            }
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("cbpf override failed: %s", exc)
     return adv_cfg
 
 

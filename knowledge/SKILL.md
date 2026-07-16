@@ -72,6 +72,8 @@ Paper mode is default. Live trading is opt-in only after paper evidence clears t
 23. **Advanced ensemble** (`strategy/advanced_signals.py`) improves q quality only — never loosen `STRICT_REAL_FREEZE` gates.
 24. **We never ship `moderate` / `aggressive` as production filter mode** — research only; production is `strict_real`.
 25. **We never mark a full backtest green unless Hermes v3 gates clear** — WR≥80%, MC p5≥82%, DD≤8%, PF≥2.5, Brier≤0.15.
+26. **Autonomy may only mutate soft knobs** — never `min_edge` / `min_conviction` / `strict_real` / κ base / risk budget. See `knowledge/skills/self_improve.md`.
+27. **Shadow → prod requires 100 paper trades at ≥80% WR**; rollback if live rolling WR &lt; 78%.
 
 ## Circuit Breakers
 

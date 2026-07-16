@@ -148,6 +148,14 @@ def run_one_turn(paper: bool = True, turn_id: Optional[str] = None) -> LoopTurnR
     )
     result.lessons_written = len(lessons)
 
+    # 5b. Autonomy tick — ingest / RASP / EHO / CBPF (non-blocking soft fail)
+    try:
+        from autonomy.orchestrator import autonomy_tick
+
+        autonomy_tick()
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("autonomy_tick skipped: %s", exc)
+
     # Update STATE.md snapshot
     update_state_field("Last Turn", tid)
     update_state_field(

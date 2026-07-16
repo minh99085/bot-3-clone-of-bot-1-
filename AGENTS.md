@@ -121,3 +121,16 @@ Replaces toy `momentum → cex_implied_up` when CEX tick history is available:
 - Env kill-switch: `HERMES_ADVANCED_SIGNALS=0`
 - Zero-config overnight: thin history → same toy map as before; hard filters / Kelly / Bayesian / `live_real_q` untouched
 - Prove ensemble vs momentum: `python -m backtest --fast --advanced-features`
+
+### Autonomy stack (self-adjust — freeze-safe)
+
+Package `autonomy/` — MCHB, CBPF, EHO, RASP, RGMC, data lifecycle, model registry.
+
+```bash
+python -m autonomy.bootstrap          # one-shot data + pretrain
+python -m autonomy.continuous         # forever (or use hermes overnight — autonomy_tick wired)
+```
+
+- Skills: `knowledge/skills/self_improve.md`, `data_ingest.md`, `risk_guardian.md`, `mchb.md`
+- **Never** mutates `STRICT_REAL_FREEZE`. Soft knobs only (`swarm_weight`, size×, soft κ scale ≤1).
+- Shadow ≥100 paper trades @ ≥80% WR before promote; auto-rollback if live WR &lt; 78%.

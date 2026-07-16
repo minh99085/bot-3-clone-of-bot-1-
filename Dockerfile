@@ -24,6 +24,7 @@ RUN pip install -r requirements.txt
 COPY hermes/ hermes/
 COPY connectors/ connectors/
 COPY strategy/ strategy/
+COPY autonomy/ autonomy/
 COPY risk/ risk/
 COPY models/ models/
 COPY backtest/ backtest/

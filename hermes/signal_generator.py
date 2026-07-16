@@ -348,6 +348,36 @@ def generate_signal(
     decision = bandit.decide(mp, candidate.hourly_bucket)
     bandit.record_pull(decision)
 
+    # MCHB hierarchical gate (Thompson family + LinUCB leaf) — may force skip
+    mchb_meta: dict = {}
+    try:
+        from autonomy.orchestrator import mchb_gate
+        from hermes.market_scope import window_remaining_seconds as _wrem
+
+        _rem = _wrem(candidate.slug) if candidate.slug else None
+        mchb_arm, mchb_meta = mchb_gate(
+            {
+                "timeframe": str(tf),
+                "seconds_to_resolution": float(_rem if _rem is not None else (300 if tf == "5m" else 900)),
+                "liquidity_usd": float(getattr(candidate, "liquidity", None) or 5_000),
+                "momentum": float(mp.cex_momentum),
+                "dislocation": float(mp.dislocation),
+                "hurst": (mp.features or {}).get("hurst"),
+                "garch_vol": (mp.features or {}).get("garch_sigma_ann"),
+            }
+        )
+        if mchb_arm == "skip" and decision.arm != "skip":
+            # Hierarchical skip only when uncertainty low and family weak
+            if mchb_meta.get("mchb_forced"):
+                logger.info(
+                    "signal skip mchb family gate slug=%s unc=%.3f",
+                    candidate.slug,
+                    float(mchb_meta.get("mchb_uncertainty") or 0),
+                )
+                return None
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("mchb gate skipped: %s", exc)
+
     capital = float(
         state.get("capital_usd", state.get("capital", state.get("starting_bankroll_usd", 2000)))
         or 2000
@@ -410,12 +440,25 @@ def generate_signal(
             conv = min(1.0, max(conv, opp.conviction))
             tier = ConfidenceTier.A if conv >= 0.75 else ConfidenceTier.B
             size = max(10.0, min(float(opp.size_usd), capital * 0.10))
+            # RGMC soft size multiplier (tighten-only)
+            try:
+                from autonomy.orchestrator import apply_soft_sizing
+
+                size, _ = apply_soft_sizing(size, float(opp.kappa))
+                size = max(10.0, min(size, capital * 0.10))
+            except Exception:  # noqa: BLE001
+                pass
+            if mchb_meta.get("mchb_arm") == "explore":
+                size = max(10.0, size * 0.5)
     except Exception as exc:  # noqa: BLE001 — never break the loop
         logger.warning("enhanced_misprice failed: %s", exc)
         return None
 
     if not enhanced_meta.get("enhanced_passes"):
         return None
+
+    if mchb_meta:
+        enhanced_meta.update(mchb_meta)
 
     rules_fired = [
         f"down_bias={bias:.2f}",
@@ -424,6 +467,8 @@ def generate_signal(
         f"hour={candidate.hourly_bucket}",
         f"bandit={decision.arm}",
     ]
+    if mchb_meta.get("mchb_arm"):
+        rules_fired.append(f"mchb={mchb_meta['mchb_arm']}")
     if mp.active:
         rules_fired.append(f"mispricing={mp.dislocation:+.3f}")
     if enhanced_meta.get("enhanced_passes"):

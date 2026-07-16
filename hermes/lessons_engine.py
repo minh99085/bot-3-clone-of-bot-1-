@@ -438,6 +438,13 @@ def process_settlement(stl: Settlement) -> Lesson:
             get_bandit().update_reward(ctx, arm, reward)
     except Exception as exc:  # noqa: BLE001
         logger.debug("bandit reward update skipped: %s", exc)
+    # Autonomy stack — MCHB / CBPF / RGMC / registry (never loosens freeze)
+    try:
+        from autonomy.orchestrator import on_settlement
+
+        on_settlement(stl)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("autonomy on_settlement skipped: %s", exc)
     return lesson
 
 
