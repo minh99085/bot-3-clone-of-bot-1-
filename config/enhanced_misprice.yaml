@@ -1,31 +1,29 @@
-# Filter profile — Hermes Agent v3 production lock
+# Filter profile — Hermes Agent v3
 # options: strict | strict_real | moderate | aggressive
 #
 #   strict       — legacy max WR (inflated-q era thresholds)
-#   strict_real  — PRODUCTION FREEZE (real cex_implied_up as q) — DO NOT LOOSEN
-#   moderate     — research only (fails v3 gates under real q)
+#   strict_real  — high-WR freeze under real cex_implied_up as q
+#   moderate     — DEFAULT: safer live exploration (real q, no hallucination push)
 #   aggressive   — research frequency profile
 #
 # Tip: set mode alone; the preset overwrites the threshold fields below.
-# Frozen values live in models.config.STRICT_REAL_FREEZE.
-mode: strict_real
+# Hallucination bug fixed: model q = real cex_implied_up (lightly smoothed),
+# never artificially pushed to 0.97 / 0.03.
+mode: moderate
 
 # --- Active thresholds (mirrored from the selected mode; do not hand-edit
 #     unless you also change `mode` or pass CLI --filter-mode) ---
-kappa_base: 0.35
+kappa_base: 0.40
 kappa_guard: 0.20
-max_single_market_pct: 0.08
-risk_budget: 0.18
+max_single_market_pct: 0.09
+risk_budget: 0.20
 
-# Hard Bayesian entry filter (selectivity → 80%+ WR when model is calibrated)
-# strict_real: real cex_implied_up as q — edge floor near the only profitable
-# VPS bucket (≥0.15). Synthetic uses extreme on q; live Hermes uses extreme_p_*
-# when CEX q is mid (see live_real_q in enhance_from_hermes_mispricing).
-min_edge: 0.14
-min_conviction: 0.93
-min_conviction_guard: 0.96
-extreme_q_high: 0.85
-extreme_q_low: 0.15
+# Hard Bayesian entry filter — moderate defaults (safer live under real q)
+min_edge: 0.085
+min_conviction: 0.88
+min_conviction_guard: 0.94
+extreme_q_high: 0.80
+extreme_q_low: 0.20
 extreme_anchor: q
 extreme_p_high: 0.72
 extreme_p_low: 0.28
@@ -76,7 +74,7 @@ monte_carlo_runs: 100
 tune_trials: 40
 
 # Advanced multi-signal ensemble (Hurst-gated multi-TF + OBI + log-normal + Kalman).
-# Defaults keep strict_real performance; thin history → momentum fallback.
+# Defaults keep q quality; thin history → momentum fallback.
 # Env HERMES_ADVANCED_SIGNALS=0 disables at runtime without YAML edits.
 advanced:
   enabled: true

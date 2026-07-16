@@ -38,7 +38,6 @@ def evaluate_market(
     bankroll: Optional[float] = None,
     live_real_q: bool = False,
 ) -> TradeOpportunity:
-    # Fixed: Removed artificial q pushing and stale q reuse. Bot now uses live(ish) model q and follows Polymarket CLOB more closely.
     """Run enhanced filters + Kelly sizing on one market snapshot.
 
     Parameters
@@ -48,6 +47,7 @@ def evaluate_market(
     live_real_q : when True (Hermes live paper), mid CEX q uses Polymarket p
         stretch gates instead of requiring q≥0.85 (which never fires live).
     """
+    # FIXED: Removed artificial q pushing. Using real cex_implied probability to stop hallucination.
     cfg = config or load_enhanced_config()
     kappa = guard.kappa if guard else cfg.kappa_base
     min_conv = guard.min_conviction if guard else cfg.min_conviction
@@ -56,31 +56,21 @@ def evaluate_market(
     side = _side_from_q_p(market.q, market.p)
     # Price paid for the chosen contract
     p_side = market.p if side in (Side.YES, Side.UP) else (1.0 - market.p)
-
-    # Fade logging: q vs live Polymarket p (real model q — not artificial push)
-    if market.q < market.p:
-        logger.info(
-            "FADE YES: model_q=%.4f < pm_p=%.4f → side=%s edge=%.4f slug=%s "
-            "(real_cex_q, no artificial push)",
-            market.q,
-            market.p,
-            side.value,
-            abs(market.q - market.p),
-            market.slug or market.market_id,
-        )
-    elif market.q > market.p:
-        logger.info(
-            "FADE NO: model_q=%.4f > pm_p=%.4f → side=%s edge=%.4f slug=%s "
-            "(real_cex_q, no artificial push)",
-            market.q,
-            market.p,
-            side.value,
-            abs(market.q - market.p),
-            market.slug or market.market_id,
-        )
+    edge = abs(market.q - market.p)
 
     n_eff = cfg.n_eff.for_category(market.category)
     bayes = bayesian_conviction(market.q, market.p, n_eff, side=side.value)
+
+    # Clear entry consideration log: real q, live Polymarket p, edge, conviction
+    logger.info(
+        "entry_consider q=%.4f p=%.4f edge=%.4f conviction=%.4f side=%s slug=%s",
+        market.q,
+        market.p,
+        edge,
+        bayes.conviction,
+        side.value,
+        market.slug or market.market_id,
+    )
 
     ok, fail_reasons = passes_hard_entry_filter(
         market.q,
@@ -99,7 +89,6 @@ def evaluate_market(
     liq = liquidity_score(market.liquidity_usd, market.volume_24h)
     tdf = time_decay_factor(market.seconds_to_resolution)
     score = conviction_score(market.q, market.p, bayes.conviction, liq, tdf)
-    edge = abs(market.q - market.p)
 
     reasons: list[str] = []
     if guard and guard.guard_active:
@@ -119,10 +108,28 @@ def evaluate_market(
 
     if not ok:
         reasons.extend(fail_reasons)
+        logger.info(
+            "entry_skip q=%.4f p=%.4f edge=%.4f conviction=%.4f reasons=%s slug=%s",
+            market.q,
+            market.p,
+            edge,
+            bayes.conviction,
+            fail_reasons[:4],
+            market.slug or market.market_id,
+        )
     else:
         reasons.append(
             f"PASS edge={edge:.3f} conv={bayes.conviction:.3f} "
             f"kelly_f={kelly.f:.4f} size=${size:.2f}"
+        )
+        logger.info(
+            "entry_pass q=%.4f p=%.4f edge=%.4f conviction=%.4f size=$%.2f slug=%s",
+            market.q,
+            market.p,
+            edge,
+            bayes.conviction,
+            size,
+            market.slug or market.market_id,
         )
 
     return TradeOpportunity(
@@ -176,7 +183,6 @@ def enhance_from_hermes_mispricing(
     bankroll: Optional[float] = None,
     advanced_features: Optional[dict[str, Any]] = None,
 ) -> TradeOpportunity:
-    # Fixed: Removed artificial q pushing and stale q reuse. Bot now uses live(ish) model q and follows Polymarket CLOB more closely.
     """Wrap an existing Hermes ``MispricingSignal`` into enhanced filters.
 
     q := CEX-implied P(UP) (lead signal), lightly smoothed — never forced to 0.97/0.03
@@ -186,6 +192,7 @@ def enhance_from_hermes_mispricing(
     they are attached to the snapshot; q itself already comes from the ensemble
     via ``cex_implied_up`` when history is available. Hard filters stay intact.
     """
+    # FIXED: Removed artificial q pushing. Using real cex_implied probability to stop hallucination.
     cfg = config or load_enhanced_config()
     rm = risk_manager or PortfolioRiskManager(cfg)
     guard = rm.evaluate_guards()
@@ -199,13 +206,13 @@ def enhance_from_hermes_mispricing(
         except (TypeError, ValueError):
             pass
 
-    # Use live CEX-implied P(UP) as model q. Light shrink toward 0.5 for
-    # calibration only — do NOT push toward extremes on dislocation size.
+    # Use live CEX-implied P(UP) directly as model q.
+    # Light shrink toward 0.5 for calibration only — NEVER force 0.97/0.03 on dislocation.
     if not active:
         # Inactive setups: shrink harder so they rarely clear extreme_q gates
         q = 0.5 + 0.25 * (q_raw - 0.5)
     else:
-        q = 0.5 + 0.90 * (q_raw - 0.5)  # lightly smoothed real cex_implied_up
+        q = 0.5 + 0.90 * (q_raw - 0.5)  # light smoothing of real cex_implied_up
     q = float(min(0.95, max(0.05, q)))
 
     # Log strong disagreement between advanced q and toy momentum (selectivity)
@@ -231,13 +238,15 @@ def enhance_from_hermes_mispricing(
     elif adv.get("advanced_q") is not None:
         q_source = "advanced_fallback_smoothed"
 
+    pm_p = float(pm_implied_up)
     logger.info(
-        "enhanced_q slug=%s cex_implied_up=%.4f q=%.4f pm_p=%.4f dislocation=%+.4f "
-        "active=%s src=%s (no artificial extreme push)",
+        "enhanced_q slug=%s cex_implied_up=%.4f q=%.4f p=%.4f edge=%.4f "
+        "dislocation=%+.4f active=%s src=%s (real cex_implied, no hallucination push)",
         slug,
         q_raw,
         q,
-        float(pm_implied_up),
+        pm_p,
+        abs(q - pm_p),
         dislocation,
         active,
         q_source,

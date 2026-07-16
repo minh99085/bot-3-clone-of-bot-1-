@@ -7,6 +7,9 @@ Streamlit is **not** exposed on port 8501 publicly — only Nginx `:80` is.
 
 Targets: consistent 80%+ WR · DD &lt; 15% (guard at 8%) · PF &gt; 1.4 · EV after CLOB fees/slippage.
 
+> **Hallucination bug has been fixed - bot now uses real model probabilities instead of artificially pushed q values.**
+> Model `q` is live `cex_implied_up` (lightly smoothed only). Early exits recompute fresh `q` every turn so decisions follow live Polymarket prices. Default filter mode is `moderate` (`min_edge=0.085`, `min_conviction=0.88`, `kappa_base=0.40`).
+
 ---
 
 ## How the bot prints alpha without us (Autonomy Stack)

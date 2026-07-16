@@ -12,15 +12,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Awaitable, Callable, Optional
+from typing import Callable, Optional
 
 import httpx
 
 from models.config import EnhancedMispriceConfig, load_enhanced_config
-from models.market import ClosedTrade, MarketSnapshot, Side
+from models.market import ClosedTrade, MarketSnapshot
 from paper_trader.simulator import PaperSimulator
 from risk.portfolio_risk import PortfolioRiskManager
-from strategy.enhanced_misprice import evaluate_market, rank_and_select
+from strategy.enhanced_misprice import rank_and_select
 from strategy.bayesian import bayesian_conviction
 
 logger = logging.getLogger(__name__)
@@ -104,7 +104,6 @@ class EnhancedPaperLoop:
         self.risk.state.bankroll = self.sim.cash
 
     def _reprice_markets(self, markets: list[MarketSnapshot]) -> list[MarketSnapshot]:
-        # Fixed: Removed artificial q pushing and stale q reuse. Bot now uses live(ish) model q and follows Polymarket CLOB more closely.
         """Ensure each snapshot has latest Polymarket p and a fresh model q.
 
         Call before entry selection and before early-exit checks so decisions
@@ -123,7 +122,6 @@ class EnhancedPaperLoop:
         return markets
 
     async def turn(self) -> dict:
-        # Fixed: Removed artificial q pushing and stale q reuse. Bot now uses live(ish) model q and follows Polymarket CLOB more closely.
         markets = await fetch_live_markets(limit=30)
         if self.cfg.scope_btc_updown_only:
             from strategy.enhanced_misprice import filter_markets_by_scope
@@ -136,6 +134,17 @@ class EnhancedPaperLoop:
         selected = rank_and_select(markets, risk_manager=self.risk, config=self.cfg)
         fills = 0
         for opp in selected:
+            logger.info(
+                "entry_decision q=%.4f p=%.4f edge=%.4f conviction=%.4f "
+                "side=%s size=$%.2f slug=%s",
+                opp.q,
+                opp.p,
+                opp.edge,
+                opp.conviction,
+                opp.side.value,
+                opp.size_usd,
+                opp.slug or opp.market_id,
+            )
             fill = self.sim.open_position(opp)
             if fill is None:
                 continue
@@ -170,41 +179,33 @@ class EnhancedPaperLoop:
         }
 
     def _manage_early_exits(self, markets: list[MarketSnapshot]) -> int:
-        # Fixed: Removed artificial q pushing and stale q reuse. Bot now uses live(ish) model q and follows Polymarket CLOB more closely.
         by_id = {m.market_id: m for m in markets}
         n = 0
         for pos in list(self.risk.state.open_positions):
             m = by_id.get(pos.market_id)
             if m is None:
                 continue
-            # Re-compute fresh q on every exit check so we follow live Polymarket, not stale beliefs.
+            # FIXED: Always recompute fresh q on every decision so we follow live Polymarket, not stale hallucinated beliefs.
             live_p = float(m.p)
             fresh_q = float(self.model_fn(m))
             m.q = fresh_q
+            edge = abs(fresh_q - live_p)
             bayes = bayesian_conviction(
                 fresh_q,
                 live_p,
                 self.cfg.n_eff.for_category(m.category),
                 side=pos.side.value,
             )
-            if fresh_q < live_p:
-                logger.info(
-                    "early_exit_check FADE YES: fresh_q=%.4f < live_p=%.4f "
-                    "conv=%.3f market=%s (real_q, not stale)",
-                    fresh_q,
-                    live_p,
-                    bayes.conviction,
-                    pos.market_id,
-                )
-            elif fresh_q > live_p:
-                logger.info(
-                    "early_exit_check FADE NO: fresh_q=%.4f > live_p=%.4f "
-                    "conv=%.3f market=%s (real_q, not stale)",
-                    fresh_q,
-                    live_p,
-                    bayes.conviction,
-                    pos.market_id,
-                )
+            logger.info(
+                "exit_consider q=%.4f p=%.4f edge=%.4f conviction=%.4f "
+                "side=%s market=%s",
+                fresh_q,
+                live_p,
+                edge,
+                bayes.conviction,
+                pos.side.value,
+                pos.market_id,
+            )
             if self.risk.should_early_exit(pos, bayes.conviction):
                 pnl = -0.02 * pos.size_usd
                 trade = ClosedTrade(
@@ -225,11 +226,12 @@ class EnhancedPaperLoop:
                 self.risk.state.bankroll = self.sim.cash
                 n += 1
                 logger.info(
-                    "early_exit %s conv=%.3f fresh_q=%.4f live_p=%.4f",
-                    pos.market_id,
-                    bayes.conviction,
+                    "early_exit q=%.4f p=%.4f edge=%.4f conviction=%.4f market=%s",
                     fresh_q,
                     live_p,
+                    edge,
+                    bayes.conviction,
+                    pos.market_id,
                 )
         return n
 

@@ -91,14 +91,15 @@ def test_load_strict_real_preset():
     assert_strict_real_freeze(cfg)
 
 
-def test_yaml_defaults_to_strict_real():
+def test_yaml_defaults_to_moderate():
+    """Default YAML is moderate (safer live under real q; no hallucination push)."""
     cfg = load_enhanced_config()
-    assert cfg.mode == "strict_real"
-    assert cfg.min_edge == pytest.approx(MODE_PRESETS["strict_real"]["min_edge"])
+    assert cfg.mode == "moderate"
+    assert cfg.min_edge == pytest.approx(MODE_PRESETS["moderate"]["min_edge"])
     assert cfg.min_conviction == pytest.approx(
-        MODE_PRESETS["strict_real"]["min_conviction"]
+        MODE_PRESETS["moderate"]["min_conviction"]
     )
-    assert_strict_real_freeze(cfg)
+    assert cfg.kappa_base == pytest.approx(MODE_PRESETS["moderate"]["kappa_base"])
 
 
 def test_strict_real_rejects_edge_below_freeze():
