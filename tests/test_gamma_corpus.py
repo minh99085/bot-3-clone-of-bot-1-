@@ -142,6 +142,51 @@ def test_sample_report_renders(tmp_path):
     assert "coverage" in text.lower()
 
 
+def test_pull_path_needs_no_heavy_deps():
+    """The VPS pull box has only stdlib+httpx. Importing backtest.gamma_corpus
+    and parsing markets must work with numpy/scipy/pydantic/yaml missing —
+    a regression here breaks scripts/pull_gamma_corpus.py in the field."""
+    import subprocess
+    import sys
+
+    blocker = (
+        "import sys, json\n"
+        "class _Block:\n"
+        "    BLOCKED = {'numpy', 'scipy', 'pydantic', 'yaml'}\n"
+        "    def find_module(self, name, path=None):\n"
+        "        if name.split('.')[0] in self.BLOCKED: return self\n"
+        "    def load_module(self, name):\n"
+        "        raise ImportError(f'{name} blocked for light-import test')\n"
+        "sys.meta_path.insert(0, _Block())\n"
+        "from backtest.gamma_corpus import parse_updown_market, parse_price_history\n"
+        "row = json.load(open('tests/fixtures/gamma_markets_fixture.json'))['rows'][0]\n"
+        "m = parse_updown_market(row)\n"
+        "assert m is not None and m.asset == 'btc' and m.outcome_up is True\n"
+        "print('LIGHT_IMPORT_OK')\n"
+    )
+    r = subprocess.run(
+        [sys.executable, "-c", blocker],
+        capture_output=True,
+        text=True,
+        cwd=str(Path(__file__).parent.parent),
+        env={"PYTHONPATH": str(Path(__file__).parent.parent), "PATH": "/usr/bin:/bin"},
+    )
+    assert "LIGHT_IMPORT_OK" in r.stdout, f"stdout={r.stdout}\nstderr={r.stderr}"
+
+
+def test_slug_fallback_regex_matches_live_scope():
+    """gamma_corpus keeps a stdlib-only copy of the live slug regex for the
+    pull path; it must stay identical to hermes.market_scope.SLUG_RE."""
+    import re
+
+    from hermes.market_scope import SLUG_RE as live
+
+    src = (Path(__file__).parent.parent / "backtest" / "gamma_corpus.py").read_text()
+    m = re.search(r'SLUG_RE = re\.compile\(r"([^"]+)"\)', src)
+    assert m, "fallback regex not found in gamma_corpus.py"
+    assert m.group(1) == live.pattern
+
+
 def test_no_circular_example_csv_writer_left():
     """The old demo-CSV writer fabricated q = true_q + noise — the exact
     circular pattern Task 1 removed. It must stay dead."""

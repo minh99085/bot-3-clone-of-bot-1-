@@ -22,13 +22,21 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Sequence
 
-from hermes.market_scope import SLUG_RE
-from models.market import DecisionPoint
+if TYPE_CHECKING:  # pydantic import deferred — the pull path must stay light
+    from models.market import DecisionPoint
+
+# Keep the pull path importable with only stdlib+httpx: prefer the live
+# scope regex, fall back to an identical copy (a test pins them equal).
+try:
+    from hermes.market_scope import SLUG_RE  # needs PyYAML
+except ImportError:  # pragma: no cover - exercised via subprocess test
+    SLUG_RE = re.compile(r"^(btc|eth|sol)-updown-(5m|15m)-(\d+)$")
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +166,8 @@ def reconstruct_decisions(
     decision timestamp; decisions with no quote fresher than
     ``max_stale_sec`` are dropped (the caller counts them).
     """
+    from models.market import DecisionPoint  # deferred: pull path stays light
+
     if market.outcome_up is None or not history:
         return []
     t0 = float(t0_epoch if t0_epoch is not None else market.open_ts)
