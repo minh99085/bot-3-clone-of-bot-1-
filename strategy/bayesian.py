@@ -87,10 +87,11 @@ def passes_hard_entry_filter(
     live_real_q: bool = False,
     extreme_p_high: float | None = None,
     extreme_p_low: float | None = None,
+    net_edge: float | None = None,
 ) -> tuple[bool, list[str]]:
     """Hard entry filter.
 
-    abs(q - p) >= min_edge
+    edge >= min_edge  (edge = net_edge after costs when provided, else |q-p|)
     AND conviction >= min_conviction
     AND extreme stretch:
 
@@ -101,9 +102,12 @@ def passes_hard_entry_filter(
       clears q≥0.85 — without this branch the desk takes zero trades.
     """
     reasons: list[str] = []
-    edge = abs(q - p)
-    if edge < min_edge:
-        reasons.append(f"edge={edge:.4f}<{min_edge}")
+    # Compare the NET edge (after costs) to min_edge when the caller supplies
+    # it; fall back to gross |q-p| otherwise. Costs must not be free.
+    gate_edge = abs(q - p) if net_edge is None else float(net_edge)
+    if gate_edge < min_edge:
+        label = "edge" if net_edge is None else "net_edge"
+        reasons.append(f"{label}={gate_edge:.4f}<{min_edge}")
     if conviction < min_conviction:
         reasons.append(f"conviction={conviction:.4f}<{min_conviction}")
 

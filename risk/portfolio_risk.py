@@ -43,6 +43,19 @@ def risk_unit(
     return (size * math.sqrt(p_c * (1.0 - p_c))) ** 2
 
 
+def _is_crypto(meta: Optional[dict], slug: str = "") -> bool:
+    cat = str((meta or {}).get("category") or "").lower()
+    if cat:
+        return cat == "crypto"
+    return "updown" in (slug or "").lower()
+
+
+def _direction(side) -> str:
+    """Collapse YES/UP → 'up', NO/DOWN → 'down' for correlation grouping."""
+    s = getattr(side, "value", side)
+    return "up" if str(s).upper() in ("YES", "UP") else "down"
+
+
 @dataclass
 class GuardState:
     """Dynamic risk / selectivity regime."""
@@ -81,6 +94,15 @@ class PortfolioRiskState:
 
     def open_risk_units(self) -> float:
         return sum(float(p.risk_unit) for p in self.open_positions)
+
+    def crypto_dir_risk_units(self, direction: str) -> float:
+        """Open crypto risk units on one direction (correlation factor)."""
+        return sum(
+            float(p.risk_unit)
+            for p in self.open_positions
+            if _is_crypto(getattr(p, "meta", None), getattr(p, "slug", ""))
+            and _direction(p.side) == direction
+        )
 
 
 class PortfolioRiskManager:
@@ -136,6 +158,15 @@ class PortfolioRiskManager:
                 False,
                 f"risk_units={projected:.6f}>{self.cfg.risk_budget}",
             )
+        # Correlation-aware cap: same-direction crypto is one risk factor.
+        if _is_crypto(opp.meta, opp.slug):
+            d = _direction(opp.side)
+            dir_proj = self.state.crypto_dir_risk_units(d) + opp.risk_unit
+            if dir_proj > self.cfg.crypto_dir_risk_budget + 1e-12:
+                return (
+                    False,
+                    f"crypto_dir_{d}_risk={dir_proj:.6f}>{self.cfg.crypto_dir_risk_budget}",
+                )
         # 1e-6 USD tolerance avoids rejecting fills that land exactly on the cap
         # after float rounding (e.g. 0.09 * 1820 ≈ 163.8).
         if opp.size_usd > self.cfg.max_single_market_pct * self.state.bankroll + 1e-6:
@@ -153,17 +184,28 @@ class PortfolioRiskManager:
         used = self.state.open_risk_units()
         cash = self.state.bankroll
         equity = cash + sum(p.size_usd for p in self.state.open_positions)
+        # Same-direction crypto exposure is one correlated risk factor.
+        dir_used = {
+            "up": self.state.crypto_dir_risk_units("up"),
+            "down": self.state.crypto_dir_risk_units("down"),
+        }
         for opp in sorted(opportunities, key=lambda o: o.conviction_score, reverse=True):
             if not opp.passes_hard_filter or opp.size_usd <= 0:
                 continue
             if used + opp.risk_unit > self.cfg.risk_budget + 1e-12:
                 continue
+            is_crypto = _is_crypto(opp.meta, opp.slug)
+            d = _direction(opp.side)
+            if is_crypto and dir_used[d] + opp.risk_unit > self.cfg.crypto_dir_risk_budget + 1e-12:
+                continue  # correlation cap: throttle same-way crypto basket
             if opp.size_usd > cash + 1e-9:
                 continue
             if opp.size_usd > self.cfg.max_single_market_pct * equity + 1e-6:
                 continue
             chosen.append(opp)
             used += opp.risk_unit
+            if is_crypto:
+                dir_used[d] += opp.risk_unit
             cash -= opp.size_usd
             equity = cash + sum(p.size_usd for p in self.state.open_positions) + sum(
                 c.size_usd for c in chosen

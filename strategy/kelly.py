@@ -51,6 +51,40 @@ def kelly_no(q: float, p: float) -> float:
     return (p - q) / p
 
 
+def expected_cost_frac(
+    p_side: float,
+    q_side: float,
+    *,
+    slippage_bps: float,
+    fee_bps: float,
+) -> float:
+    """Expected per-share transaction cost, in probability/price units.
+
+    A hold-to-resolution binary pays $1 if the chosen side wins. Costs:
+      - entry slippage: pay ``p_side * slip`` extra crossing the book;
+      - settlement fee: on a win (prob ~ q_side) the $1 payout is docked
+        ``fee``, so expected fee cost ≈ ``q_side * fee``.
+    Returns a value directly comparable to the gross edge (q_side - p_side).
+    """
+    slip = max(0.0, float(slippage_bps)) / 10_000.0
+    fee = max(0.0, float(fee_bps)) / 10_000.0
+    return float(max(0.0, p_side)) * slip + float(max(0.0, q_side)) * fee
+
+
+def net_edge_after_costs(
+    p_side: float,
+    q_side: float,
+    *,
+    slippage_bps: float,
+    fee_bps: float,
+) -> float:
+    """Gross edge (q_side - p_side) minus expected slippage + fees."""
+    gross = float(q_side) - float(p_side)
+    return gross - expected_cost_frac(
+        p_side, q_side, slippage_bps=slippage_bps, fee_bps=fee_bps
+    )
+
+
 def apply_kappa(f_star: float, kappa: float) -> float:
     """Fractional Kelly: f = kappa * min(f_star, 1.0). Negative → 0."""
     if f_star <= 0:

@@ -19,7 +19,7 @@ from models.config import EnhancedMispriceConfig, load_enhanced_config
 from models.market import MarketSnapshot, Side, TradeOpportunity
 from risk.portfolio_risk import GuardState, PortfolioRiskManager, risk_unit
 from strategy.bayesian import bayesian_conviction, passes_hard_entry_filter
-from strategy.kelly import kelly_size
+from strategy.kelly import kelly_size, net_edge_after_costs
 from utils.scoring import conviction_score, liquidity_score, time_decay_factor
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,20 @@ def evaluate_market(
     side = _side_from_q_p(market.q, market.p)
     # Price paid for the chosen contract
     p_side = market.p if side in (Side.YES, Side.UP) else (1.0 - market.p)
-    edge = abs(market.q - market.p)
+    q_side = market.q if side in (Side.YES, Side.UP) else (1.0 - market.q)
+    edge = abs(market.q - market.p)  # gross, for logging/back-compat
+    # Task 5: net expected slippage + fees out of the edge BEFORE the
+    # min_edge gate and BEFORE Kelly. Costs are never free.
+    slip_bps = 0.5 * (float(cfg.slippage_bps_min) + float(cfg.slippage_bps_max))
+    net_edge = net_edge_after_costs(
+        p_side, q_side, slippage_bps=slip_bps, fee_bps=float(cfg.settlement_fee_bps)
+    )
+    # Cost-adjusted model prob so Kelly sizes on the NET edge: for the chosen
+    # side, q_eff_side = p_side + net_edge; map back to YES/UP terms.
+    q_eff = (
+        market.p + net_edge if side in (Side.YES, Side.UP) else market.p - net_edge
+    )
+    q_eff = float(min(1.0, max(0.0, q_eff)))
 
     n_eff = cfg.n_eff.for_category(market.category)
     bayes = bayesian_conviction(market.q, market.p, n_eff, side=side.value)
@@ -84,6 +97,7 @@ def evaluate_market(
         live_real_q=live_real_q,
         extreme_p_high=getattr(cfg, "extreme_p_high", None),
         extreme_p_low=getattr(cfg, "extreme_p_low", None),
+        net_edge=net_edge,
     )
 
     liq = liquidity_score(market.liquidity_usd, market.volume_24h)
@@ -95,7 +109,7 @@ def evaluate_market(
         reasons.append(f"guard_active:{guard.reason}")
 
     kelly = kelly_size(
-        q=market.q,
+        q=q_eff,  # cost-adjusted: Kelly sizes on the net edge, not gross
         p=market.p,
         side=side.value,
         bankroll=br,
@@ -159,6 +173,9 @@ def evaluate_market(
             "category": market.category,
             "timeframe": market.timeframe,
             "kelly_capped": kelly.capped,
+            "gross_edge": float(edge),
+            "net_edge": float(net_edge),
+            "cost_frac": float(edge - net_edge),
             **(market.meta or {}),
         },
     )

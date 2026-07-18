@@ -183,6 +183,12 @@ class EnhancedMispriceConfig(BaseModel):
     extreme_p_low: float = Field(0.28, ge=0.05, le=0.45)
     early_exit_conviction: float = Field(0.35, ge=0.05, le=0.60)
 
+    # Correlation-aware cap: btc5/btc15/eth5/sol5/rotator same-direction crypto
+    # exposure is ONE macro risk factor (all track spot). Combined open risk
+    # units on a single direction may not exceed this — below risk_budget so a
+    # basket of same-way crypto bets is throttled, not stacked per-market.
+    crypto_dir_risk_budget: float = Field(0.10, ge=0.02, le=0.30)
+
     dd_guard_pct: float = Field(0.08, ge=0.02, le=0.20)
     rolling_wr_window: int = Field(20, ge=5, le=100)
     rolling_wr_floor: float = Field(0.75, ge=0.50, le=0.95)
