@@ -41,10 +41,17 @@ Mode = Literal["enhanced", "naive"]
 
 
 def settle_pnl(
-    side: Side, entry_price: float, size_usd: float, resolved_yes: bool
+    side: Side,
+    entry_price: float,
+    size_usd: float,
+    resolved_yes: bool,
+    *,
+    fee_bps: float = 0.0,
 ) -> tuple[float, float, bool]:
     """Shared binary settlement (same economics as paper_trader).
 
+    ``fee_bps`` is charged on the winning-side payout (redemption fee);
+    losers pay nothing extra since the payout is zero.
     Returns (pnl_usd, exit_price, won).
     """
     shares = size_usd / max(entry_price, 1e-9)
@@ -52,8 +59,30 @@ def settle_pnl(
         exit_px = 1.0 if resolved_yes else 0.0
     else:
         exit_px = 0.0 if resolved_yes else 1.0
-    pnl = shares * exit_px - size_usd
+    payout = shares * exit_px * (1.0 - max(0.0, float(fee_bps)) / 10_000.0)
+    pnl = payout - size_usd
     return float(pnl), float(exit_px), pnl > 0
+
+
+def early_exit_fill(
+    entry_price: float,
+    size_usd: float,
+    shares: float,
+    *,
+    spread_bps: float,
+    slippage_bps: float,
+) -> tuple[float, float, float]:
+    """Sell an open position into the book before resolution.
+
+    The exit mark is the entry price (no outcome information leaks into the
+    fill); the seller pays half-spread + slippage crossing the book.
+    Returns (pnl_usd, exit_px, cost_bps).
+    """
+    cost_bps = max(0.0, float(spread_bps)) + max(0.0, float(slippage_bps))
+    exit_px = max(0.0, float(entry_price) * (1.0 - cost_bps / 10_000.0))
+    n_shares = shares if shares > 0 else size_usd / max(entry_price, 1e-9)
+    pnl = n_shares * exit_px - size_usd
+    return float(pnl), float(exit_px), float(cost_bps)
 
 
 def naive_evaluate(
@@ -134,7 +163,11 @@ class BacktestEngine:
         seed: Optional[int] = None,
     ) -> EngineResult:
         cfg = self.cfg
-        sim = PaperSimulator(cfg, seed=seed if seed is not None else self.seed)
+        run_seed = seed if seed is not None else self.seed
+        # One RNG for the whole run — jitter/slippage draws advance across
+        # positions instead of repeating the first draw forever.
+        rng = np.random.default_rng(run_seed)
+        sim = PaperSimulator(cfg, seed=run_seed)
         rm = PortfolioRiskManager(cfg)
         rm.state.bankroll = sim.cash
         rm.state.peak_bankroll = sim.cash
@@ -166,20 +199,27 @@ class BacktestEngine:
                     continue
                 pos, src, opp = open_by_market.pop(d.market_id)
                 # Early-exit check just before resolve (live conviction proxy)
-                live_conv = float(
-                    np.clip(opp.conviction + np.random.default_rng(self.seed).normal(0, 0.02), 0, 1)
-                )
+                live_conv = float(np.clip(opp.conviction + rng.normal(0, 0.02), 0, 1))
                 if rm.should_early_exit(pos, live_conv):
-                    pnl = -0.015 * pos.size_usd
+                    exit_slip_bps = float(
+                        rng.uniform(cfg.slippage_bps_min, cfg.slippage_bps_max)
+                    )
+                    pnl, exit_px, cost_bps = early_exit_fill(
+                        pos.entry_price,
+                        pos.size_usd,
+                        pos.shares,
+                        spread_bps=cfg.early_exit_spread_bps,
+                        slippage_bps=exit_slip_bps,
+                    )
                     trade = ClosedTrade(
                         position_id=pos.position_id,
                         market_id=pos.market_id,
                         side=pos.side,
                         entry_price=pos.entry_price,
-                        exit_price=pos.entry_price,
+                        exit_price=exit_px,
                         size_usd=pos.size_usd,
                         pnl_usd=pnl,
-                        won=False,
+                        won=pnl > 0,
                         conviction_at_entry=pos.conviction_at_entry,
                         edge_at_entry=opp.edge,
                         early_exit=True,
@@ -189,11 +229,17 @@ class BacktestEngine:
                             "lifetime_frac": src.lifetime_frac,
                             "mode": self.mode,
                             "true_q": src.true_q,
+                            "live_conv": live_conv,
+                            "exit_cost_bps": cost_bps,
                         },
                     )
                 else:
                     pnl, exit_px, won = settle_pnl(
-                        pos.side, pos.entry_price, pos.size_usd, bool(d.resolved_yes)
+                        pos.side,
+                        pos.entry_price,
+                        pos.size_usd,
+                        bool(d.resolved_yes),
+                        fee_bps=cfg.settlement_fee_bps,
                     )
                     trade = ClosedTrade(
                         position_id=pos.position_id,
@@ -213,6 +259,7 @@ class BacktestEngine:
                             "lifetime_frac": src.lifetime_frac,
                             "mode": self.mode,
                             "true_q": src.true_q,
+                            "live_conv": live_conv,
                         },
                     )
                 sim.close_position(trade)
@@ -345,7 +392,11 @@ class BacktestEngine:
         # Force-close any leftovers at final resolution truth
         for mid, (pos, src, opp) in list(open_by_market.items()):
             pnl, exit_px, won = settle_pnl(
-                pos.side, pos.entry_price, pos.size_usd, bool(src.resolved_yes)
+                pos.side,
+                pos.entry_price,
+                pos.size_usd,
+                bool(src.resolved_yes),
+                fee_bps=cfg.settlement_fee_bps,
             )
             trade = ClosedTrade(
                 position_id=pos.position_id,

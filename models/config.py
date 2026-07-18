@@ -193,6 +193,10 @@ class EnhancedMispriceConfig(BaseModel):
     bankroll: float = Field(2000.0, gt=0)
     slippage_bps_min: float = 50.0
     slippage_bps_max: float = 200.0
+    # Early exit sells into the book pre-resolution: half-spread + impact paid
+    early_exit_spread_bps: float = Field(150.0, ge=0.0, le=1000.0)
+    # Fee on winning-side redemption (Polymarket currently 0; kept explicit)
+    settlement_fee_bps: float = Field(0.0, ge=0.0, le=500.0)
     loop_interval_seconds: int = 300
     paper_only: bool = True
     scope_btc_updown_only: bool = True
