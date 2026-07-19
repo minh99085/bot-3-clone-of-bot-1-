@@ -470,6 +470,57 @@ def get_asset_mid(asset: str, *, force_rest: bool = False) -> float:
     return 0.0
 
 
+def price_at_timestamp(asset: str, ts: int) -> float:
+    """CEX price at (or just before) ``ts`` — the window-open resolution strike.
+
+    Uses the 1-minute kline whose open time covers ``ts`` (Binance futures
+    ``klines`` with startTime), falling back to Coinbase candles for
+    geo-blocked Binance. Returns 0.0 when unavailable so callers can skip
+    settlement rather than fabricate an outcome. Requires network at the
+    exchange host (available on the VPS; not in restricted sandboxes).
+    """
+    asset_u = (asset or "BTC").upper()
+    symbol = ASSET_CEX_SYMBOLS.get(asset_u)
+    ts_ms = int(ts) * 1000
+    if symbol:
+        try:
+            url = f"{BINANCE_FUTURES_REST}/fapi/v1/klines"
+            with httpx.Client(timeout=8.0) as client:
+                resp = client.get(
+                    url,
+                    params={"symbol": symbol, "interval": "1m", "startTime": ts_ms, "limit": 1},
+                )
+                resp.raise_for_status()
+                rows = resp.json()
+            # kline: [openTime, open, high, low, close, ...]
+            if isinstance(rows, list) and rows:
+                open_px = float(rows[0][1])
+                if open_px > 0:
+                    return open_px
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("klines %s @ %s failed: %s", symbol, ts, exc)
+    # Coinbase candle fallback (granularity 60s; pick the bucket at ts)
+    try:
+        product = {"BTC": "BTC-USD", "ETH": "ETH-USD", "SOL": "SOL-USD"}.get(asset_u)
+        if product:
+            start = int(ts) - (int(ts) % 60)
+            with httpx.Client(timeout=8.0) as client:
+                resp = client.get(
+                    f"https://api.exchange.coinbase.com/products/{product}/candles",
+                    params={"granularity": 60, "start": start, "end": start + 60},
+                )
+                resp.raise_for_status()
+                candles = resp.json()
+            # candle: [time, low, high, open, close, volume]
+            if isinstance(candles, list) and candles:
+                open_px = float(candles[-1][3])
+                if open_px > 0:
+                    return open_px
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("coinbase candle %s @ %s failed: %s", asset_u, ts, exc)
+    return 0.0
+
+
 def _asset_momentum_from_history(asset: str) -> tuple[float, float, float, float]:
     """Compute (ret_30s, ret_60s, ret_3m, momentum) from rolling asset history."""
     times, prices = get_asset_price_history(asset, max_points=240)

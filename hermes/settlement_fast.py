@@ -73,6 +73,22 @@ def _cex_plausible(asset: str, px: float) -> bool:
     return lo <= px <= hi
 
 
+def _open_price_at(asset: str, window_ts: int) -> float:
+    """CEX price at the window-open epoch (the resolution strike).
+
+    Best-effort historical lookup; returns 0.0 when unavailable so the
+    caller skips settlement rather than fabricating an outcome. Kept as a
+    module-level indirection so tests can inject a deterministic reference.
+    """
+    try:
+        from connectors.cex_realtime import price_at_timestamp
+
+        return float(price_at_timestamp(asset, int(window_ts)) or 0.0)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("open price lookup failed asset=%s ts=%s: %s", asset, window_ts, exc)
+        return 0.0
+
+
 def settle_expired_paper_positions(paper: bool = True) -> list[Settlement]:
     """Settle positions whose up/down window has ended (+ grace)."""
     now = time.time()
@@ -113,28 +129,45 @@ def settle_expired_paper_positions(paper: bool = True) -> list[Settlement]:
         entry_px = float(pos.get("entry_price") or 0.5)
         size = float(pos.get("size_usd") or 0)
         entry_asset = _resolve_asset(slug, meta)
-        entry_cex = float(meta.get("cex_mid") or 0)
-        if not _cex_plausible(entry_asset, entry_cex):
-            entry_cex = 0.0
+
+        # Resolve on close-vs-window-OPEN, exactly as Polymarket does.
+        # The open reference is the CEX price at the window-open epoch
+        # (slug window_ts), NOT the entry mid (which is mid-window and
+        # measures a different bet). A recorded strike in meta wins if present.
+        open_ref = 0.0
+        try:
+            strike_meta = meta.get("strike") or meta.get("price_to_beat")
+            if strike_meta is not None:
+                open_ref = float(strike_meta)
+        except (TypeError, ValueError):
+            open_ref = 0.0
+        if not _cex_plausible(entry_asset, open_ref) and sm is not None:
+            open_ref = _open_price_at(entry_asset, sm.window_ts)
         exit_cex = get_asset_mid(entry_asset, force_rest=True)
 
-        if entry_cex <= 0 or exit_cex <= 0:
-            won = (hash(str(pos.get("signal_id"))) % 100) < 55
-            exit_px = 1.0 if won else 0.0
-            notes = f"settle_synthetic_no_cex_entry asset={entry_asset}"
-        else:
-            moved_up = exit_cex >= entry_cex
-            if direction in (Direction.UP, Direction.YES):
-                won = moved_up
-            else:
-                won = not moved_up
-            exit_px = 1.0 if won else 0.0
-            notes = (
-                f"settle_cex asset={entry_asset} "
-                f"entry_cex={entry_cex:.4f} exit_cex={exit_cex:.4f} "
-                f"bandit_arm={meta.get('bandit_arm')} "
-                f"bandit_ctx={meta.get('bandit_context')}"
+        # No reliable open/close reference → do NOT settle and NEVER fabricate.
+        # Leave the position open for a later retry / manual review.
+        if not (_cex_plausible(entry_asset, open_ref) and _cex_plausible(entry_asset, exit_cex)):
+            logger.warning(
+                "skip settle %s: no reliable open/exit ref (open=%.4f exit=%.4f)",
+                slug,
+                open_ref,
+                exit_cex,
             )
+            continue
+
+        moved_up = exit_cex >= open_ref
+        if direction in (Direction.UP, Direction.YES):
+            won = moved_up
+        else:
+            won = not moved_up
+        exit_px = 1.0 if won else 0.0
+        notes = (
+            f"settle_cex_openref asset={entry_asset} "
+            f"open_cex={open_ref:.4f} exit_cex={exit_cex:.4f} "
+            f"bandit_arm={meta.get('bandit_arm')} "
+            f"bandit_ctx={meta.get('bandit_context')}"
+        )
 
         eff_entry = max(entry_px, MIN_ENTRY_PX_FOR_PNL)
         if won:

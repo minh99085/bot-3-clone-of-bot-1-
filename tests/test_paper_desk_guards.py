@@ -100,6 +100,8 @@ def test_settlement_uses_asset_cex_and_caps_pnl(monkeypatch, tmp_path):
         return 3410.0 if asset == "ETH" else 65000.0
 
     monkeypatch.setattr(stl_mod, "get_asset_mid", fake_mid)
+    # Window-open reference below the exit → UP resolves as a win (close>open).
+    monkeypatch.setattr(stl_mod, "_open_price_at", lambda asset, ts: 3400.0)
 
     out = stl_mod.settle_expired_paper_positions(paper=True)
     assert len(out) == 1
@@ -149,10 +151,19 @@ def test_settlement_rejects_btc_cex_on_sol_slug(monkeypatch, tmp_path):
         return 148.5 if asset == "SOL" else 65000.0
 
     monkeypatch.setattr(stl_mod, "get_asset_mid", fake_mid)
+    # Open reference must be resolved for the SAME (SOL) asset, not BTC.
+    open_calls: list[str] = []
+
+    def fake_open(asset: str, ts: int) -> float:
+        open_calls.append(asset)
+        return 149.0 if asset == "SOL" else 64000.0
+
+    monkeypatch.setattr(stl_mod, "_open_price_at", fake_open)
 
     out = stl_mod.settle_expired_paper_positions(paper=True)
     assert len(out) == 1
     assert calls == ["SOL"]
+    assert open_calls == ["SOL"]
     assert "asset=SOL" in (out[0].notes or "")
 
 
