@@ -363,6 +363,51 @@ def _ece(qs: Sequence[float], ys: Sequence[float], bins: int = 10) -> float:
     return tot
 
 
+def full_report(
+    trades: Sequence[RealTrade],
+    *,
+    bankroll: float = 2000.0,
+    run_barrier: bool = True,
+) -> str:
+    """Honest after-cost report + (optionally) the barrier-vs-market eval.
+
+    The barrier section needs CEX price lookups (window-open + intra-window
+    klines) and so only runs where those are reachable (VPS / allowlisted
+    session). It degrades gracefully — excluded trades are counted, and it
+    still prints whatever it could evaluate.
+    """
+    out = [build_real_report(trades, bankroll=bankroll).text()]
+    if run_barrier:
+        try:
+            from backtest.barrier_eval import (
+                BarrierEvalConfig,
+                evaluate_barrier,
+            )
+            from connectors.cex_realtime import price_at_timestamp
+
+            def _open_fn(asset: str, ts: int) -> float:
+                return float(price_at_timestamp(asset, int(ts)) or 0.0)
+
+            def _path_fn(asset: str, ts0: int, ts1: int):
+                # 1-min klines across the window for realized σ.
+                pts = []
+                for k in range(0, max(1, (ts1 - ts0) // 60) + 1):
+                    px = price_at_timestamp(asset, ts0 + k * 60)
+                    if px and px > 0:
+                        pts.append((ts0 + k * 60, float(px)))
+                return pts
+
+            rep = evaluate_barrier(
+                trades, open_price_fn=_open_fn, window_path_fn=_path_fn,
+                cfg=BarrierEvalConfig(),
+            )
+            out.append("")
+            out.append(rep.text())
+        except Exception as exc:  # noqa: BLE001
+            out.append(f"\n[barrier eval skipped: {exc}]")
+    return "\n".join(out)
+
+
 def default_ledger_paths(root: Path | str = "data/paper") -> list[Path]:
     root = Path(root)
     return sorted(root.glob("*/trade_ledger.jsonl"))
