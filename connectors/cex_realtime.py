@@ -1,47 +1,39 @@
-"""Real-time BTC perpetual prices — Binance (primary WS) + Bybit (confirm).
+"""Real-time CEX prices — multi-venue rotation (Coinbase/Kraken/Bitstamp/OKX).
 
-Designed for 24/7 paper loop:
-  - Background WebSocket thread for Binance BTCUSDT perpetual bookTicker
-  - REST mark-price fallback if WS drops
-  - Optional Bybit linear ticker as secondary confirmation
+Binance is fully removed: it is geo-blocked (HTTP 451) from the VPS, and the
+old Binance-first chain burned seconds of dead retries on every fetch while
+rate-limiting the fallback venue. All price access now routes through
+``connectors.cex_sources`` (health-aware rotation + circuit breakers).
 
-Consumers call `get_btc_snapshot()` — never block on WS connect.
+Public interface is unchanged for consumers:
+  get_feed / get_btc_snapshot / get_asset_mid / get_asset_price_history /
+  get_asset_snapshot / price_at_timestamp / BtcSnapshot / BtcTick
+
+BtcSnapshot.binance / .bybit are legacy field names now carrying the PRIMARY
+and SECONDARY venue ticks respectively (dashboard + agreement checks read
+them); the tick's ``source`` says which venue it truly is.
 """
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
 
-import httpx
+from connectors import cex_sources
 
-# Module-level rolling mids for ETH/SOL (REST polling accumulates history).
+# Module-level rolling mids per asset (poll thread + call-sites accumulate).
 _ASSET_HISTORY: dict[str, list[tuple[float, float]]] = {}
 _ASSET_HISTORY_LOCK = threading.Lock()
 _ASSET_HISTORY_MAX_SEC = 600.0
 
 logger = logging.getLogger(__name__)
 
-BINANCE_FUTURES_WS = os.environ.get(
-    "BINANCE_FUTURES_WS",
-    "wss://fstream.binance.com/ws/btcusdt@bookTicker",
-)
-BINANCE_FUTURES_REST = os.environ.get(
-    "BINANCE_FUTURES_REST",
-    "https://fapi.binance.com",
-)
-BYBIT_REST = os.environ.get("BYBIT_REST", "https://api.bybit.com")
-ENABLE_BYBIT = os.environ.get("HERMES_BYBIT_CONFIRM", "1").strip().lower() in (
-    "1",
-    "true",
-    "yes",
-)
+POLL_SEC = 4.0  # feed thread cadence — dense enough for 30/60/180s momentum
+AGREE_BPS = 15.0  # cross-venue agreement threshold
 
 
 @dataclass
@@ -56,7 +48,10 @@ class BtcTick:
 
 @dataclass
 class BtcSnapshot:
-    """Multi-source BTC mid with short-horizon momentum."""
+    """Multi-venue BTC mid with short-horizon momentum.
+
+    ``binance``/``bybit`` are LEGACY names: primary / secondary venue ticks.
+    """
 
     binance: Optional[BtcTick] = None
     bybit: Optional[BtcTick] = None
@@ -70,14 +65,14 @@ class BtcSnapshot:
 
 
 class RealtimeBtcFeed:
-    """Singleton-ish feed: WS thread + rolling price history for momentum."""
+    """Singleton-ish feed: REST poll thread + rolling price history."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._binance: Optional[BtcTick] = None
-        self._bybit: Optional[BtcTick] = None
+        self._primary: Optional[BtcTick] = None
+        self._secondary: Optional[BtcTick] = None
         self._history: list[tuple[float, float]] = []  # (epoch, price)
-        self._ws_thread: Optional[threading.Thread] = None
+        self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
         self._started = False
 
@@ -86,23 +81,33 @@ class RealtimeBtcFeed:
             return
         self._started = True
         self._stop.clear()
-        t = threading.Thread(target=self._ws_loop, name="binance-btc-ws", daemon=True)
+        t = threading.Thread(target=self._poll_loop, name="cex-btc-poll", daemon=True)
         t.start()
-        self._ws_thread = t
-        # Seed immediately via REST so first turn isn't empty
+        self._thread = t
+        # Seed immediately so the first turn isn't empty
         self._refresh_rest()
-        logger.info("RealtimeBtcFeed started (Binance WS + REST fallback)")
+        logger.info(
+            "RealtimeBtcFeed started (multi-venue poll: %s)",
+            ",".join(cex_sources.source_order()),
+        )
 
     def stop(self) -> None:
         self._stop.set()
         self._started = False
 
+    def _poll_loop(self) -> None:
+        while not self._stop.is_set():
+            try:
+                self._refresh_rest()
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("poll refresh failed: %s", exc)
+            self._stop.wait(POLL_SEC)
+
     def _push_history(self, price: float) -> None:
         now = time.time()
         with self._lock:
             self._history.append((now, price))
-            # Keep ~10 minutes
-            cutoff = now - 600
+            cutoff = now - _ASSET_HISTORY_MAX_SEC
             self._history = [(t, p) for t, p in self._history if t >= cutoff]
 
     def _ret_over(self, seconds: float) -> float:
@@ -119,183 +124,28 @@ class RealtimeBtcFeed:
                 else:
                     break
             if older is None or older <= 0:
-                # earliest available
                 older = self._history[0][1]
             if older <= 0:
                 return 0.0
             return (latest - older) / older
 
-    def _ws_loop(self) -> None:
-        while not self._stop.is_set():
-            try:
-                self._run_ws_once()
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("Binance WS error: %s — REST fallback 5s", exc)
-                self._refresh_rest()
-                self._stop.wait(5.0)
-
-    def _run_ws_once(self) -> None:
-        try:
-            import websocket  # websocket-client
-        except ImportError as exc:
-            raise RuntimeError("websocket-client not installed") from exc
-
-        def on_message(_ws, message: str) -> None:
-            try:
-                data = json.loads(message)
-                bid = float(data.get("b") or data.get("bidPrice") or 0)
-                ask = float(data.get("a") or data.get("askPrice") or 0)
-                if bid <= 0 or ask <= 0:
-                    return
-                mid = (bid + ask) / 2.0
-                tick = BtcTick(
-                    price=mid,
-                    bid=bid,
-                    ask=ask,
-                    source="binance_ws",
-                    ts=datetime.now(timezone.utc),
-                )
-                with self._lock:
-                    self._binance = tick
-                self._push_history(mid)
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("ws parse: %s", exc)
-
-        def on_error(_ws, error) -> None:
-            logger.debug("ws on_error: %s", error)
-
-        def on_close(_ws, *_args) -> None:
-            logger.info("Binance WS closed")
-
-        ws = websocket.WebSocketApp(
-            BINANCE_FUTURES_WS,
-            on_message=on_message,
-            on_error=on_error,
-            on_close=on_close,
-        )
-        # run_forever blocks until disconnect
-        ws.run_forever(ping_interval=20, ping_timeout=10)
-
     def _refresh_rest(self) -> None:
-        # Binance mark price
-        try:
-            url = f"{BINANCE_FUTURES_REST}/fapi/v1/ticker/bookTicker"
-            with httpx.Client(timeout=8.0) as client:
-                resp = client.get(url, params={"symbol": "BTCUSDT"})
-                resp.raise_for_status()
-                data = resp.json()
-            bid = float(data.get("bidPrice") or 0)
-            ask = float(data.get("askPrice") or 0)
-            if bid > 0 and ask > 0:
-                mid = (bid + ask) / 2.0
-                tick = BtcTick(
-                    price=mid, bid=bid, ask=ask, source="binance_rest",
-                    ts=datetime.now(timezone.utc),
+        quotes = cex_sources.get_mid_multi("BTC", k=2)
+        now = datetime.now(timezone.utc)
+        with self._lock:
+            if quotes:
+                q = quotes[0]
+                self._primary = BtcTick(
+                    price=q.mid, bid=q.bid, ask=q.ask, source=q.source, ts=now
                 )
-                with self._lock:
-                    # Don't overwrite fresher WS tick
-                    if self._binance is None or self._binance.source != "binance_ws":
-                        self._binance = tick
-                    elif (datetime.now(timezone.utc) - self._binance.ts).total_seconds() > 5:
-                        self._binance = tick
-                self._push_history(mid)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Binance futures REST failed: %s — trying spot", exc)
-            try:
-                url = "https://api.binance.com/api/v3/ticker/bookTicker"
-                with httpx.Client(timeout=8.0) as client:
-                    resp = client.get(url, params={"symbol": "BTCUSDT"})
-                    resp.raise_for_status()
-                    data = resp.json()
-                bid = float(data.get("bidPrice") or 0)
-                ask = float(data.get("askPrice") or 0)
-                if bid > 0 and ask > 0:
-                    mid = (bid + ask) / 2.0
-                    tick = BtcTick(
-                        price=mid, bid=bid, ask=ask, source="binance_spot_rest",
-                        ts=datetime.now(timezone.utc),
-                    )
-                    with self._lock:
-                        self._binance = tick
-                    self._push_history(mid)
-            except Exception as exc2:  # noqa: BLE001
-                logger.warning("Binance spot REST failed: %s — trying Coinbase/OKX", exc2)
-                self._refresh_alt_venues()
-
-        if ENABLE_BYBIT:
-            try:
-                url = f"{BYBIT_REST}/v5/market/tickers"
-                with httpx.Client(timeout=8.0) as client:
-                    resp = client.get(url, params={"category": "linear", "symbol": "BTCUSDT"})
-                    resp.raise_for_status()
-                    data = resp.json()
-                rows = (data.get("result") or {}).get("list") or []
-                if rows:
-                    row = rows[0]
-                    last = float(row.get("lastPrice") or 0)
-                    bid = float(row.get("bid1Price") or last)
-                    ask = float(row.get("ask1Price") or last)
-                    if last > 0:
-                        with self._lock:
-                            self._bybit = BtcTick(
-                                price=last,
-                                bid=bid,
-                                ask=ask,
-                                source="bybit_rest",
-                                ts=datetime.now(timezone.utc),
-                            )
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("Bybit confirm failed: %s", exc)
-
-    def _refresh_alt_venues(self) -> None:
-        """Coinbase + OKX fallbacks when Binance is geo-blocked (HTTP 451)."""
-        try:
-            with httpx.Client(timeout=8.0) as client:
-                resp = client.get("https://api.exchange.coinbase.com/products/BTC-USD/ticker")
-                resp.raise_for_status()
-                data = resp.json()
-            bid = float(data.get("bid") or 0)
-            ask = float(data.get("ask") or 0)
-            last = float(data.get("price") or 0)
-            mid = (bid + ask) / 2.0 if bid > 0 and ask > 0 else last
-            if mid > 0:
-                tick = BtcTick(
-                    price=mid, bid=bid or mid, ask=ask or mid,
-                    source="coinbase_rest", ts=datetime.now(timezone.utc),
+            if len(quotes) > 1:
+                q2 = quotes[1]
+                self._secondary = BtcTick(
+                    price=q2.mid, bid=q2.bid, ask=q2.ask, source=q2.source, ts=now
                 )
-                with self._lock:
-                    self._binance = tick
-                self._push_history(mid)
-                logger.info("CEX primary via Coinbase mid=%.2f", mid)
-                return
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("Coinbase failed: %s", exc)
-        try:
-            with httpx.Client(timeout=8.0) as client:
-                resp = client.get(
-                    "https://www.okx.com/api/v5/market/ticker",
-                    params={"instId": "BTC-USDT-SWAP"},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-            rows = data.get("data") or []
-            if rows:
-                row = rows[0]
-                bid = float(row.get("bidPx") or 0)
-                ask = float(row.get("askPx") or 0)
-                last = float(row.get("last") or 0)
-                mid = (bid + ask) / 2.0 if bid > 0 and ask > 0 else last
-                if mid > 0:
-                    tick = BtcTick(
-                        price=mid, bid=bid or mid, ask=ask or mid,
-                        source="okx_rest", ts=datetime.now(timezone.utc),
-                    )
-                    with self._lock:
-                        self._binance = tick
-                    self._push_history(mid)
-                    logger.info("CEX primary via OKX mid=%.2f", mid)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("OKX fallback failed: %s", exc)
+        if quotes:
+            self._push_history(quotes[0].mid)
+            _push_asset_history("BTC", quotes[0].mid)
 
     def get_price_history(
         self, max_points: int = 240
@@ -307,66 +157,55 @@ class RealtimeBtcFeed:
             return [], []
         n = max(1, int(max_points))
         hist = hist[-n:]
-        times = [float(t) for t, _ in hist]
-        prices = [float(p) for _, p in hist]
-        return times, prices
+        return [float(t) for t, _ in hist], [float(p) for _, p in hist]
 
     def get_top_of_book(self) -> tuple[Optional[float], Optional[float], float, float]:
-        """Return (bid, ask, bid_sz_proxy, ask_sz_proxy). Sizes unknown on bookTicker → 1.0."""
+        """(bid, ask, bid_sz_proxy, ask_sz_proxy) from the primary venue."""
         with self._lock:
-            bn = self._binance
-        if bn is None or bn.bid <= 0 or bn.ask <= 0:
+            tick = self._primary
+        if tick is None or tick.bid <= 0 or tick.ask <= 0:
             return None, None, 0.0, 0.0
-        return float(bn.bid), float(bn.ask), 1.0, 1.0
+        return float(tick.bid), float(tick.ask), 1.0, 1.0
 
     def get_snapshot(self, *, force_rest: bool = False) -> BtcSnapshot:
         if not self._started:
             self.start()
-        if force_rest:
+        with self._lock:
+            tick = self._primary
+        if force_rest or tick is None or (
+            (datetime.now(timezone.utc) - tick.ts).total_seconds() > 2 * POLL_SEC + 1
+        ):
             self._refresh_rest()
-        else:
-            # Soft refresh Bybit + ensure Binance not stale
-            with self._lock:
-                bn = self._binance
-            if bn is None or (datetime.now(timezone.utc) - bn.ts).total_seconds() > 8:
-                self._refresh_rest()
-            elif ENABLE_BYBIT and (
-                self._bybit is None
-                or (datetime.now(timezone.utc) - self._bybit.ts).total_seconds() > 30
-            ):
-                self._refresh_rest()
 
         with self._lock:
-            bn = self._binance
-            by = self._bybit
+            pri = self._primary
+            sec = self._secondary
 
         mid = 0.0
-        if bn and bn.price > 0:
-            mid = bn.price
-            if bn.source != "binance_ws" and (datetime.now(timezone.utc) - bn.ts).total_seconds() > 15:
-                bn = BtcTick(**{**bn.__dict__, "stale": True}) if False else bn
-                # mark stale via copy
-                bn = BtcTick(
-                    price=bn.price, bid=bn.bid, ask=bn.ask, source=bn.source, ts=bn.ts, stale=True
+        if pri and pri.price > 0:
+            mid = pri.price
+            if (datetime.now(timezone.utc) - pri.ts).total_seconds() > 15:
+                pri = BtcTick(
+                    price=pri.price, bid=pri.bid, ask=pri.ask,
+                    source=pri.source, ts=pri.ts, stale=True,
                 )
-        elif by and by.price > 0:
-            mid = by.price
+        elif sec and sec.price > 0:
+            mid = sec.price
 
         r30 = self._ret_over(30)
         r60 = self._ret_over(60)
         r3m = self._ret_over(180)
-        # Momentum score: blend short returns, clip
         raw_m = 0.5 * r30 + 0.3 * r60 + 0.2 * r3m
         # ~0.15% move → strong signal on 5m horizon
         momentum = max(-1.0, min(1.0, raw_m / 0.0015))
 
         agree = True
-        if bn and by and bn.price > 0 and by.price > 0:
-            agree = abs(bn.price - by.price) / bn.price < 0.0015  # 15 bps
+        if pri and sec and pri.price > 0 and sec.price > 0:
+            agree = abs(pri.price - sec.price) / pri.price < AGREE_BPS / 10_000.0
 
         return BtcSnapshot(
-            binance=bn,
-            bybit=by,
+            binance=pri,  # legacy field name: PRIMARY venue tick
+            bybit=sec,    # legacy field name: SECONDARY venue tick
             mid=mid,
             ret_30s=r30,
             ret_60s=r60,
@@ -394,13 +233,6 @@ def get_btc_snapshot(*, force_rest: bool = False) -> BtcSnapshot:
     return get_feed().get_snapshot(force_rest=force_rest)
 
 
-ASSET_CEX_SYMBOLS: dict[str, str] = {
-    "BTC": "BTCUSDT",
-    "ETH": "ETHUSDT",
-    "SOL": "SOLUSDT",
-}
-
-
 def _push_asset_history(asset: str, price: float) -> None:
     now = time.time()
     key = asset.upper()
@@ -414,7 +246,7 @@ def _push_asset_history(asset: str, price: float) -> None:
 def get_asset_price_history(
     asset: str, max_points: int = 240
 ) -> tuple[list[float], list[float]]:
-    """(times, prices) for any asset — BTC from WS feed, alts from REST cache."""
+    """(times, prices) for any asset — BTC from the feed, alts from REST cache."""
     asset_u = (asset or "BTC").upper()
     if asset_u == "BTC":
         return get_feed().get_price_history(max_points=max_points)
@@ -427,98 +259,24 @@ def get_asset_price_history(
 
 
 def get_asset_mid(asset: str, *, force_rest: bool = False) -> float:
-    """Binance futures mid for BTC / ETH / SOL (REST; BTC uses feed when available)."""
+    """Multi-venue mid for BTC / ETH / SOL (BTC prefers the polling feed)."""
     asset_u = (asset or "BTC").upper()
     if asset_u == "BTC":
         return get_btc_snapshot(force_rest=force_rest).mid
-    symbol = ASSET_CEX_SYMBOLS.get(asset_u)
-    if not symbol:
-        return 0.0
-    try:
-        url = f"{BINANCE_FUTURES_REST}/fapi/v1/ticker/bookTicker"
-        with httpx.Client(timeout=8.0) as client:
-            resp = client.get(url, params={"symbol": symbol})
-            resp.raise_for_status()
-            data = resp.json()
-        bid = float(data.get("bidPrice") or 0)
-        ask = float(data.get("askPrice") or 0)
-        if bid > 0 and ask > 0:
-            mid = (bid + ask) / 2.0
-            _push_asset_history(asset_u, mid)
-            return mid
-    except Exception as exc:  # noqa: BLE001
-        logger.debug("asset mid %s failed: %s", symbol, exc)
-    # Coinbase/OKX soft fallbacks for geo-blocked Binance
-    try:
-        product = {"ETH": "ETH-USD", "SOL": "SOL-USD"}.get(asset_u)
-        if product:
-            with httpx.Client(timeout=8.0) as client:
-                resp = client.get(
-                    f"https://api.exchange.coinbase.com/products/{product}/ticker"
-                )
-                resp.raise_for_status()
-                data = resp.json()
-            bid = float(data.get("bid") or 0)
-            ask = float(data.get("ask") or 0)
-            last = float(data.get("price") or 0)
-            mid = (bid + ask) / 2.0 if bid > 0 and ask > 0 else last
-            if mid > 0:
-                _push_asset_history(asset_u, mid)
-                return mid
-    except Exception as exc:  # noqa: BLE001
-        logger.debug("asset mid coinbase %s failed: %s", asset_u, exc)
-    return 0.0
+    mid = cex_sources.get_mid(asset_u)
+    if mid > 0:
+        _push_asset_history(asset_u, mid)
+    return mid
 
 
 def price_at_timestamp(asset: str, ts: int) -> float:
-    """CEX price at (or just before) ``ts`` — the window-open resolution strike.
+    """CEX price at (or just before) ``ts`` — window-open/close references.
 
-    Uses the 1-minute kline whose open time covers ``ts`` (Binance futures
-    ``klines`` with startTime), falling back to Coinbase candles for
-    geo-blocked Binance. Returns 0.0 when unavailable so callers can skip
-    settlement rather than fabricate an outcome. Requires network at the
-    exchange host (available on the VPS; not in restricted sandboxes).
+    1-minute candle OPEN covering ``ts`` from the first healthy venue
+    (Coinbase → Kraken → Bitstamp → OKX). Returns 0.0 when unavailable so
+    callers skip settlement rather than fabricate an outcome.
     """
-    asset_u = (asset or "BTC").upper()
-    symbol = ASSET_CEX_SYMBOLS.get(asset_u)
-    ts_ms = int(ts) * 1000
-    if symbol:
-        try:
-            url = f"{BINANCE_FUTURES_REST}/fapi/v1/klines"
-            with httpx.Client(timeout=8.0) as client:
-                resp = client.get(
-                    url,
-                    params={"symbol": symbol, "interval": "1m", "startTime": ts_ms, "limit": 1},
-                )
-                resp.raise_for_status()
-                rows = resp.json()
-            # kline: [openTime, open, high, low, close, ...]
-            if isinstance(rows, list) and rows:
-                open_px = float(rows[0][1])
-                if open_px > 0:
-                    return open_px
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("klines %s @ %s failed: %s", symbol, ts, exc)
-    # Coinbase candle fallback (granularity 60s; pick the bucket at ts)
-    try:
-        product = {"BTC": "BTC-USD", "ETH": "ETH-USD", "SOL": "SOL-USD"}.get(asset_u)
-        if product:
-            start = int(ts) - (int(ts) % 60)
-            with httpx.Client(timeout=8.0) as client:
-                resp = client.get(
-                    f"https://api.exchange.coinbase.com/products/{product}/candles",
-                    params={"granularity": 60, "start": start, "end": start + 60},
-                )
-                resp.raise_for_status()
-                candles = resp.json()
-            # candle: [time, low, high, open, close, volume]
-            if isinstance(candles, list) and candles:
-                open_px = float(candles[-1][3])
-                if open_px > 0:
-                    return open_px
-    except Exception as exc:  # noqa: BLE001
-        logger.debug("coinbase candle %s @ %s failed: %s", asset_u, ts, exc)
-    return 0.0
+    return cex_sources.kline_open_at(asset, int(ts))
 
 
 def _asset_momentum_from_history(asset: str) -> tuple[float, float, float, float]:
@@ -529,43 +287,47 @@ def _asset_momentum_from_history(asset: str) -> tuple[float, float, float, float
     now = times[-1]
     latest = prices[-1]
 
-    def _ret(seconds: float) -> float:
-        target = now - seconds
-        older = prices[0]
+    def ret_over(sec: float) -> float:
+        older = None
         for t, p in zip(times, prices):
-            if t <= target:
+            if t <= now - sec:
                 older = p
             else:
                 break
+        if older is None or older <= 0:
+            older = prices[0]
         if older <= 0:
             return 0.0
         return (latest - older) / older
 
-    r30, r60, r3m = _ret(30), _ret(60), _ret(180)
+    r30 = ret_over(30)
+    r60 = ret_over(60)
+    r3m = ret_over(180)
     raw_m = 0.5 * r30 + 0.3 * r60 + 0.2 * r3m
     momentum = max(-1.0, min(1.0, raw_m / 0.0015))
     return r30, r60, r3m, momentum
 
 
 def get_asset_snapshot(asset: str, *, force_rest: bool = False) -> BtcSnapshot:
-    """CEX snapshot for mispricing/settlement — BTC uses WS feed; alt assets REST mid."""
+    """BtcSnapshot-shaped view for any asset (BTC uses the real feed)."""
     asset_u = (asset or "BTC").upper()
     if asset_u == "BTC":
         return get_btc_snapshot(force_rest=force_rest)
-    mid = get_asset_mid(asset_u, force_rest=force_rest)
+    mid = get_asset_mid(asset_u, force_rest=True)
     r30, r60, r3m, mom = _asset_momentum_from_history(asset_u)
-    tick = BtcTick(
-        price=mid,
-        bid=mid,
-        ask=mid,
-        source=f"binance_rest_{asset_u.lower()}",
+    tick = (
+        BtcTick(price=mid, bid=mid, ask=mid, source="multi_venue_rest")
+        if mid > 0
+        else None
     )
     return BtcSnapshot(
         binance=tick,
+        bybit=None,
         mid=mid,
         ret_30s=r30,
         ret_60s=r60,
         ret_3m=r3m,
         momentum=mom,
         sources_agree=True,
+        ts=datetime.now(timezone.utc),
     )
