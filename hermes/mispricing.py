@@ -331,7 +331,16 @@ def compute_cex_implied_up(
         features["barrier_sigma_ann"] = float(sigma_ann)
         features["barrier_strike"] = float(strike)
         q_out = q_barrier
+        # Label reflects the STRIKE reference so reports never confuse the exact
+        # Data Streams tier with the coarse free-aggregator tier (or a CEX ref).
         q_source = "barrier_cex_open"
+        if asset.upper() in ("BTC", "ETH"):
+            from connectors.chainlink import oracle_agg_allowed, oracle_streams_enabled
+
+            if oracle_streams_enabled():
+                q_source = "barrier_streams_open"
+            elif oracle_agg_allowed():
+                q_source = "barrier_agg_open"
         # CRITICAL: downstream (enhance_from_hermes_mispricing) prefers
         # features['advanced_q'] over the returned q — it must carry the
         # barrier, or the ensemble silently clobbers it (live-ledger bug).
@@ -420,9 +429,12 @@ def detect_mispricing(
             if open_px > 0:
                 strike = open_px
 
-    # Barrier spot: for crypto, use the SAME Chainlink stream as strike/close
-    # so q prices the exact contract the market resolves on. CEX mid is used
-    # only for momentum/σ history, never as the barrier's spot reference.
+    # Barrier spot: prefer the live Data Streams spot (same feed strike/close
+    # resolve on). When only the COARSE aggregator tier is available, oracle_spot
+    # raises and we KEEP the fresh CEX mid as the live spot — the aggregator's
+    # ~1h heartbeat is far too stale to price a 15m barrier, and the fresh CEX
+    # tick is the actual latency-edge input. Strike/close still resolve on
+    # Chainlink (streams or aggregator); only the live spot uses CEX here.
     from hermes.lane_variants import active_spec as _lane_spec
 
     spec = _lane_spec()

@@ -22,6 +22,55 @@ def test_price_at_hard_fails_without_creds(monkeypatch):
     assert cl.oracle_enabled() is False
 
 
+def test_agg_tier_enables_oracle_without_creds(monkeypatch):
+    """Option 2: the free aggregator tier lets crypto lanes trade, no creds."""
+    monkeypatch.delenv("CHAINLINK_API_KEY", raising=False)
+    monkeypatch.delenv("CHAINLINK_API_SECRET", raising=False)
+    cl._ORACLE_CLIENT = None
+    # Off by default → still hard-fail closed.
+    monkeypatch.delenv("HERMES_ORACLE_ALLOW_AGG", raising=False)
+    assert cl.oracle_streams_enabled() is False
+    assert cl.oracle_agg_allowed() is False
+    assert cl.oracle_enabled() is False
+    # Opt in → oracle_enabled() true so the crypto gate passes.
+    monkeypatch.setenv("HERMES_ORACLE_ALLOW_AGG", "1")
+    assert cl.oracle_agg_allowed() is True
+    assert cl.oracle_streams_enabled() is False   # still no exact tier
+    assert cl.oracle_enabled() is True
+
+
+def test_price_at_uses_aggregator_when_agg_tier_and_no_creds(monkeypatch):
+    monkeypatch.delenv("CHAINLINK_API_KEY", raising=False)
+    monkeypatch.delenv("CHAINLINK_API_SECRET", raising=False)
+    monkeypatch.setenv("HERMES_ORACLE_ALLOW_AGG", "1")
+    cl._ORACLE_CLIENT = None
+    monkeypatch.setattr(cl.ChainlinkClient, "agg_price_at",
+                        lambda self, a, ts, **k: 63_500.0)
+    assert cl.oracle_price_at("BTC", 1_784_600_000) == pytest.approx(63_500.0)
+
+
+def test_price_at_agg_tier_raises_when_no_round(monkeypatch):
+    """Aggregator with no round in effect → OracleUnavailable → caller SKIPS."""
+    monkeypatch.delenv("CHAINLINK_API_KEY", raising=False)
+    monkeypatch.delenv("CHAINLINK_API_SECRET", raising=False)
+    monkeypatch.setenv("HERMES_ORACLE_ALLOW_AGG", "1")
+    cl._ORACLE_CLIENT = None
+    monkeypatch.setattr(cl.ChainlinkClient, "agg_price_at", lambda self, a, ts, **k: 0.0)
+    with pytest.raises(cl.OracleUnavailable):
+        cl.oracle_price_at("BTC", 1_784_600_000)
+
+
+def test_streams_preferred_over_agg_when_both_available(monkeypatch):
+    monkeypatch.setenv("HERMES_ORACLE_ALLOW_AGG", "1")
+    monkeypatch.setenv("CHAINLINK_API_KEY", "k")
+    monkeypatch.setenv("CHAINLINK_API_SECRET", "s")
+    cl._ORACLE_CLIENT = None
+    monkeypatch.setattr(cl.ChainlinkClient, "price_at", lambda self, a, ts: 64_000.0)
+    monkeypatch.setattr(cl.ChainlinkClient, "agg_price_at",
+                        lambda self, a, ts, **k: 1.0)  # must NOT be used
+    assert cl.oracle_price_at("BTC", 1_784_600_000) == pytest.approx(64_000.0)
+
+
 def test_price_at_uses_streams_report_when_credentialed(monkeypatch):
     client = cl.ChainlinkClient(api_key="k", api_secret="s")
     seen = {}

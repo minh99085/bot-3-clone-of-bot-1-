@@ -397,9 +397,27 @@ def _oracle() -> ChainlinkClient:
     return _ORACLE_CLIENT
 
 
-def oracle_enabled() -> bool:
-    """True only when Data Streams creds are present (crypto lanes may trade)."""
+def oracle_streams_enabled() -> bool:
+    """True only when Data Streams creds are present (the exact, paid tier)."""
     return _oracle().streams_enabled
+
+
+def oracle_agg_allowed() -> bool:
+    """Whether the FREE on-chain AggregatorV3 may serve as the Chainlink tier.
+
+    Opt-in (default OFF) so enabling the coarse reference is an explicit
+    operator choice, never a silent fallback. Set HERMES_ORACLE_ALLOW_AGG=1 on
+    the VPS to let crypto lanes trade/settle on the aggregator when Data Streams
+    creds are absent. Still Chainlink — NOT a CEX fallback.
+    """
+    return os.environ.get("HERMES_ORACLE_ALLOW_AGG", "0").strip().lower() in ("1", "true", "yes")
+
+
+def oracle_enabled() -> bool:
+    """True when crypto lanes may price/settle on Chainlink — Data Streams creds
+    OR the opt-in free aggregator tier. Gates the crypto hard-fail in mispricing.
+    """
+    return oracle_streams_enabled() or oracle_agg_allowed()
 
 
 def oracle_required() -> bool:
@@ -408,8 +426,27 @@ def oracle_required() -> bool:
 
 
 def oracle_price_at(asset: str, ts_unix: int) -> float:
-    """Chainlink stream price at a timestamp (strike/close). Raises OracleUnavailable."""
-    return _oracle().price_at(asset, int(ts_unix))
+    """Chainlink price at a timestamp (strike/close). Raises OracleUnavailable.
+
+    Tiered, but ALWAYS Chainlink (never CEX):
+      1. Data Streams (exact, the feed Polymarket resolves on) when creds set.
+      2. FREE on-chain AggregatorV3 (coarse ~0.5%/1h) when HERMES_ORACLE_ALLOW_AGG
+         is set and creds are not. This is a COARSE, PRELIMINARY reference — the
+         same on-chain feed family, a lower tier — that lets the fleet trade and
+         run the A3 read without a Data Streams subscription. Trades priced this
+         way are tagged ``barrier_agg_open`` so reports never confuse the two.
+    Raises OracleUnavailable if neither tier yields a price.
+    """
+    if oracle_streams_enabled():
+        return _oracle().price_at(asset, int(ts_unix))
+    if oracle_agg_allowed():
+        px = _oracle().agg_price_at(asset, int(ts_unix))
+        if px and px > 0:
+            return float(px)
+        raise OracleUnavailable(
+            f"aggregator returned no round for {asset} at {ts_unix}"
+        )
+    return _oracle().price_at(asset, int(ts_unix))  # raises OracleUnavailable
 
 
 def oracle_agg_price_at(asset: str, ts_unix: int) -> float:

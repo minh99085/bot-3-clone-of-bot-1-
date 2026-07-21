@@ -28,10 +28,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--sample", type=int, default=20)
     args = ap.parse_args(argv)
 
-    from connectors.chainlink import assert_feeds_configured, oracle_enabled, oracle_price_at
+    from connectors.chainlink import (
+        assert_feeds_configured,
+        oracle_price_at,
+        oracle_streams_enabled,
+    )
 
-    if not oracle_enabled():
-        print("ABORT: CHAINLINK creds not set.")
+    if not oracle_streams_enabled():
+        print("ABORT: CHAINLINK Data Streams creds not set (A1 verification needs "
+              "the exact stream, not the coarse aggregator).")
         return 2
     print("configured feeds:", assert_feeds_configured())
 

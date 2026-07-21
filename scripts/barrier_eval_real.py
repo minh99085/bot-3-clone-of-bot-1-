@@ -37,13 +37,13 @@ def main(argv: list[str] | None = None) -> int:
 
     from connectors.chainlink import (
         oracle_agg_price_at,
-        oracle_enabled,
         oracle_price_at,
+        oracle_streams_enabled,
     )
 
     caveat = ""
     if args.source == "streams":
-        if not oracle_enabled():
+        if not oracle_streams_enabled():
             print("ABORT: CHAINLINK_API_KEY/SECRET not set. Either set them, or "
                   "run --source aggregator for a free COARSE preliminary read.")
             return 2
