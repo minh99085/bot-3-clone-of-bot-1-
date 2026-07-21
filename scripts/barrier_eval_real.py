@@ -28,14 +28,41 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", default="data/paper")
     ap.add_argument("--out", default="reports/barrier_eval_real.txt")
+    ap.add_argument(
+        "--source", choices=("streams", "aggregator"), default="streams",
+        help="streams = Chainlink Data Streams (needs creds, exact); "
+        "aggregator = free on-chain AggregatorV3 (no creds, COARSE approx)",
+    )
     args = ap.parse_args(argv)
 
-    from connectors.chainlink import oracle_enabled, oracle_price_at
+    from connectors.chainlink import (
+        oracle_agg_price_at,
+        oracle_enabled,
+        oracle_price_at,
+    )
 
-    if not oracle_enabled():
-        print("ABORT: CHAINLINK_API_KEY/SECRET not set — cannot resolve on the "
-              "real settlement stream (hard-fail closed).")
-        return 2
+    caveat = ""
+    if args.source == "streams":
+        if not oracle_enabled():
+            print("ABORT: CHAINLINK_API_KEY/SECRET not set. Either set them, or "
+                  "run --source aggregator for a free COARSE preliminary read.")
+            return 2
+
+        def resolve(asset: str, ts: int) -> float:
+            try:
+                return float(oracle_price_at(asset, int(ts)) or 0.0)
+            except Exception:  # noqa: BLE001
+                return 0.0
+        exclude_equal = False
+    else:
+        resolve = lambda asset, ts: float(oracle_agg_price_at(asset, int(ts)) or 0.0)
+        exclude_equal = True
+        caveat = (
+            "\n*** SOURCE = on-chain AggregatorV3 (FREE, COARSE). Heartbeat/"
+            "deviation updates mean many 15m windows fall in one round and are "
+            "EXCLUDED (indeterminate). This APPROXIMATES the Data Streams feed "
+            "Polymarket resolves on — a preliminary read, not the final go/no-go. ***"
+        )
 
     ledgers = sorted(Path(args.root).glob("*/trade_ledger.jsonl"))
     trades = load_trades(ledgers)
@@ -43,16 +70,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"no trades under {args.root}/*/trade_ledger.jsonl")
         return 2
 
-    def oracle_open(asset: str, ts: int) -> float:
-        try:
-            return float(oracle_price_at(asset, int(ts)) or 0.0)
-        except Exception:  # noqa: BLE001
-            return 0.0
-
     rep = evaluate_barrier(
         trades,
-        open_price_fn=oracle_open,
-        close_price_fn=oracle_open,   # same stream, at window-close ts
+        open_price_fn=resolve,
+        close_price_fn=resolve,       # same source, at window-close ts
+        exclude_equal_close=exclude_equal,
         cfg=BarrierEvalConfig(),
     )
     text = rep.text()
@@ -66,6 +88,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"(barrier Brier {rep.barrier_brier:.4f} vs market {rep.market_brier:.4f}) ==="
     else:
         text += "\n\n=== A3 VERDICT: insufficient evaluable trades ==="
+    text += caveat
     print(text)
     out = Path(args.out)
     out.parent.mkdir(exist_ok=True)

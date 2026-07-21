@@ -56,8 +56,10 @@ DEFAULT_RPC = os.environ.get(
     "ETH_RPC_URL", "https://ethereum.publicnode.com"
 )
 
-# latestRoundData() selector
+# latestRoundData() selector; getRoundData(uint80); latestRound()
 _LATEST_ROUND_SELECTOR = "0xfeaf968c"
+_GET_ROUND_SELECTOR = "0x9a6fc8f5"
+_MASK64 = (1 << 64) - 1
 
 
 @dataclass
@@ -247,6 +249,66 @@ class ChainlinkClient:
         ts = datetime.fromtimestamp(updated_at, tz=timezone.utc)
         return price, ts
 
+    def _rpc_eth_call(self, to: str, data_hex: str) -> str:
+        payload = {
+            "jsonrpc": "2.0", "id": 1, "method": "eth_call",
+            "params": [{"to": to, "data": data_hex}, "latest"],
+        }
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.post(self.rpc_url, json=payload)
+            resp.raise_for_status()
+            result = resp.json().get("result")
+        if not result or result in ("0x", "0x0"):
+            raise RuntimeError(f"empty eth_call for {to} data={data_hex[:12]}")
+        return result[2:] if result.startswith("0x") else result
+
+    def _round_latest_id(self, aggregator: str) -> int:
+        data = self._rpc_eth_call(aggregator, _LATEST_ROUND_SELECTOR)
+        return int(data[0:64], 16)  # roundId is the first 32-byte word
+
+    def _round_data(self, aggregator: str, round_id: int) -> tuple[float, int]:
+        """getRoundData(roundId) → (price, updatedAt)."""
+        call = _GET_ROUND_SELECTOR + f"{round_id:064x}"
+        data = self._rpc_eth_call(aggregator, call)
+        answer = int(data[64:128], 16)
+        if answer >= 2**255:
+            answer -= 2**256
+        updated_at = int(data[192:256], 16)
+        return answer / 1e8, updated_at
+
+    def agg_price_at(self, asset: str, ts_unix: int, *, max_calls: int = 40) -> float:
+        """On-chain AggregatorV3 price in effect AT ``ts`` (free, no creds).
+
+        Binary search over the current phase's rounds for the latest round
+        whose updatedAt <= ts. COARSE: BTC/ETH feeds update on ~0.5% deviation
+        or ~1h heartbeat, so many 15m windows fall inside one round — the
+        caller must treat open==close as indeterminate. Approximation of the
+        Data Streams feed Polymarket actually resolves on, for a preliminary
+        A3 read only.
+        """
+        asset = asset.upper()
+        agg = AGG_BTC_USD if asset == "BTC" else AGG_ETH_USD
+        latest = self._round_latest_id(agg)
+        phase = latest >> 64
+        hi = latest & _MASK64
+        lo = 1
+        best = 0.0
+        calls = 0
+        while lo <= hi and calls < max_calls:
+            mid = (lo + hi) // 2
+            calls += 1
+            try:
+                price, updated = self._round_data(agg, (phase << 64) | mid)
+            except Exception:  # noqa: BLE001 — missing round, shrink upper half
+                hi = mid - 1
+                continue
+            if updated <= ts_unix:
+                best = price
+                lo = mid + 1
+            else:
+                hi = mid - 1
+        return best
+
     def get_price(self, asset: str, *, max_stale_sec: Optional[float] = None) -> OraclePrice:
         """Fetch BTC or ETH USD price. Streams → AggregatorV3 → cache."""
         asset = asset.upper()
@@ -348,6 +410,20 @@ def oracle_required() -> bool:
 def oracle_price_at(asset: str, ts_unix: int) -> float:
     """Chainlink stream price at a timestamp (strike/close). Raises OracleUnavailable."""
     return _oracle().price_at(asset, int(ts_unix))
+
+
+def oracle_agg_price_at(asset: str, ts_unix: int) -> float:
+    """FREE on-chain AggregatorV3 price at a timestamp — no creds required.
+
+    Coarse (heartbeat/deviation based); an APPROXIMATE stand-in for Data
+    Streams so A3 go/no-go can run before a subscription. Returns 0.0 on
+    failure so the caller excludes the window.
+    """
+    try:
+        return _oracle().agg_price_at(asset, int(ts_unix))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("agg_price_at failed asset=%s ts=%s: %s", asset, ts_unix, exc)
+        return 0.0
 
 
 def oracle_spot(asset: str) -> tuple[float, Optional[datetime]]:

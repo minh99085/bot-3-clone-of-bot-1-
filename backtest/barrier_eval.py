@@ -168,6 +168,7 @@ def evaluate_barrier(
     open_price_fn: OpenPriceFn = _default_open_price_fn,
     window_path_fn: Optional[WindowPathFn] = None,
     close_price_fn: Optional[OpenPriceFn] = None,
+    exclude_equal_close: bool = False,
     cfg: Optional[BarrierEvalConfig] = None,
 ) -> BarrierEvalReport:
     cfg = cfg or BarrierEvalConfig()
@@ -191,6 +192,12 @@ def evaluate_barrier(
         else:
             close = t.exit_cex
         if not spot or not close or spot <= 0 or close <= 0 or strike <= 0:
+            r.n_excluded += 1
+            continue
+        # Coarse-oracle guard: close == strike means open and close landed in
+        # the SAME on-chain round (no update inside the window) → the outcome
+        # is indeterminate, not a real tie. Exclude rather than mis-score.
+        if exclude_equal_close and abs(close - strike) < 1e-9:
             r.n_excluded += 1
             continue
         tau = max(1.0, window_sec * (1.0 - cfg.entry_frac))
