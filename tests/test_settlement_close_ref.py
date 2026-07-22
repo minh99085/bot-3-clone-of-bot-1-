@@ -19,8 +19,11 @@ def _setup(monkeypatch, tmp_path):
     paper = tmp_path / "paper" / "lane01"
     paper.mkdir(parents=True)
     ledger = paper / "trade_ledger.jsonl"
+    refs = tmp_path / "settlement_refs.json"
+    monkeypatch.setenv("HERMES_SETTLEMENT_REFS", str(refs))
     monkeypatch.setattr(stl_mod, "ledger_path", lambda paper=True, _p=ledger: _p)
     monkeypatch.setattr(stl_mod, "process_settlement", lambda _s: None)
+    monkeypatch.setattr(stl_mod, "_polymarket_resolution", lambda slug: None)
     return ledger
 
 

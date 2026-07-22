@@ -416,7 +416,7 @@ def instance_trade_history(instance_id: str, limit: int = 50) -> list[dict[str, 
                 "entry": f.get("fill_price"),
                 "exit": "—",
                 "won": "open",
-                "pnl": 0.0,
+                "pnl": None,  # unrealized — never show $0 as if settled flat
                 "status": "open",
                 "entry_source": fmeta.get("entry_source") or "",
             }
@@ -434,6 +434,19 @@ def fleet_trade_history(limit: int = 50) -> list[dict[str, Any]]:
         rows.extend(instance_trade_history(meta["id"], limit=limit))
     rows.sort(key=lambda r: str(r.get("time") or ""), reverse=True)
     return rows[:limit]
+
+
+def trade_history_pnl_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Settled PnL totals for a trade-history view (open rows excluded)."""
+    settled = [r for r in rows if r.get("status") == "settled"]
+    open_n = sum(1 for r in rows if r.get("status") == "open")
+    pnl = sum(float(r.get("pnl") or 0) for r in settled)
+    return {
+        "n_rows": len(rows),
+        "n_settled": len(settled),
+        "n_open": open_n,
+        "settled_pnl": round(pnl, 2),
+    }
 
 
 def bandit_states_all() -> dict[str, Any]:
