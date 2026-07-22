@@ -118,12 +118,21 @@ def passes_hard_entry_filter(
     p_ext = p >= p_hi or p <= p_lo
     anchor = (extreme_anchor or "q").strip().lower()
 
-    # Calibrated q (barrier price / null control): the model prices the
-    # actual contract, so the trade signal is the |q-p| gap itself — the
-    # market being stretched is irrelevant. The stretch requirement was a
-    # fade-era filter that blocked ALL trading in ranging markets (p~0.5-0.7)
-    # even at 0.20+ net edges. Edge + conviction gates above still apply.
+    # Calibrated q (barrier price / null control): gap |q-p| is the signal.
+    # Still block mild-model fades of crowded PM into lottery tickets
+    # (live paper: side <=0.25 ~5% WR, large negative PnL).
     if calibrated_q:
+        side_is_no = q < p  # model below market → fade UP / buy NO
+        side_px = (1.0 - p) if side_is_no else p
+        q_lean = abs(float(q) - 0.5)
+        if side_px <= 0.25:
+            reasons.append(
+                f"cheap_fade_blocked: side_px={side_px:.3f}<=0.25 q={q:.3f} p={p:.3f}"
+            )
+        elif (p >= 0.80 or p <= 0.20) and q_lean < 0.12:
+            reasons.append(
+                f"mid_q_fade: |q-0.5|={q_lean:.3f}<0.12 cannot fade p={p:.3f}"
+            )
         return (len(reasons) == 0), reasons
 
     # Live real-q: mid CEX q → require stretched Polymarket p (fade path).
@@ -134,6 +143,22 @@ def passes_hard_entry_filter(
                 f"live_real_q: p={p:.3f} not stretched "
                 f"(need ≥{p_hi} or ≤{p_lo}; q={q:.3f} mid)"
             )
+        else:
+            q_lean = abs(float(q) - 0.5)
+            side_is_no = q < p
+            side_px = (1.0 - p) if side_is_no else p
+            if side_px <= 0.25:
+                reasons.append(
+                    f"cheap_fade_blocked: side_px={side_px:.3f}<=0.25"
+                )
+            elif q_lean < 0.12:
+                reasons.append(
+                    f"mid_q_fade: |q-0.5|={q_lean:.3f}<0.12 cannot fade p={p:.3f}"
+                )
+            elif (p >= 0.80 or p <= 0.20) and abs(q - p) < 0.18:
+                reasons.append(
+                    f"extreme_p_fade_edge={abs(q-p):.4f}<0.18 (p={p:.3f} q={q:.3f})"
+                )
         return (len(reasons) == 0), reasons
 
     if anchor == "none":

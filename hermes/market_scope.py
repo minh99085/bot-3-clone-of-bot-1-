@@ -56,7 +56,7 @@ WINDOW_SETTLE_GRACE_SEC = int(os.environ.get("HERMES_WINDOW_SETTLE_GRACE_SEC", "
 EXTREME_PRICE_LOW = float(os.environ.get("HERMES_EXTREME_PRICE_LOW", "0.02"))
 EXTREME_PRICE_HIGH = float(os.environ.get("HERMES_EXTREME_PRICE_HIGH", "0.98"))
 # Verifier/signal: reject lottery tickets on either contract side.
-MIN_TRADABLE_ENTRY_LOW = float(os.environ.get("HERMES_MIN_TRADABLE_ENTRY_LOW", "0.10"))
+MIN_TRADABLE_ENTRY_LOW = float(os.environ.get("HERMES_MIN_TRADABLE_ENTRY_LOW", "0.25"))
 MIN_TRADABLE_ENTRY_HIGH = float(os.environ.get("HERMES_MIN_TRADABLE_ENTRY_HIGH", "0.90"))
 
 # Legacy preferred seeds (also listed in market_filters.yaml)

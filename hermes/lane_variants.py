@@ -94,6 +94,29 @@ def entry_allows(
 ) -> tuple[bool, str]:
     """Lane entry gate on TOP of the normal (frozen) gates — never looser."""
     s = spec or active_spec()
+
+    # --- Emergency / risk pauses (ops) ---
+    # Pause named variants without redeploying compose (comma-separated).
+    paused = {
+        x.strip().lower()
+        for x in os.environ.get("HERMES_PAUSE_VARIANTS", "longshot_only").split(",")
+        if x.strip()
+    }
+    if s.name in paused or s.name.startswith("longshot"):
+        return False, f"lane_gate:variant_paused:{s.name}"
+
+    # Global floor on ticket price for real (non-null) lanes.
+    # Cheap longshots (side <= 0.25) had ~5% WR and large negative PnL live.
+    # Override with HERMES_MIN_SIDE_PRICE=0 to disable.
+    try:
+        global_min = float(os.environ.get("HERMES_MIN_SIDE_PRICE", "0.25"))
+    except ValueError:
+        global_min = 0.25
+    if s.q_mode not in ("random",) and global_min > 0 and side_price < global_min:
+        return False, (
+            f"lane_gate:cheap_ticket_blocked side={side_price:.2f}<{global_min:.2f}"
+        )
+
     if side_price < s.min_side_price:
         return False, f"lane_gate:side_price={side_price:.2f}<{s.min_side_price:.2f}"
     if side_price > s.max_side_price:
