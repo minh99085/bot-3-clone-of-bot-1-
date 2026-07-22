@@ -75,6 +75,16 @@ class RealtimeBtcFeed:
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
         self._started = False
+        # Warm-start (B2): BTC reads go through self._history, so seed it from
+        # the persisted snapshot too (momentum/σ available on the first turn).
+        try:
+            _ensure_warm_loaded()
+            with _ASSET_HISTORY_LOCK:
+                btc = list(_ASSET_HISTORY.get("BTC", []))
+            if btc:
+                self._history = btc
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("feed warm seed skipped: %s", exc)
 
     def start(self) -> None:
         if self._started:
@@ -237,7 +247,53 @@ def get_btc_snapshot(*, force_rest: bool = False) -> BtcSnapshot:
     return get_feed().get_snapshot(force_rest=force_rest)
 
 
+_WARM_LOADED = False
+_WARM_SAVE_EVERY_SEC = 30.0
+_last_warm_save = 0.0
+
+
+def _ensure_warm_loaded() -> None:
+    """Warm-start (B2): seed the rolling history from the last snapshot once."""
+    global _WARM_LOADED
+    if _WARM_LOADED:
+        return
+    _WARM_LOADED = True
+    try:
+        from hermes.warm_state import load_price_history
+
+        restored = load_price_history()
+        if restored:
+            with _ASSET_HISTORY_LOCK:
+                for asset, ticks in restored.items():
+                    if not _ASSET_HISTORY.get(asset):
+                        _ASSET_HISTORY[asset] = list(ticks)
+            logger.info(
+                "warm-start: restored price history for %s",
+                ",".join(f"{a}({len(t)})" for a, t in restored.items()),
+            )
+    except Exception as exc:  # noqa: BLE001 — cold start is the safe fallback
+        logger.debug("warm-start load skipped: %s", exc)
+
+
+def _maybe_warm_save() -> None:
+    """Throttled snapshot so a redeploy loses at most ~30s of ticks."""
+    global _last_warm_save
+    now = time.time()
+    if now - _last_warm_save < _WARM_SAVE_EVERY_SEC:
+        return
+    _last_warm_save = now
+    try:
+        from hermes.warm_state import save_price_history
+
+        with _ASSET_HISTORY_LOCK:
+            snap = {k: list(v) for k, v in _ASSET_HISTORY.items()}
+        save_price_history(snap)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("warm-start save skipped: %s", exc)
+
+
 def _push_asset_history(asset: str, price: float) -> None:
+    _ensure_warm_loaded()
     now = time.time()
     key = asset.upper()
     with _ASSET_HISTORY_LOCK:
@@ -245,12 +301,14 @@ def _push_asset_history(asset: str, price: float) -> None:
         hist.append((now, float(price)))
         cutoff = now - _ASSET_HISTORY_MAX_SEC
         _ASSET_HISTORY[key] = [(t, p) for t, p in hist if t >= cutoff]
+    _maybe_warm_save()
 
 
 def get_asset_price_history(
     asset: str, max_points: int = 240
 ) -> tuple[list[float], list[float]]:
     """(times, prices) for any asset — BTC from the feed, alts from REST cache."""
+    _ensure_warm_loaded()
     asset_u = (asset or "BTC").upper()
     if asset_u == "BTC":
         return get_feed().get_price_history(max_points=max_points)

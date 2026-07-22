@@ -56,10 +56,28 @@ _OPEN_STRIKE_CACHE: dict[tuple[str, int], float] = {}
 # spot-freshness gaps remain as signal.
 _SIGMA_RATIO_EWMA: dict[str, float] = {}
 _SIGMA_RATIO_ALPHA = 0.05
+_SIGMA_WARM_LOADED = False
+
+
+def _ensure_sigma_loaded() -> None:
+    """Warm-start (B2): restore the persisted EWMA once, without clobbering
+    values already learned this process."""
+    global _SIGMA_WARM_LOADED
+    if _SIGMA_WARM_LOADED:
+        return
+    _SIGMA_WARM_LOADED = True
+    try:
+        from hermes.warm_state import load_sigma_ewma
+
+        for k, v in load_sigma_ewma().items():
+            _SIGMA_RATIO_EWMA.setdefault(k, float(v))
+    except Exception as exc:  # noqa: BLE001 — cold start is the safe fallback
+        logger.debug("sigma warm load skipped: %s", exc)
 
 
 def update_sigma_ratio(asset: str, implied: float, realized: float) -> float:
     """Update + return the per-asset EWMA of implied/realized σ."""
+    _ensure_sigma_loaded()
     if implied <= 0 or realized <= 0:
         return _SIGMA_RATIO_EWMA.get(asset.upper(), 1.0)
     ratio = float(min(5.0, max(0.2, implied / realized)))
@@ -67,10 +85,17 @@ def update_sigma_ratio(asset: str, implied: float, realized: float) -> float:
     prev = _SIGMA_RATIO_EWMA.get(key)
     cur = ratio if prev is None else (1 - _SIGMA_RATIO_ALPHA) * prev + _SIGMA_RATIO_ALPHA * ratio
     _SIGMA_RATIO_EWMA[key] = float(cur)
+    try:  # persist so a redeploy doesn't reset the calibration (B2)
+        from hermes.warm_state import save_sigma_ewma
+
+        save_sigma_ewma(dict(_SIGMA_RATIO_EWMA))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("sigma warm save skipped: %s", exc)
     return float(cur)
 
 
 def sigma_ratio(asset: str) -> float:
+    _ensure_sigma_loaded()
     return _SIGMA_RATIO_EWMA.get(asset.upper(), 1.0)
 
 
