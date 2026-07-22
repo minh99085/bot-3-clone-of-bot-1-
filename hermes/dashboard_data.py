@@ -26,7 +26,7 @@ FLEET_BANKROLL = STARTING_BANKROLL * FLEET_INSTANCE_COUNT  # $20,000
 # Compose instance_id → strategy variant (must match docker-compose.yml)
 COMPOSE_LANES: tuple[tuple[str, str], ...] = (
     ("lane01_baseline", "baseline"),
-    ("lane02_chainlink", "chainlink_ref"),
+    ("lane02_autonomy", "baseline"),  # same q as baseline; full autonomy stack on
     ("lane03_favorite", "favorite_only"),
     ("lane04_longshot", "longshot_only"),
     ("lane05_late", "late_window"),
@@ -60,18 +60,26 @@ def _build_instance_metas() -> list[dict[str, Any]]:
     metas: list[dict[str, Any]] = []
     for i, (iid, variant) in enumerate(COMPOSE_LANES):
         spec = LANES.get(variant)
-        short = variant.replace("_", " ")
-        role = "null" if "random" in variant else (
-            "neg_control" if "legacy" in variant else (
-                "control" if variant == "baseline" else "experiment"
+        if iid == "lane02_autonomy":
+            short = "autonomy"
+            subtitle = "barrier q + full autonomy stack (pure-vs-autonomy A/B)"
+            role = "experiment"
+            display_variant = "autonomy"
+        else:
+            short = variant.replace("_", " ")
+            subtitle = spec.description if spec else variant
+            role = "null" if "random" in variant else (
+                "neg_control" if "legacy" in variant else (
+                    "control" if variant == "baseline" else "experiment"
+                )
             )
-        )
+            display_variant = variant
         metas.append(
             {
                 "id": iid,
                 "label": f"{i + 1:02d} {short.title()}",
-                "subtitle": (spec.description if spec else variant),
-                "variant": variant,
+                "subtitle": subtitle,
+                "variant": display_variant,
                 "role": role,
                 "filter": "btc15",
                 "accent": _LANE_ACCENTS[i % len(_LANE_ACCENTS)],
@@ -368,6 +376,8 @@ def instance_trade_history(instance_id: str, limit: int = 50) -> list[dict[str, 
     }
     settled_ids: set[str] = set()
     rows: list[dict[str, Any]] = []
+    meta = instance_meta(instance_id)
+    label = meta.get("label") or instance_id
 
     for s in settlements_for_instance(instance_id):
         sid = s.get("signal_id")
@@ -377,8 +387,10 @@ def instance_trade_history(instance_id: str, limit: int = 50) -> list[dict[str, 
         rows.append(
             {
                 "time": s.get("settled_at") or s.get("filled_at") or "",
+                "lane": label,
+                "instance_id": instance_id,
                 "slug": s.get("slug") or f.get("slug") or "",
-                "direction": s.get("direction"),
+                "direction": s.get("direction") or f.get("direction"),
                 "size": s.get("size_usd") or f.get("size_usd"),
                 "entry": f.get("fill_price") or s.get("entry_price"),
                 "exit": s.get("exit_price"),
@@ -392,11 +404,13 @@ def instance_trade_history(instance_id: str, limit: int = 50) -> list[dict[str, 
     for f in fills.values():
         if f.get("signal_id") in settled_ids:
             continue
-        meta = f.get("meta") or {}
+        fmeta = f.get("meta") or {}
         rows.append(
             {
                 "time": f.get("filled_at") or "",
-                "slug": f.get("slug") or meta.get("slug") or "",
+                "lane": label,
+                "instance_id": instance_id,
+                "slug": f.get("slug") or fmeta.get("slug") or "",
                 "direction": f.get("direction"),
                 "size": f.get("size_usd"),
                 "entry": f.get("fill_price"),
@@ -404,10 +418,20 @@ def instance_trade_history(instance_id: str, limit: int = 50) -> list[dict[str, 
                 "won": "open",
                 "pnl": 0.0,
                 "status": "open",
-                "entry_source": meta.get("entry_source") or "",
+                "entry_source": fmeta.get("entry_source") or "",
             }
         )
 
+    rows.sort(key=lambda r: str(r.get("time") or ""), reverse=True)
+    return rows[:limit]
+
+
+def fleet_trade_history(limit: int = 50) -> list[dict[str, Any]]:
+    """Newest trades across all lanes (settled + open), capped at ``limit``."""
+    rows: list[dict[str, Any]] = []
+    for meta in INSTANCE_METAS:
+        # Pull a buffer per lane so the fleet top-N is accurate
+        rows.extend(instance_trade_history(meta["id"], limit=limit))
     rows.sort(key=lambda r: str(r.get("time") or ""), reverse=True)
     return rows[:limit]
 

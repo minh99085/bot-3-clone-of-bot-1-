@@ -13,6 +13,7 @@ def test_fleet_constants():
     assert dashboard_data.FLEET_BANKROLL == 20000.0
     assert len(dashboard_data.INSTANCE_IDS) == 10
     assert dashboard_data.INSTANCE_IDS[0] == "lane01_baseline"
+    assert dashboard_data.INSTANCE_IDS[1] == "lane02_autonomy"
     assert dashboard_data.INSTANCE_IDS[-1] == "lane10_depth"
 
 
@@ -70,7 +71,7 @@ def test_fleet_equity_curve_chronological(monkeypatch, tmp_path):
     paper = tmp_path / "paper"
     for iid, pnl, ts in (
         ("lane01_baseline", 10.0, "2026-07-15T10:00:00Z"),
-        ("lane02_chainlink", 20.0, "2026-07-15T10:01:00Z"),
+        ("lane02_autonomy", 20.0, "2026-07-15T10:01:00Z"),
     ):
         d = paper / iid
         d.mkdir(parents=True)
@@ -143,3 +144,36 @@ def test_lane_scoreboard(monkeypatch, tmp_path):
     by_lane = {r["lane"]: r for r in board["rows"]}
     assert "lane01_baseline" in by_lane
     assert by_lane["lane01_baseline"]["delta_vs_null"] == 11.0
+
+
+def test_fleet_trade_history_newest_first(monkeypatch, tmp_path):
+    paper = tmp_path / "paper"
+    for iid, ts, pnl in (
+        ("lane01_baseline", "2026-07-15T10:00:00Z", 10.0),
+        ("lane03_favorite", "2026-07-15T11:00:00Z", -5.0),
+        ("lane05_late", "2026-07-15T10:30:00Z", 8.0),
+    ):
+        d = paper / iid
+        d.mkdir(parents=True)
+        rows = [
+            {
+                "event": "settlement",
+                "signal_id": f"{iid}-1",
+                "slug": f"btc-updown-15m-{iid}",
+                "settled_at": ts,
+                "pnl_usd": pnl,
+                "won": pnl > 0,
+                "direction": "UP",
+                "size_usd": 40,
+            }
+        ]
+        (d / "trade_ledger.jsonl").write_text(
+            "\n".join(json.dumps(r) for r in rows) + "\n"
+        )
+
+    monkeypatch.setattr(dashboard_data, "paper_dir", lambda: paper)
+    hist = dashboard_data.fleet_trade_history(50)
+    assert len(hist) == 3
+    assert hist[0]["instance_id"] == "lane03_favorite"
+    assert hist[0]["lane"]
+    assert hist[-1]["instance_id"] == "lane01_baseline"

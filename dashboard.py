@@ -29,6 +29,7 @@ from hermes.dashboard_data import (
     bandit_states_all,
     fleet_equity_curve,
     fleet_summary,
+    fleet_trade_history,
     instance_cards,
     instance_trade_history,
     lane_scoreboard,
@@ -115,6 +116,7 @@ def cached_fleet():
         "instances": instance_cards(),
         "scoreboard": lane_scoreboard(),
         "equity": fleet_equity_curve(),
+        "recent_trades": fleet_trade_history(50),
         "bandits": bandit_states_all(),
     }
 
@@ -228,7 +230,37 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
+    recent = data.get("recent_trades") or []
     st.markdown("---")
+    with st.expander(f"Last 50 trades ({len(recent)})", expanded=False):
+        if recent:
+            df_recent = pd.DataFrame(recent)
+            show_cols = [
+                c
+                for c in (
+                    "time",
+                    "lane",
+                    "slug",
+                    "direction",
+                    "size",
+                    "entry",
+                    "exit",
+                    "won",
+                    "pnl",
+                    "status",
+                    "entry_source",
+                )
+                if c in df_recent.columns
+            ]
+            st.dataframe(
+                df_recent[show_cols],
+                use_container_width=True,
+                hide_index=True,
+                height=min(420, 48 + 28 * len(df_recent)),
+            )
+        else:
+            st.info("No trades yet across the fleet.")
+
     st.subheader("Fleet equity ($20,000 baseline)")
     if len(fleet_eq) > 1:
         fig = go.Figure()
