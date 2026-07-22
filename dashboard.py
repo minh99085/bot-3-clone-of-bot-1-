@@ -62,58 +62,101 @@ ROLE_PILL = {
 st.markdown(
     """
 <style>
-    /* ~50% larger text across the whole dashboard */
-    html { font-size: 150% !important; }
-    .stApp, .stApp p, .stApp span, .stApp label, .stApp li,
-    .stMarkdown, .stCaption, .stText, [data-testid="stExpander"],
-    [data-testid="stDataFrame"], [data-testid="stMetricLabel"] {
-        font-size: inherit;
+    /* Fluid type scale — readable on phone, comfortable on desktop */
+    html {
+        font-size: clamp(14px, 0.35vw + 13px, 16px) !important;
     }
-    .main-header { font-size: 2.0rem; font-weight: 700; margin-bottom: 0.25rem; }
-    .sub-header { color: #888; font-size: 1rem; margin-bottom: 1.25rem; }
+    @media (max-width: 768px) {
+        html { font-size: clamp(15px, 2.8vw, 17px) !important; }
+    }
+    @media (min-width: 1400px) {
+        html { font-size: 16px !important; }
+    }
+
+    .stApp {
+        line-height: 1.45;
+    }
+
+    .main-header {
+        font-size: clamp(1.35rem, 1.1rem + 1.2vw, 1.85rem);
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        line-height: 1.2;
+    }
+    .sub-header {
+        color: #888;
+        font-size: clamp(0.85rem, 0.8rem + 0.3vw, 1rem);
+        margin-bottom: 1rem;
+    }
     .fleet-pill {
         display: inline-block;
         background: #1a1a2e;
         border: 1px solid #333;
         border-radius: 8px;
-        padding: 0.35rem 0.75rem;
-        margin-right: 0.5rem;
-        margin-bottom: 0.35rem;
-        font-size: 0.85rem;
+        padding: 0.3rem 0.65rem;
+        margin-right: 0.45rem;
+        margin-bottom: 0.3rem;
+        font-size: 0.8rem;
     }
     .instance-card {
         background: #1a1a2e;
         border: 1px solid #333;
         border-left: 3px solid var(--accent, #38bdf8);
         border-radius: 12px;
-        padding: 0.85rem 0.95rem;
-        margin-bottom: 0.65rem;
+        padding: 0.75rem 0.85rem;
+        margin-bottom: 0.55rem;
         height: 100%;
     }
-    .instance-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.1rem; }
+    .instance-title {
+        font-size: clamp(0.85rem, 0.8rem + 0.25vw, 0.95rem);
+        font-weight: 600;
+        margin-bottom: 0.1rem;
+    }
     .instance-sub {
-        color: #888; font-size: 0.72rem; margin-bottom: 0.45rem;
-        line-height: 1.25; min-height: 2.1em;
+        color: #888;
+        font-size: clamp(0.68rem, 0.65rem + 0.2vw, 0.75rem);
+        margin-bottom: 0.4rem;
+        line-height: 1.25;
+        min-height: 2.1em;
     }
     .role-pill {
         display: inline-block;
-        font-size: 0.65rem;
+        font-size: 0.62rem;
         text-transform: uppercase;
         letter-spacing: 0.04em;
         border-radius: 4px;
-        padding: 0.1rem 0.4rem;
-        margin-bottom: 0.35rem;
+        padding: 0.1rem 0.35rem;
+        margin-bottom: 0.3rem;
         border: 1px solid;
     }
-    .metric-row { display: flex; justify-content: space-between; font-size: 0.82rem; margin: 0.15rem 0; }
+    .metric-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: clamp(0.75rem, 0.72rem + 0.2vw, 0.85rem);
+        margin: 0.12rem 0;
+    }
     .metric-label { color: #aaa; }
     .metric-value { font-weight: 600; }
     .positive { color: #00c853; }
     .negative { color: #ff5252; }
     .neutral { color: #888; }
-    div[data-testid="stMetricValue"] { font-size: 1.35rem; }
-    div[data-testid="stMetricLabel"] { font-size: 0.95rem; }
-    section[data-testid="stSidebar"] { font-size: 1em; }
+
+    div[data-testid="stMetricValue"] {
+        font-size: clamp(1.05rem, 0.95rem + 0.6vw, 1.35rem) !important;
+    }
+    div[data-testid="stMetricLabel"] {
+        font-size: clamp(0.75rem, 0.7rem + 0.25vw, 0.9rem) !important;
+    }
+
+    /* Keep data tables readable without dominating the page */
+    [data-testid="stDataFrame"] {
+        font-size: 0.9rem;
+    }
+    @media (max-width: 768px) {
+        [data-testid="stDataFrame"] { font-size: 0.85rem; }
+        .instance-sub { min-height: 0; }
+        div[data-testid="stHorizontalBlock"] { gap: 0.4rem; }
+    }
 </style>
 """,
     unsafe_allow_html=True,
