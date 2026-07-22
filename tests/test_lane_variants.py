@@ -14,13 +14,15 @@ from hermes.lane_variants import (
 )
 
 
-def test_registry_has_ten_lanes_with_controls():
-    assert len(LANES) == 10
+def test_registry_has_nine_variants_with_controls():
+    # 9 variants for 10 lanes: lane01 AND lane02 both run "baseline" —
+    # lane02_autonomy is the full-stack twin (pure mode off), B1 A/B.
+    assert len(LANES) == 9
     assert "legacy_ensemble" in LANES  # negative control
     assert "random_null" in LANES      # null control
     assert LANES["baseline"].q_mode == "barrier"
     assert LANES["market_sigma_gap"].sigma_kind == "market_implied"
-    assert LANES["chainlink_ref"].spot_source == "chainlink"
+    assert "chainlink_ref" not in LANES  # dead with the paid-oracle pivot
 
 
 def test_unknown_variant_falls_back_to_baseline(monkeypatch):

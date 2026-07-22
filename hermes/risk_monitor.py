@@ -56,6 +56,10 @@ def read_instance_risk_state(paper: bool = True) -> dict[str, Any]:
 
 def instance_paused(paper: bool = True) -> tuple[bool, str]:
     """Local pause for this container only (not shared STATE.md)."""
+    from hermes.pure_mode import pure_mode_enabled
+
+    if pure_mode_enabled():
+        return False, "pure_mode: risk pauses disabled"
     data = read_instance_risk_state(paper=paper)
     if data.get("pause_loop"):
         return True, str(data.get("trip_reason") or "instance risk pause")
@@ -158,6 +162,17 @@ def compute_risk_snapshot(state: Optional[dict] = None, paper: bool = True) -> R
     if len(settles) >= 12 and pf < MIN_ROLLING_PF_20:
         pause = True
         reasons.append(f"rolling_pf_20={pf:.2f}<{MIN_ROLLING_PF_20}")
+
+    # PURE mode (B1): pauses/breaker are DISABLED — metrics still computed and
+    # logged (observability), but they never gate entries. Paper-only lock and
+    # the hard per-trade cap remain in force elsewhere.
+    from hermes.pure_mode import pure_mode_enabled
+
+    if pure_mode_enabled():
+        if trip or pause:
+            reasons.insert(0, "pure_mode_observed_not_enforced")
+        trip = False
+        pause = False
 
     return RiskSnapshot(
         capital_usd=capital,

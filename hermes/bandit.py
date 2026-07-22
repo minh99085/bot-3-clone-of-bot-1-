@@ -125,6 +125,15 @@ class ContextualBandit:
 
     def decide(self, mp: MispricingSignal, hour: int) -> BanditDecision:
         ctx = context_key(mp, hour)
+        # PURE mode: no arm sampling, no state — a fixed neutral pass-through
+        # so entries depend only on the strategy gates (B1 confound removal).
+        from hermes.pure_mode import pure_mode_enabled
+
+        if pure_mode_enabled():
+            return BanditDecision(
+                arm="exploit", context=ctx, sampled={}, size_scale=1.0,
+                reason="pure_mode: bandit disabled",
+            )
         stats = self._ensure_ctx(ctx)
         samples = {arm: stats[arm].sample() for arm in ARMS}
 
@@ -170,6 +179,10 @@ class ContextualBandit:
         )
 
     def record_pull(self, decision: BanditDecision) -> None:
+        from hermes.pure_mode import pure_mode_enabled
+
+        if pure_mode_enabled():
+            return  # pure mode: no state churn
         self.global_pulls += 1
         if decision.arm == "explore":
             self.global_explore += 1
@@ -180,6 +193,10 @@ class ContextualBandit:
         self._save()
 
     def update_reward(self, context: str, arm: str, reward: float) -> None:
+        from hermes.pure_mode import pure_mode_enabled
+
+        if pure_mode_enabled():
+            return  # pure mode: rewards not learned
         stats = self._ensure_ctx(context)
         if arm not in stats:
             stats[arm] = ArmStats()

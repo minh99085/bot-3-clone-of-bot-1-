@@ -191,6 +191,10 @@ def _load_advanced_cfg() -> dict[str, Any]:
 
 def _fusion_weights_override(adv_cfg: dict[str, Any]) -> dict[str, Any]:
     """Merge self-calibrated fusion weights when present (CBPF + legacy)."""
+    from hermes.pure_mode import pure_mode_enabled
+
+    if pure_mode_enabled():
+        return adv_cfg  # B1: q must come from FIXED defaults, no learned drift
     try:
         from strategy.signal_calibration import load_fusion_overrides
 

@@ -58,6 +58,10 @@ def save_autonomy_state(st: AutonomyState) -> None:
 
 def on_settlement(stl: Any) -> dict[str, Any]:
     """Primary learning hook after each resolved paper trade."""
+    from hermes.pure_mode import pure_mode_enabled
+
+    if pure_mode_enabled():
+        return {"ok": False, "skipped": "pure_mode"}  # B1: autonomy learning off
     out: dict[str, Any] = {"ok": False}
     try:
         st = load_autonomy_state()
@@ -337,6 +341,10 @@ def apply_soft_sizing(size_usd: float, kappa: float) -> tuple[float, float]:
 
     Returns (size_usd', kappa').
     """
+    from hermes.pure_mode import pure_mode_enabled
+
+    if pure_mode_enabled():
+        return float(size_usd), float(kappa)  # B1: RGMC sizing off
     st = load_autonomy_state()
     sz = float(size_usd) * float(st.size_multiplier)
     k = float(kappa) * float(min(1.0, st.soft_kappa_scale))
@@ -345,6 +353,11 @@ def apply_soft_sizing(size_usd: float, kappa: float) -> tuple[float, float]:
 
 def mchb_gate(meta: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """Decide exploit/explore/skip for a candidate; returns (arm, decision_meta)."""
+    from hermes.pure_mode import pure_mode_enabled
+
+    if pure_mode_enabled():
+        # B1: hierarchical gate off — never forces skips, never learns.
+        return "exploit", {"mchb_arm": "exploit", "mchb_skipped": "pure_mode"}
     ctx = build_context_from_meta(
         timeframe=str(meta.get("timeframe") or "5m"),
         seconds_to_resolution=float(meta.get("seconds_to_resolution") or 300),

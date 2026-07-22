@@ -337,6 +337,10 @@ def format_lesson_md(lesson: Lesson) -> str:
 
 
 def append_lesson(lesson: Lesson) -> None:
+    from hermes.pure_mode import pure_mode_enabled
+
+    if pure_mode_enabled():
+        return  # pure mode: no self-learning writes (B1)
     ensure_dirs()
     path = knowledge_path("LESSONS.md")
     if not path.exists():
@@ -352,6 +356,10 @@ def append_lesson(lesson: Lesson) -> None:
 
 def promote_lesson(lesson: Lesson) -> None:
     """Lift durable rules into ALPHA_RESEARCH_SKILL.md or SKILL.md."""
+    from hermes.pure_mode import pure_mode_enabled
+
+    if pure_mode_enabled():
+        return  # pure mode: no self-learning writes (B1)
     if not lesson.promote_to:
         return
     target = (

@@ -191,6 +191,10 @@ def avoid_bucket_hit(
     series: str = "",
     substrategy_id: str = "",
 ) -> bool:
+    from hermes.pure_mode import pure_mode_enabled
+
+    if pure_mode_enabled():
+        return False  # B1: learned AVOID buckets don't gate pure lanes
     for b in buckets:
         if b.avoid and b.entry_mode == mode:
             return True

@@ -3,6 +3,12 @@
 # lane, so every window is a paired sample: lane-vs-lane differences are pure
 # strategy signal. Controls: lane08 legacy ensemble (must lose), lane09
 # deterministic random side (venue cost baseline every lane must beat).
+#
+# B1 confound removal: every q-mode lane runs HERMES_PURE_MODE=1 (fixed
+# sizing, bandit/lessons/risk-pause/autonomy DISABLED) so lanes differ ONLY
+# in q. Exception: lane02_autonomy = same barrier q as lane01 with the FULL
+# adaptive stack on — the pure-vs-autonomy A/B that measures whether the
+# autonomy layer adds or destroys value. Let the data decide.
 # $2,000 paper per lane (config bankroll) = $20k paper fleet. Scoreboard: scripts/lane_scoreboard.py
 #
 # Start everything:
@@ -43,6 +49,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane01_baseline
+      HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: baseline
       HERMES_LOG_DIR: /app/logs/lane01_baseline
@@ -58,28 +65,28 @@ services:
       - ./artifacts/lane01_baseline:/app/artifacts/lane01_baseline
       - ./config:/app/config:ro
 
-  hermes-lane02_chainlink:
+  hermes-lane02_autonomy:
     <<: *bot-common
-    container_name: hermes-lane02_chainlink
+    container_name: hermes-lane02_autonomy
     environment:
       HERMES_PAPER_ONLY: "1"
       HERMES_LIVE: "0"
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
-      HERMES_INSTANCE_ID: lane02_chainlink
+      HERMES_INSTANCE_ID: lane02_autonomy
       MARKET_FILTER: btc15
-      HERMES_STRATEGY_VARIANT: chainlink_ref
-      HERMES_LOG_DIR: /app/logs/lane02_chainlink
-      HERMES_PAPER_DIR: /app/data/paper/lane02_chainlink
-      HERMES_HANDOFF_DIR: /app/data/handoff/lane02_chainlink
+      HERMES_STRATEGY_VARIANT: baseline
+      HERMES_LOG_DIR: /app/logs/lane02_autonomy
+      HERMES_PAPER_DIR: /app/data/paper/lane02_autonomy
+      HERMES_HANDOFF_DIR: /app/data/handoff/lane02_autonomy
       HERMES_HEALTH_PORT: "8080"
       HERMES_FORCE_SYNTHETIC: "${HERMES_FORCE_SYNTHETIC:-0}"
       HERMES_SCOPE_BTC_UPDOWN_ONLY: "1"
     volumes:
       - ./knowledge:/app/knowledge
       - ./data:/app/data
-      - ./logs/lane02_chainlink:/app/logs/lane02_chainlink
-      - ./artifacts/lane02_chainlink:/app/artifacts/lane02_chainlink
+      - ./logs/lane02_autonomy:/app/logs/lane02_autonomy
+      - ./artifacts/lane02_autonomy:/app/artifacts/lane02_autonomy
       - ./config:/app/config:ro
 
   hermes-lane03_favorite:
@@ -91,6 +98,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane03_favorite
+      HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: favorite_only
       HERMES_LOG_DIR: /app/logs/lane03_favorite
@@ -115,6 +123,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane04_longshot
+      HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: longshot_only
       HERMES_LOG_DIR: /app/logs/lane04_longshot
@@ -139,6 +148,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane05_late
+      HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: late_window
       HERMES_LOG_DIR: /app/logs/lane05_late
@@ -163,6 +173,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane06_garch
+      HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: garch_sigma
       HERMES_LOG_DIR: /app/logs/lane06_garch
@@ -187,6 +198,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane07_marketsigma
+      HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: market_sigma_gap
       HERMES_LOG_DIR: /app/logs/lane07_marketsigma
@@ -211,6 +223,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane08_legacy
+      HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: legacy_ensemble
       HERMES_LOG_DIR: /app/logs/lane08_legacy
@@ -235,6 +248,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane09_random
+      HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: random_null
       HERMES_LOG_DIR: /app/logs/lane09_random
@@ -259,6 +273,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane10_depth
+      HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: depth_aware
       HERMES_LOG_DIR: /app/logs/lane10_depth
@@ -315,7 +330,7 @@ services:
     depends_on:
       hermes-lane01_baseline:
         condition: service_started
-      hermes-lane02_chainlink:
+      hermes-lane02_autonomy:
         condition: service_started
       hermes-lane03_favorite:
         condition: service_started

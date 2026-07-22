@@ -38,8 +38,9 @@ LANES: dict[str, LaneSpec] = {
     s.name: s
     for s in (
         LaneSpec("baseline", "barrier q, realized σ, no extra gates (control)"),
-        LaneSpec("chainlink_ref", "barrier q with Chainlink spot (resolution oracle)",
-                 spot_source="chainlink"),
+        # NOTE: lane02 runs the SAME "baseline" variant with HERMES_PURE_MODE
+        # unset — the full-autonomy twin of pure lane01 (B1 autonomy A/B).
+        # The old chainlink_ref variant is gone with the paid-oracle pivot.
         LaneSpec("favorite_only", "barrier gaps, model side priced >= 0.60",
                  min_side_price=0.60),
         LaneSpec("longshot_only", "barrier gaps, model side priced <= 0.40",

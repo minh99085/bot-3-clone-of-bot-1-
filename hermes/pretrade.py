@@ -219,6 +219,66 @@ def analyze_signal(
 ) -> PreTradeAnalysis:
     """Produce a size recommendation (% of bankroll) or skip (0%)."""
     annotate_signal(signal)
+
+    # PURE mode (B1): fixed sizing, adaptive layers (lessons/ladder/sleeve
+    # stats/bandit/kelly/HHI) all bypassed. Scope check + hard cap + min
+    # ticket stay — they are safety rails, not adaptivity.
+    from hermes.pure_mode import pure_fixed_size_pct, pure_mode_enabled
+
+    if pure_mode_enabled():
+        reasons = ["pure_mode: fixed size, adaptive stack disabled"]
+        skip = False
+        if _fast_btc_scope(signal):
+            from hermes.market_scope import is_allowed_slug
+
+            if not is_allowed_slug(signal.slug) and signal.market_series not in (
+                "btc_updown_5m",
+                "btc_updown_15m",
+            ):
+                skip = True
+                reasons.append(f"out_of_scope_slug={signal.slug}")
+        live_ev, _slip, ev_note = _recalc_live_ev(signal)
+        reasons.append(ev_note)
+        hard_cap = float(os.environ.get("HERMES_MAX_TRADE_PCT", "0.02"))
+        size_pct = min(pure_fixed_size_pct(), hard_cap)
+        size_usd = round(bankroll * size_pct, 2) if not skip else 0.0
+        if not skip and size_usd < MIN_TICKET_USD:
+            if bankroll * size_pct >= MIN_TICKET_USD * 0.8:
+                size_usd = MIN_TICKET_USD
+                size_pct = size_usd / bankroll
+                reasons.append("bumped_to_min_ticket_$10")
+            else:
+                skip = True
+                size_pct = 0.0
+                size_usd = 0.0
+                reasons.append(f"ticket below ${MIN_TICKET_USD} → skip")
+        return PreTradeAnalysis(
+            signal_id=signal.signal_id,
+            substrategy_id=signal.substrategy_id,
+            bankroll_usd=bankroll,
+            recommended_size_pct=round(size_pct * 100, 3) if not skip else 0.0,
+            recommended_size_usd=size_usd,
+            skip=skip,
+            live_ev=round(live_ev, 5),
+            sleeve_wr=0.0,
+            sleeve_ev=0.0,
+            sleeve_n=0,
+            portfolio_div_before=round(proposal.diversification_ratio, 4),
+            portfolio_div_after=round(proposal.diversification_ratio, 4),
+            concentration_after=round(proposal.concentration_hhi, 4),
+            allocation_weight=0.0,
+            lessons_applied=[],
+            reasons=reasons,
+            oracle_alignment=float(signal.oracle_alignment or 0.5),
+            mispricing_active=bool((signal.meta or {}).get("mispricing_active")),
+            mispricing_dislocation=float(
+                (signal.meta or {}).get("mispricing_dislocation") or 0
+            ),
+            bandit_arm=str((signal.meta or {}).get("bandit_arm") or ""),
+            bandit_context=str((signal.meta or {}).get("bandit_context") or ""),
+            entry_source=str((signal.meta or {}).get("entry_source") or "baseline"),
+        )
+
     lessons = lessons if lessons is not None else read_lessons_md()
     sid = signal.substrategy_id
     stats = _sleeve_stats(sid, paper=paper)
