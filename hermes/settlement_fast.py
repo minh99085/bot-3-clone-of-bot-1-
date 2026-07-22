@@ -8,10 +8,12 @@ Feeds lessons + bandit rewards so Option D can learn online.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from connectors.cex_realtime import get_asset_mid
@@ -30,13 +32,16 @@ from hermes.models import (
     Regime,
     Settlement,
 )
-from hermes.state_io import append_jsonl, ledger_path, read_jsonl
+from hermes.state_io import DATA, append_jsonl, ledger_path, read_jsonl
 
 logger = logging.getLogger(__name__)
 
 # Cap lottery PnL from penny entries in paper mode.
 MIN_ENTRY_PX_FOR_PNL = float(os.environ.get("HERMES_MIN_ENTRY_PX_FOR_PNL", "0.02"))
 MAX_WIN_PNL_MULTIPLE = float(os.environ.get("HERMES_MAX_WIN_PNL_MULTIPLE", "5.0"))
+
+# Fleet-shared open/close refs so every lane settles the same window identically.
+_SHARED_REFS_PATH = DATA / "paper" / "_shared" / "settlement_refs.json"
 
 
 def _open_positions(paper: bool = True) -> list[dict]:
@@ -131,6 +136,117 @@ def _polymarket_resolution(slug: str) -> Optional[bool]:
         return None
 
 
+def shared_refs_path() -> Path:
+    return Path(os.environ.get("HERMES_SETTLEMENT_REFS", str(_SHARED_REFS_PATH)))
+
+
+def _load_shared_refs() -> dict:
+    path = shared_refs_path()
+    if not path.is_file():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return raw if isinstance(raw, dict) else {}
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("shared settlement refs read failed: %s", exc)
+        return {}
+
+
+def _store_shared_ref(
+    slug: str,
+    *,
+    moved_up: bool,
+    source: str,
+    open_px: float = 0.0,
+    close_px: float = 0.0,
+) -> None:
+    """Persist a fleet-wide outcome so every lane settles the window the same way."""
+    if not slug:
+        return
+    path = shared_refs_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    refs = _load_shared_refs()
+    refs[slug] = {
+        "moved_up": bool(moved_up),
+        "source": source,
+        "open_px": float(open_px or 0.0),
+        "close_px": float(close_px or 0.0),
+        "saved_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(refs, indent=2, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)
+
+
+def settlement_pnl_usd(*, won: bool, size_usd: float, entry_price: float) -> float:
+    """Canonical paper PnL for a settled binary ticket (matches live settlement)."""
+    size = float(size_usd or 0.0)
+    if not won:
+        return round(-size, 2)
+    eff_entry = max(float(entry_price or 0.5), MIN_ENTRY_PX_FOR_PNL)
+    return round(_cap_win_pnl(size * (1.0 / eff_entry - 1.0), size), 2)
+
+
+def resolve_window_moved_up(
+    slug: str,
+    *,
+    asset: str,
+    window_ts: Optional[int] = None,
+    window_end: Optional[float] = None,
+) -> tuple[Optional[bool], str]:
+    """Deterministic UP/DOWN resolution shared across the fleet.
+
+    Order:
+      1. Polymarket resolved outcome (ground truth)
+      2. Fleet-shared cache (first lane to settle wins the ref for everyone)
+      3. CEX open @ window_ts vs close @ window_end (never per-lane strike/mid)
+
+    Returns ``(moved_up, note)`` or ``(None, note)`` when unresolved.
+    """
+    resolved_up = _polymarket_resolution(slug)
+    if resolved_up is not None:
+        _store_shared_ref(slug, moved_up=resolved_up, source="polymarket")
+        return resolved_up, "settle_polymarket_resolution"
+
+    cached = _load_shared_refs().get(slug) or {}
+    if "moved_up" in cached:
+        src = cached.get("source") or "shared_cache"
+        open_px = float(cached.get("open_px") or 0.0)
+        close_px = float(cached.get("close_px") or 0.0)
+        if open_px > 0 and close_px > 0:
+            note = (
+                f"settle_shared_cache src={src} "
+                f"open_cex={open_px:.4f} exit_cex={close_px:.4f}"
+            )
+        else:
+            note = f"settle_shared_cache src={src}"
+        return bool(cached["moved_up"]), note
+
+    # Do NOT use per-lane meta strike / price_to_beat / entry mid — those
+    # differ across containers and flip tight windows (proven live: same
+    # slug+side settled win in one lane and loss in another).
+    open_ref = 0.0
+    exit_cex = 0.0
+    if window_ts is not None:
+        open_ref = _open_price_at(asset, int(window_ts))
+    if window_end is not None:
+        exit_cex = _close_price_at(asset, int(window_end))
+    if not (_cex_plausible(asset, open_ref) and _cex_plausible(asset, exit_cex)):
+        return None, (
+            f"unresolved open_cex={open_ref:.4f} exit_cex={exit_cex:.4f}"
+        )
+    moved_up = exit_cex >= open_ref
+    note = f"settle_cex_openref open_cex={open_ref:.4f} exit_cex={exit_cex:.4f}"
+    _store_shared_ref(
+        slug,
+        moved_up=moved_up,
+        source="cex_openref",
+        open_px=open_ref,
+        close_px=exit_cex,
+    )
+    return moved_up, note
+
+
 def settle_expired_paper_positions(paper: bool = True) -> list[Settlement]:
     """Settle positions whose up/down window has ended (+ grace)."""
     now = time.time()
@@ -172,39 +288,16 @@ def settle_expired_paper_positions(paper: bool = True) -> list[Settlement]:
         size = float(pos.get("size_usd") or 0)
         entry_asset = _resolve_asset(slug, meta)
 
-        # PRIMARY settlement: Polymarket's actual resolved outcome — the ground
-        # truth, the market's own data, no price feed needed.
-        resolved_up = _polymarket_resolution(slug)
-        if resolved_up is not None:
-            moved_up = resolved_up
-            ref_note = "settle_polymarket_resolution"
-        else:
-            # FALLBACK: reconstruct up/down from close-vs-window-OPEN, exactly as
-            # Polymarket does. Open reference = recorded strike if present, else
-            # the CEX price at the window-open epoch (NOT the entry mid, which is
-            # mid-window and measures a different bet).
-            open_ref = 0.0
-            try:
-                strike_meta = meta.get("strike") or meta.get("price_to_beat")
-                if strike_meta is not None:
-                    open_ref = float(strike_meta)
-            except (TypeError, ValueError):
-                open_ref = 0.0
-            if not _cex_plausible(entry_asset, open_ref) and sm is not None:
-                open_ref = _open_price_at(entry_asset, sm.window_ts)
-            # Exit = price AT the window close (what resolves the market), not the
-            # live mid at settle time — post-close drift must not flip outcomes.
-            exit_cex = _close_price_at(entry_asset, int(window_end)) if window_end else 0.0
-            # No outcome from EITHER source → do NOT settle, never fabricate.
-            # Leave open for a later retry (Polymarket may resolve by then).
-            if not (_cex_plausible(entry_asset, open_ref) and _cex_plausible(entry_asset, exit_cex)):
-                logger.warning(
-                    "skip settle %s: no polymarket resolution and no reliable "
-                    "open/close ref (open=%.4f close=%.4f)", slug, open_ref, exit_cex,
-                )
-                continue
-            moved_up = exit_cex >= open_ref
-            ref_note = f"settle_cex_openref open_cex={open_ref:.4f} exit_cex={exit_cex:.4f}"
+        moved_up, ref_note = resolve_window_moved_up(
+            slug,
+            asset=entry_asset,
+            window_ts=(sm.window_ts if sm else None),
+            window_end=window_end,
+        )
+        if moved_up is None:
+            logger.warning("skip settle %s: %s", slug, ref_note)
+            continue
+
         if direction in (Direction.UP, Direction.YES):
             won = moved_up
         else:
@@ -215,12 +308,7 @@ def settle_expired_paper_positions(paper: bool = True) -> list[Settlement]:
             f"bandit_arm={meta.get('bandit_arm')} "
             f"bandit_ctx={meta.get('bandit_context')}"
         )
-
-        eff_entry = max(entry_px, MIN_ENTRY_PX_FOR_PNL)
-        if won:
-            pnl = _cap_win_pnl(size * (1.0 / eff_entry - 1.0), size)
-        else:
-            pnl = -size
+        pnl = settlement_pnl_usd(won=won, size_usd=size, entry_price=entry_px)
 
         stl = Settlement(
             position_id=str(pos.get("position_id") or pos.get("signal_id") or ""),

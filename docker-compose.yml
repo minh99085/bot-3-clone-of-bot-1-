@@ -117,6 +117,10 @@ services:
   hermes-lane04_longshot:
     <<: *bot-common
     container_name: hermes-lane04_longshot
+    # Paused 2026-07-22: longshot book ~8% WR / large neg PnL vs random control.
+    # Kept in compose (dashboard depends_on) but does not trade: sleep loop.
+    restart: "no"
+    command: ["bash", "-c", "echo longshot lane paused; sleep infinity"]
     environment:
       HERMES_PAPER_ONLY: "1"
       HERMES_LIVE: "0"
@@ -126,6 +130,8 @@ services:
       HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: longshot_only
+      HERMES_PAUSE_VARIANTS: longshot_only
+      HERMES_MIN_SIDE_PRICE: "0.25"
       HERMES_LOG_DIR: /app/logs/lane04_longshot
       HERMES_PAPER_DIR: /app/data/paper/lane04_longshot
       HERMES_HANDOFF_DIR: /app/data/handoff/lane04_longshot

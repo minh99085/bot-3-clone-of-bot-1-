@@ -37,6 +37,7 @@ from hermes.dashboard_data import (
     instance_trade_history,
     lane_scoreboard,
     load_state,
+    trade_history_pnl_summary,
 )
 
 st.set_page_config(
@@ -353,6 +354,16 @@ def main() -> None:
     st.markdown("---")
     with st.expander(f"Last 50 trades ({len(recent)}) · Pacific time", expanded=False):
         if recent:
+            view = trade_history_pnl_summary(recent)
+            # Lifetime fleet PnL can differ from this table — only the newest 50
+            # rows are shown, while headline metrics include every settled trade.
+            st.caption(
+                f"Settled PnL in this table: {fmt_pnl(view['settled_pnl'])} "
+                f"({view['n_settled']} settled · {view['n_open']} open) · "
+                f"Lifetime fleet P&L: {fmt_pnl(fleet_pnl)} "
+                f"({fleet['total_settled']} settled). "
+                f"Open rows show blank PnL (unrealized)."
+            )
             df_recent = pd.DataFrame(recent)
             df_recent["time"] = df_recent["time"].map(fmt_pacific)
             # Keep the table light — drop noisy source column from the quick view
