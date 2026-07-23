@@ -1,0 +1,911 @@
+{
+  "generated_at": "2026-07-23T12:22:24.043408+00:00",
+  "n_rows": 50,
+  "settled_pnl": -139.66,
+  "lifetime_fleet_pnl_pre_prune": 482.71,
+  "lifetime_settled_pre_prune": 121,
+  "keep_keys": [
+    {
+      "lane": "lane01_baseline",
+      "signal_id": "sig_165047542294"
+    },
+    {
+      "lane": "lane01_baseline",
+      "signal_id": "sig_1d99fac65829"
+    },
+    {
+      "lane": "lane01_baseline",
+      "signal_id": "sig_30e515f72dff"
+    },
+    {
+      "lane": "lane01_baseline",
+      "signal_id": "sig_4d8b60299581"
+    },
+    {
+      "lane": "lane03_drift",
+      "signal_id": "sig_3d40fbf63d07"
+    },
+    {
+      "lane": "lane03_drift",
+      "signal_id": "sig_c97554c6612b"
+    },
+    {
+      "lane": "lane03_drift",
+      "signal_id": "sig_d048402ebae7"
+    },
+    {
+      "lane": "lane06_garch",
+      "signal_id": "sig_3c0be18d3b44"
+    },
+    {
+      "lane": "lane06_garch",
+      "signal_id": "sig_5c382cfa7b1f"
+    },
+    {
+      "lane": "lane06_garch",
+      "signal_id": "sig_6690f6f03cc8"
+    },
+    {
+      "lane": "lane06_garch",
+      "signal_id": "sig_835444327edc"
+    },
+    {
+      "lane": "lane06_garch",
+      "signal_id": "sig_88d516353a2d"
+    },
+    {
+      "lane": "lane06_garch",
+      "signal_id": "sig_a44ee88a21c0"
+    },
+    {
+      "lane": "lane06_garch",
+      "signal_id": "sig_a8d7bb883adf"
+    },
+    {
+      "lane": "lane06_garch",
+      "signal_id": "sig_a97ab79d1c06"
+    },
+    {
+      "lane": "lane06_garch",
+      "signal_id": "sig_f6672bac5b68"
+    },
+    {
+      "lane": "lane07_driftgarch",
+      "signal_id": "sig_0d3f698c3a4a"
+    },
+    {
+      "lane": "lane08_favdepth",
+      "signal_id": "sig_d5ebc2a8ee75"
+    },
+    {
+      "lane": "lane08_favdepth",
+      "signal_id": "sig_ec198798b641"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_0f1b2e6f717c"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_11cc86f402b7"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_22780fc499e5"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_2c29b4f0ecb8"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_356cd3b9331e"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_3730fd0a79b2"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_39367b2d5aae"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_3c318d56cc47"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_3e70ef1e6cf4"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_5131548e6213"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_5437b4015a18"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_6bef342b4896"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_6f85c2642a96"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_70dd5d883a8c"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_731c2f00b355"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_807ed797b7e2"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_8f4193d5bef6"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_940af8f94d2b"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_955997b9b0fe"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_a579515654ca"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_b0fb426083d3"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_b9c4cd633fa5"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_bceb7140ea5b"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_ccac0387f901"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_d6968581d72c"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_f17bf93d9f76"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_f2f7e5842490"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_fc3f9f40c694"
+    },
+    {
+      "lane": "lane09_random",
+      "signal_id": "sig_fd481330777e"
+    },
+    {
+      "lane": "lane10_favopen",
+      "signal_id": "sig_573be406f556"
+    },
+    {
+      "lane": "lane10_favopen",
+      "signal_id": "sig_e0ec18e6997a"
+    }
+  ],
+  "trades": [
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T11:16:22.430675+00:00",
+      "pnl": 35.9,
+      "signal_id": "sig_b9c4cd633fa5",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.52702,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784804400",
+      "notes": "settle_cex_openref open_cex=65693.1000 exit_cex=65678.0000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|eu"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T10:31:09.554482+00:00",
+      "pnl": 24.29,
+      "signal_id": "sig_955997b9b0fe",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.62217,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784801700",
+      "notes": "settle_cex_openref open_cex=65675.8000 exit_cex=65730.4000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|eu"
+    },
+    {
+      "lane": "lane06_garch",
+      "status": "settled",
+      "time": "2026-07-23T10:15:39.380955+00:00",
+      "pnl": 57.03,
+      "signal_id": "sig_a8d7bb883adf",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.412255,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784800800",
+      "notes": "settle_cex_openref open_cex=65599.1100 exit_cex=65686.4100 asset=BTC bandit_arm=exploit bandit_ctx=15m|med|flat|eu"
+    },
+    {
+      "lane": "lane03_drift",
+      "status": "settled",
+      "time": "2026-07-23T09:47:31.037824+00:00",
+      "pnl": 29.58,
+      "signal_id": "sig_d048402ebae7",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.5748449999999999,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784799000",
+      "notes": "settle_cex_openref open_cex=65715.2000 exit_cex=65730.9000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|eu"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T09:30:52.049263+00:00",
+      "pnl": 38.86,
+      "signal_id": "sig_0f1b2e6f717c",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.50725,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784798100",
+      "notes": "settle_cex_openref open_cex=65642.2000 exit_cex=65676.6000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|eu"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T09:00:43.927447+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_ccac0387f901",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.5748449999999999,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784796300",
+      "notes": "settle_cex_openref open_cex=65590.5000 exit_cex=65605.7000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|eu"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T08:00:24.453068+00:00",
+      "pnl": 21.51,
+      "signal_id": "sig_2c29b4f0ecb8",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.650325,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784792700",
+      "notes": "settle_cex_openref open_cex=65358.3000 exit_cex=65404.9000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|asia"
+    },
+    {
+      "lane": "lane07_driftgarch",
+      "status": "settled",
+      "time": "2026-07-23T07:46:58.161344+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_0d3f698c3a4a",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.370555,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784791800",
+      "notes": "settle_cex_openref open_cex=65397.0600 exit_cex=65354.5200 asset=BTC bandit_arm=exploit bandit_ctx=15m|med|flat|asia"
+    },
+    {
+      "lane": "lane08_favdepth",
+      "status": "settled",
+      "time": "2026-07-23T07:32:06.230631+00:00",
+      "pnl": 10.0,
+      "signal_id": "sig_d5ebc2a8ee75",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.8,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784790900",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65456.0000 exit_cex=65437.7000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane01_baseline",
+      "status": "settled",
+      "time": "2026-07-23T07:32:03.122616+00:00",
+      "pnl": 25.28,
+      "signal_id": "sig_30e515f72dff",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.6127450000000001,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784790900",
+      "notes": "settle_cex_openref open_cex=65456.0000 exit_cex=65437.7000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|asia"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T06:19:47.534174+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_807ed797b7e2",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.6127450000000001,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784786400",
+      "notes": "settle_cex_openref open_cex=65657.4000 exit_cex=65633.1000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|asia"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T05:34:21.367342+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_5131548e6213",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.77,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784783700",
+      "notes": "settle_cex_openref open_cex=65587.3000 exit_cex=65692.4000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|asia"
+    },
+    {
+      "lane": "lane03_drift",
+      "status": "settled",
+      "time": "2026-07-23T05:16:20.177700+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_3d40fbf63d07",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.6409600000000001,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784782800",
+      "notes": "settle_cex_openref open_cex=65618.2000 exit_cex=65643.4000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|asia"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T03:46:01.949365+00:00",
+      "pnl": 10.63,
+      "signal_id": "sig_5437b4015a18",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.79,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784777400",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65639.3000 exit_cex=65690.3000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane10_favopen",
+      "status": "settled",
+      "time": "2026-07-23T03:45:58.804351+00:00",
+      "pnl": 11.95,
+      "signal_id": "sig_e0ec18e6997a",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.77,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784777400",
+      "notes": "settle_cex_openref open_cex=65639.3000 exit_cex=65690.3000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|up|asia"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T03:30:57.511719+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_6bef342b4896",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.52702,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784776500",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65633.8000 exit_cex=65639.3000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane03_drift",
+      "status": "settled",
+      "time": "2026-07-23T03:30:49.076034+00:00",
+      "pnl": 31.97,
+      "signal_id": "sig_c97554c6612b",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.555775,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784776500",
+      "notes": "settle_cex_openref open_cex=65633.8000 exit_cex=65639.3000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|asia"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T03:00:47.894807+00:00",
+      "pnl": 24.29,
+      "signal_id": "sig_940af8f94d2b",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.62217,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784774700",
+      "notes": "settle_cex_openref open_cex=65743.6000 exit_cex=65774.0000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|asia"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T02:15:32.775260+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_f17bf93d9f76",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.42272999999999994,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784772000",
+      "notes": "settle_cex_openref open_cex=65796.8000 exit_cex=65726.5000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|asia"
+    },
+    {
+      "lane": "lane08_favdepth",
+      "status": "settled",
+      "time": "2026-07-23T01:05:12.437458+00:00",
+      "pnl": 11.28,
+      "signal_id": "sig_ec198798b641",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.78,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784767500",
+      "notes": "settle_cex_openref open_cex=66125.9000 exit_cex=66027.5000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|asia"
+    },
+    {
+      "lane": "lane10_favopen",
+      "status": "settled",
+      "time": "2026-07-23T01:05:12.373036+00:00",
+      "pnl": 11.28,
+      "signal_id": "sig_573be406f556",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.78,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784767500",
+      "notes": "settle_cex_openref open_cex=66158.7000 exit_cex=66068.2000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|asia"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-23T00:02:01.695914+00:00",
+      "pnl": 10.63,
+      "signal_id": "sig_d6968581d72c",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.79,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784763900",
+      "notes": "settle_cex_openref open_cex=65957.7000 exit_cex=66072.4000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T23:46:57.335057+00:00",
+      "pnl": 42.3,
+      "signal_id": "sig_a579515654ca",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.48599999999999993,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784763000",
+      "notes": "settle_cex_openref open_cex=65946.7000 exit_cex=65957.7000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T23:31:50.223410+00:00",
+      "pnl": 21.37,
+      "signal_id": "sig_f2f7e5842490",
+      "direction": "UP",
+      "size": 23.151725,
+      "entry": 0.52,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784762100",
+      "notes": "settle_cex_openref open_cex=65852.3000 exit_cex=65946.7000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T23:17:42.120312+00:00",
+      "pnl": 1.43,
+      "signal_id": "sig_fc3f9f40c694",
+      "direction": "DOWN",
+      "size": 1.5916000000000001,
+      "entry": 0.52702,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784761200",
+      "notes": "settle_cex_openref open_cex=66007.3000 exit_cex=65852.3000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T22:47:31.916527+00:00",
+      "pnl": -22.89,
+      "signal_id": "sig_11cc86f402b7",
+      "direction": "UP",
+      "size": 22.890449999999998,
+      "entry": 0.41865575034917335,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784759400",
+      "notes": "settle_cex_openref open_cex=65995.4000 exit_cex=65922.2000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T22:32:27.500119+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_39367b2d5aae",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.58435,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784758500",
+      "notes": "settle_cex_openref open_cex=65979.0000 exit_cex=65995.4000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T22:17:21.366961+00:00",
+      "pnl": -24.07,
+      "signal_id": "sig_356cd3b9331e",
+      "direction": "UP",
+      "size": 24.0717,
+      "entry": 0.19,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784757600",
+      "notes": "settle_shared_cache src=cex_openref open_cex=66044.1600 exit_cex=65976.7600 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane06_garch",
+      "status": "settled",
+      "time": "2026-07-22T22:17:20.288749+00:00",
+      "pnl": -25.94,
+      "signal_id": "sig_a44ee88a21c0",
+      "direction": "UP",
+      "size": 25.9432,
+      "entry": 0.19,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784757600",
+      "notes": "settle_shared_cache src=cex_openref open_cex=66044.1600 exit_cex=65976.7600 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T22:02:16.075766+00:00",
+      "pnl": -10.9,
+      "signal_id": "sig_3730fd0a79b2",
+      "direction": "UP",
+      "size": 10.8999,
+      "entry": 0.2523596826329709,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784756700",
+      "notes": "settle_cex_openref open_cex=66089.8000 exit_cex=66036.0000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T21:47:14.136251+00:00",
+      "pnl": 12.89,
+      "signal_id": "sig_731c2f00b355",
+      "direction": "UP",
+      "size": 17.425275,
+      "entry": 0.5748449999999999,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784755800",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65877.6000 exit_cex=66095.7000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane06_garch",
+      "status": "settled",
+      "time": "2026-07-22T21:46:14.722145+00:00",
+      "pnl": -19.47,
+      "signal_id": "sig_5c382cfa7b1f",
+      "direction": "DOWN",
+      "size": 19.466525,
+      "entry": 0.370555,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784755800",
+      "notes": "settle_cex_openref open_cex=65877.6000 exit_cex=66095.7000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T21:32:10.034185+00:00",
+      "pnl": 46.05,
+      "signal_id": "sig_22780fc499e5",
+      "direction": "DOWN",
+      "size": 32.300399999999996,
+      "entry": 0.412255,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784754900",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65901.9900 exit_cex=65877.6000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane06_garch",
+      "status": "settled",
+      "time": "2026-07-22T21:31:09.173352+00:00",
+      "pnl": 37.94,
+      "signal_id": "sig_6690f6f03cc8",
+      "direction": "DOWN",
+      "size": 27.471600000000002,
+      "entry": 0.42000000000000004,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784754900",
+      "notes": "settle_cex_openref open_cex=65901.9900 exit_cex=65877.6000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T21:16:13.053837+00:00",
+      "pnl": 9.28,
+      "signal_id": "sig_bceb7140ea5b",
+      "direction": "UP",
+      "size": 12.069925,
+      "entry": 0.56532,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784754000",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65882.0000 exit_cex=65900.4000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane06_garch",
+      "status": "settled",
+      "time": "2026-07-22T21:16:02.299447+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_f6672bac5b68",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.22999999999999998,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784754000",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65882.0000 exit_cex=65900.4000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T21:01:07.697164+00:00",
+      "pnl": 8.71,
+      "signal_id": "sig_b0fb426083d3",
+      "direction": "DOWN",
+      "size": 27.569025,
+      "entry": 0.7600000000000001,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784753100",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65947.5000 exit_cex=65923.8000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane01_baseline",
+      "status": "settled",
+      "time": "2026-07-22T21:00:43.338736+00:00",
+      "pnl": -32.33,
+      "signal_id": "sig_4d8b60299581",
+      "direction": "UP",
+      "size": 32.33065,
+      "entry": 0.2,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784753100",
+      "notes": "settle_cex_openref open_cex=65947.5000 exit_cex=65923.8000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T20:46:02.012719+00:00",
+      "pnl": 22.2,
+      "signal_id": "sig_3c318d56cc47",
+      "direction": "UP",
+      "size": 27.774475000000002,
+      "entry": 0.555775,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784752200",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65900.9000 exit_cex=65913.1000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T20:30:56.485721+00:00",
+      "pnl": 33.23,
+      "signal_id": "sig_3e70ef1e6cf4",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.5462100000000001,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784751300",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65934.6000 exit_cex=65941.3000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane06_garch",
+      "status": "settled",
+      "time": "2026-07-22T20:30:47.396430+00:00",
+      "pnl": -34.1,
+      "signal_id": "sig_88d516353a2d",
+      "direction": "DOWN",
+      "size": 34.09995,
+      "entry": 0.15000000000000002,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784751300",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65934.6000 exit_cex=65941.3000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane01_baseline",
+      "status": "settled",
+      "time": "2026-07-22T20:30:33.504339+00:00",
+      "pnl": -7.89,
+      "signal_id": "sig_165047542294",
+      "direction": "DOWN",
+      "size": 7.887875,
+      "entry": 0.16067469078295046,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784751300",
+      "notes": "settle_cex_openref open_cex=65934.6000 exit_cex=65941.3000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|up|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T20:15:49.561752+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_70dd5d883a8c",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.5938349999999999,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784750400",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65888.2000 exit_cex=65899.4000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T20:00:45.194909+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_8f4193d5bef6",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.44373999999999997,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784749500",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65870.4000 exit_cex=65927.0000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane06_garch",
+      "status": "settled",
+      "time": "2026-07-22T20:00:39.227959+00:00",
+      "pnl": -32.26,
+      "signal_id": "sig_a97ab79d1c06",
+      "direction": "DOWN",
+      "size": 32.26095,
+      "entry": 0.18000000000000005,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784749500",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65870.4000 exit_cex=65927.0000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane01_baseline",
+      "status": "settled",
+      "time": "2026-07-22T20:00:25.003079+00:00",
+      "pnl": -30.37,
+      "signal_id": "sig_1d99fac65829",
+      "direction": "DOWN",
+      "size": 30.365000000000002,
+      "entry": 0.41000000000000003,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784749500",
+      "notes": "settle_cex_openref open_cex=65870.4000 exit_cex=65927.0000 asset=BTC bandit_arm=exploit bandit_ctx=15m|strong|flat|us"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T19:45:39.676946+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_6f85c2642a96",
+      "direction": "UP",
+      "size": 40.0,
+      "entry": 0.48599999999999993,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784748600",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65903.1000 exit_cex=65870.4000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane06_garch",
+      "status": "settled",
+      "time": "2026-07-22T19:45:34.259182+00:00",
+      "pnl": 62.21,
+      "signal_id": "sig_3c0be18d3b44",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.391365,
+      "exit": 1.0,
+      "won": true,
+      "slug": "btc-updown-15m-1784748600",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65903.1000 exit_cex=65870.4000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane09_random",
+      "status": "settled",
+      "time": "2026-07-22T19:30:34.409079+00:00",
+      "pnl": -40.0,
+      "signal_id": "sig_fd481330777e",
+      "direction": "DOWN",
+      "size": 40.0,
+      "entry": 0.45999999999999996,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784747700",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65764.9000 exit_cex=65903.1000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    },
+    {
+      "lane": "lane06_garch",
+      "status": "settled",
+      "time": "2026-07-22T19:30:29.496630+00:00",
+      "pnl": -31.53,
+      "signal_id": "sig_835444327edc",
+      "direction": "DOWN",
+      "size": 31.53465,
+      "entry": 0.13,
+      "exit": 0.0,
+      "won": false,
+      "slug": "btc-updown-15m-1784747700",
+      "notes": "settle_shared_cache src=cex_openref open_cex=65764.9000 exit_cex=65903.1000 asset=BTC bandit_arm=exploit bandit_ctx=15m|"
+    }
+  ]
+}

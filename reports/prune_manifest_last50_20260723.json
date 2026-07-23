@@ -1,0 +1,107 @@
+{
+  "pruned_at": "2026-07-23T12:22:24.043408+00:00",
+  "archive_dir": "data/paper/archive/prune_keep_last50_20260723T122224Z",
+  "kept_signal_count": 50,
+  "kept_trades": 50,
+  "settled_pnl_kept": -139.66,
+  "stats": [
+    {
+      "lane": "lane01_baseline",
+      "before_events": 54,
+      "after_events": 12,
+      "dropped": 42,
+      "keep_signals": 4
+    },
+    {
+      "lane": "lane02_autonomy",
+      "before_events": 27,
+      "after_events": 0,
+      "dropped": 27,
+      "keep_signals": 0
+    },
+    {
+      "lane": "lane03_drift",
+      "before_events": 9,
+      "after_events": 9,
+      "dropped": 0,
+      "keep_signals": 3
+    },
+    {
+      "lane": "lane03_favorite",
+      "before_events": 13,
+      "after_events": 0,
+      "dropped": 13,
+      "keep_signals": 0
+    },
+    {
+      "lane": "lane04_longshot",
+      "before_events": 38,
+      "after_events": 0,
+      "dropped": 38,
+      "keep_signals": 0
+    },
+    {
+      "lane": "lane05_late",
+      "before_events": 16,
+      "after_events": 0,
+      "dropped": 16,
+      "keep_signals": 0
+    },
+    {
+      "lane": "lane06_garch",
+      "before_events": 84,
+      "after_events": 27,
+      "dropped": 57,
+      "keep_signals": 9
+    },
+    {
+      "lane": "lane07_driftgarch",
+      "before_events": 3,
+      "after_events": 3,
+      "dropped": 0,
+      "keep_signals": 1
+    },
+    {
+      "lane": "lane07_marketsigma",
+      "before_events": 60,
+      "after_events": 0,
+      "dropped": 60,
+      "keep_signals": 0
+    },
+    {
+      "lane": "lane08_favdepth",
+      "before_events": 6,
+      "after_events": 6,
+      "dropped": 0,
+      "keep_signals": 2
+    },
+    {
+      "lane": "lane08_legacy",
+      "before_events": 48,
+      "after_events": 0,
+      "dropped": 48,
+      "keep_signals": 0
+    },
+    {
+      "lane": "lane09_random",
+      "before_events": 174,
+      "after_events": 87,
+      "dropped": 87,
+      "keep_signals": 29
+    },
+    {
+      "lane": "lane10_depth",
+      "before_events": 62,
+      "after_events": 0,
+      "dropped": 62,
+      "keep_signals": 0
+    },
+    {
+      "lane": "lane10_favopen",
+      "before_events": 6,
+      "after_events": 6,
+      "dropped": 0,
+      "keep_signals": 2
+    }
+  ]
+}
