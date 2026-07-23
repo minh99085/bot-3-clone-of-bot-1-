@@ -377,6 +377,22 @@ def drift_mu_ann(
     return float(max(-clamp, min(clamp, mu)))
 
 
+def standardized_distance(
+    spot: float, strike: float, sigma_ann: float, tau_sec: float
+) -> float:
+    """|ln(S/K)| in units of σ√τ — how many remaining-vol standard deviations
+    the price sits from the strike. d ≥ 2 ⇒ the window is ~settled (the
+    fav_sniper entry condition); d ≈ 0 ⇒ a coin-flip regardless of price."""
+    S, K = float(spot), float(strike)
+    if S <= 0 or K <= 0:
+        return 0.0
+    T = max(1.0, float(tau_sec)) / SEC_PER_YEAR
+    denom = max(0.05, float(sigma_ann)) * math.sqrt(T)
+    if denom <= 1e-12:
+        return 0.0
+    return abs(math.log(S / K)) / denom
+
+
 def barrier_implied_up_drift(
     spot: float,
     strike: float,

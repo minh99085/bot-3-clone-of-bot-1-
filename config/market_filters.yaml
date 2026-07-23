@@ -44,6 +44,16 @@ filters:
     oracle_asset: ETH
     instance: hermes-eth5
 
+  eth15:
+    label: "ETH 15-minute Up/Down"
+    asset: eth
+    timeframe: 15m
+    series: eth_updown_15m
+    slug_prefix: eth-updown-15m-
+    cex_symbol: ETHUSDT
+    oracle_asset: ETH
+    instance: hermes-lane07_ethdrift
+
   sol5:
     label: "SOL 5-minute Up/Down"
     asset: sol

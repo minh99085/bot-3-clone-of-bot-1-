@@ -21,15 +21,18 @@ def test_registry_v2_variants_and_controls():
     assert "random_null" in LANES      # null control (kept, prereg)
     assert LANES["baseline"].q_mode == "barrier"
     # v2: drift family replaces the proven-loser fade lanes.
-    for name in ("drift_barrier", "fav_cont_70", "fav_cont_80",
+    for name in ("drift_barrier", "fav_cont_70", "fav_sniper",
                  "fav_cont_depth", "fav_cont_open", "drift_garch"):
         assert name in LANES, name
+    sniper = LANES["fav_sniper"]
+    assert sniper.min_abs_distance == 2.0 and sniper.max_window_flips == 1
+    assert sniper.min_side_price == 0.85 and sniper.max_seconds_remaining == 180.0
     assert LANES["fav_cont_70"].require_momentum_agree is True
     assert LANES["fav_cont_70"].min_side_price == pytest.approx(0.70)
     # retired: anti-signal fades + finished negative control
     for gone in ("longshot_only", "late_window", "market_sigma_gap",
                  "depth_aware", "favorite_only", "legacy_ensemble",
-                 "chainlink_ref"):
+                 "chainlink_ref", "fav_cont_80"):
         assert gone not in LANES, gone
 
 

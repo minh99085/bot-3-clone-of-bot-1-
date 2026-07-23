@@ -33,6 +33,8 @@ class LaneSpec:
     max_seconds_remaining: float = 1e9   # late-window filter
     min_liquidity_usd: float = 0.0   # depth filter
     require_momentum_agree: bool = False  # side must match intra-window drift
+    min_abs_distance: float = 0.0    # |ln(S/K)|/(σ√τ_rem) floor (sniper gate)
+    max_window_flips: Optional[int] = None  # strike-crossings cap (chop gate)
 
 
 # Registry v2 (2026-07-23). The last-10h report was decisive: the driftless
@@ -55,9 +57,17 @@ LANES: dict[str, LaneSpec] = {
         LaneSpec("fav_cont_70", "buy the >=0.70 favorite when drift agrees, late half",
                  q_mode="barrier_drift", min_side_price=0.70,
                  max_seconds_remaining=450.0, require_momentum_agree=True),
-        LaneSpec("fav_cont_80", "buy the >=0.80 favorite when drift agrees, late half",
-                 q_mode="barrier_drift", min_side_price=0.80,
-                 max_seconds_remaining=450.0, require_momentum_agree=True),
+        # fav_sniper — the theta-convergence play: in the last 3 minutes, buy
+        # the >=0.85 favorite ONLY when spot sits >=2 remaining-vol standard
+        # deviations beyond the strike (d = |ln(S/K)|/(σ√τ_rem) >= 2 means
+        # ~2.3% reversal risk by the math) AND the window hasn't been choppy
+        # (>1 strike-crossings = trendless — the favorite can still flip).
+        # Replaces fav_cont_80, which never fired (0.80 + late + momentum was
+        # strictly narrower than fav_cont_70 with no distinct hypothesis).
+        LaneSpec("fav_sniper", "last-3-min >=0.85 favorite, d>=2σ√τ, no chop",
+                 q_mode="barrier_drift", min_side_price=0.85,
+                 max_seconds_remaining=180.0, require_momentum_agree=True,
+                 min_abs_distance=2.0, max_window_flips=1),
         LaneSpec("garch_sigma", "barrier q with GARCH(1,1) σ (mid book was +EV)",
                  sigma_kind="garch"),
         LaneSpec("drift_garch", "drift-adjusted barrier with GARCH(1,1) σ",
@@ -112,6 +122,8 @@ def entry_allows(
     spec: Optional[LaneSpec] = None,
     momentum: float = 0.0,
     side_is_up: Optional[bool] = None,
+    abs_distance: float = 0.0,
+    window_flips: Optional[int] = None,
 ) -> tuple[bool, str]:
     """Lane entry gate on TOP of the normal (frozen) gates — never looser."""
     s = spec or active_spec()
@@ -159,4 +171,17 @@ def entry_allows(
                 f"lane_gate:momentum_opposes side={'UP' if side_is_up else 'DOWN'} "
                 f"mom={momentum:+.3f}"
             )
+    # Sniper distance gate: only fire when spot is far enough beyond the
+    # strike in remaining-vol units that a reversal is a tail event.
+    if s.min_abs_distance > 0 and abs_distance < s.min_abs_distance:
+        return False, (
+            f"lane_gate:too_close d={abs_distance:.2f}<{s.min_abs_distance:.2f}σ√τ"
+        )
+    # Chop gate: a window that keeps crossing its strike is trendless — the
+    # 'favorite' label is unstable and continuation logic does not apply.
+    if s.max_window_flips is not None:
+        if window_flips is None:
+            return False, "lane_gate:flips_unknown"
+        if window_flips > s.max_window_flips:
+            return False, f"lane_gate:choppy flips={window_flips}>{s.max_window_flips}"
     return True, "lane_gate:ok"

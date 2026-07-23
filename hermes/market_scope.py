@@ -28,18 +28,19 @@ import yaml
 SERIES_BTC_5M = "btc_updown_5m"
 SERIES_BTC_15M = "btc_updown_15m"
 SERIES_ETH_5M = "eth_updown_5m"
+SERIES_ETH_15M = "eth_updown_15m"
 SERIES_SOL_5M = "sol_updown_5m"
 SERIES_5M = SERIES_BTC_5M  # backward-compat alias
 SERIES_15M = SERIES_BTC_15M  # backward-compat alias
 
 ALL_SERIES = frozenset(
-    {SERIES_BTC_5M, SERIES_BTC_15M, SERIES_ETH_5M, SERIES_SOL_5M}
+    {SERIES_BTC_5M, SERIES_BTC_15M, SERIES_ETH_5M, SERIES_ETH_15M, SERIES_SOL_5M}
 )
 ALLOWED_SERIES = ALL_SERIES  # expanded universe; filter narrows per instance
 
 SLUG_RE = re.compile(r"^(btc|eth|sol)-updown-(5m|15m)-(\d+)$")
 
-FILTER_KEYS = frozenset({"btc5", "btc15", "eth5", "sol5", "rotator"})
+FILTER_KEYS = frozenset({"btc5", "btc15", "eth5", "eth15", "sol5", "rotator"})
 
 # Fast-market sizing defaults (paper, $2000 bankroll) — unchanged
 COLD_START_SIZE_PCT = 0.005  # 0.5% of bankroll (~$10)
@@ -127,6 +128,10 @@ def filter_specs() -> dict[str, MarketFilterSpec]:
             ),
             "eth5": MarketFilterSpec(
                 "eth5", "ETH 5m", "eth", "5m", SERIES_ETH_5M, "eth-updown-5m-",
+                "ETHUSDT", "ETH",
+            ),
+            "eth15": MarketFilterSpec(
+                "eth15", "ETH 15m", "eth", "15m", SERIES_ETH_15M, "eth-updown-15m-",
                 "ETHUSDT", "ETH",
             ),
             "sol5": MarketFilterSpec(
@@ -255,12 +260,12 @@ def is_allowed_series(series: str, *, market_filter: Optional[str] = None) -> bo
 
 def active_filter_keys(*, market_filter: Optional[str] = None) -> list[str]:
     mf = (market_filter or market_filter_from_env()).strip().lower()
-    if mf in ("btc5", "btc15", "eth5", "sol5"):
+    if mf in ("btc5", "btc15", "eth5", "eth15", "sol5"):
         return [mf]
     if mf == "legacy_btc":
         return ["btc5", "btc15"]
     # rotator / all
-    return ["btc5", "btc15", "eth5", "sol5"]
+    return ["btc5", "btc15", "eth5", "eth15", "sol5"]
 
 
 def series_from_record(record: dict) -> Optional[str]:

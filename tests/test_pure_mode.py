@@ -236,7 +236,7 @@ def test_compose_wiring_pure_flags():
     assert "HERMES_PURE_MODE" not in lane02_env
     assert 'HERMES_STRATEGY_VARIANT: baseline' in lane02_env
     for lane in ("lane01_baseline", "lane03_drift", "lane04_favcont70",
-                 "lane05_favcont80", "lane06_garch", "lane07_driftgarch",
+                 "lane05_favsniper", "lane06_garch", "lane07_ethdrift",
                  "lane08_favdepth", "lane09_random", "lane10_favopen"):
         seg = text.split(f"HERMES_INSTANCE_ID: {lane}")[1].split("volumes:")[0]
         assert 'HERMES_PURE_MODE: "1"' in seg, lane

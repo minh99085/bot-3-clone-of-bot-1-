@@ -132,6 +132,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane04_favcont70
+      HERMES_MAKER_MODE: "1"
       HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: fav_cont_70
@@ -150,29 +151,30 @@ services:
       - ./artifacts/lane04_favcont70:/app/artifacts/lane04_favcont70
       - ./config:/app/config:ro
 
-  hermes-lane05_favcont80:
+  hermes-lane05_favsniper:
     <<: *bot-common
-    container_name: hermes-lane05_favcont80
+    container_name: hermes-lane05_favsniper
     environment:
       HERMES_PAPER_ONLY: "1"
       HERMES_LIVE: "0"
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
-      HERMES_INSTANCE_ID: lane05_favcont80
+      HERMES_INSTANCE_ID: lane05_favsniper
+      HERMES_MAKER_MODE: "1"
       HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
-      HERMES_STRATEGY_VARIANT: fav_cont_80
-      HERMES_LOG_DIR: /app/logs/lane05_favcont80
-      HERMES_PAPER_DIR: /app/data/paper/lane05_favcont80
-      HERMES_HANDOFF_DIR: /app/data/handoff/lane05_favcont80
+      HERMES_STRATEGY_VARIANT: fav_sniper
+      HERMES_LOG_DIR: /app/logs/lane05_favsniper
+      HERMES_PAPER_DIR: /app/data/paper/lane05_favsniper
+      HERMES_HANDOFF_DIR: /app/data/handoff/lane05_favsniper
       HERMES_HEALTH_PORT: "8080"
       HERMES_FORCE_SYNTHETIC: "${HERMES_FORCE_SYNTHETIC:-0}"
       HERMES_SCOPE_BTC_UPDOWN_ONLY: "1"
     volumes:
       - ./knowledge:/app/knowledge
       - ./data:/app/data
-      - ./logs/lane05_favcont80:/app/logs/lane05_favcont80
-      - ./artifacts/lane05_favcont80:/app/artifacts/lane05_favcont80
+      - ./logs/lane05_favsniper:/app/logs/lane05_favsniper
+      - ./artifacts/lane05_favsniper:/app/artifacts/lane05_favsniper
       - ./config:/app/config:ro
 
   hermes-lane06_garch:
@@ -200,29 +202,29 @@ services:
       - ./artifacts/lane06_garch:/app/artifacts/lane06_garch
       - ./config:/app/config:ro
 
-  hermes-lane07_driftgarch:
+  hermes-lane07_ethdrift:
     <<: *bot-common
-    container_name: hermes-lane07_driftgarch
+    container_name: hermes-lane07_ethdrift
     environment:
       HERMES_PAPER_ONLY: "1"
       HERMES_LIVE: "0"
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
-      HERMES_INSTANCE_ID: lane07_driftgarch
+      HERMES_INSTANCE_ID: lane07_ethdrift
       HERMES_PURE_MODE: "1"
-      MARKET_FILTER: btc15
-      HERMES_STRATEGY_VARIANT: drift_garch
-      HERMES_LOG_DIR: /app/logs/lane07_driftgarch
-      HERMES_PAPER_DIR: /app/data/paper/lane07_driftgarch
-      HERMES_HANDOFF_DIR: /app/data/handoff/lane07_driftgarch
+      MARKET_FILTER: eth15
+      HERMES_STRATEGY_VARIANT: drift_barrier
+      HERMES_LOG_DIR: /app/logs/lane07_ethdrift
+      HERMES_PAPER_DIR: /app/data/paper/lane07_ethdrift
+      HERMES_HANDOFF_DIR: /app/data/handoff/lane07_ethdrift
       HERMES_HEALTH_PORT: "8080"
       HERMES_FORCE_SYNTHETIC: "${HERMES_FORCE_SYNTHETIC:-0}"
       HERMES_SCOPE_BTC_UPDOWN_ONLY: "1"
     volumes:
       - ./knowledge:/app/knowledge
       - ./data:/app/data
-      - ./logs/lane07_driftgarch:/app/logs/lane07_driftgarch
-      - ./artifacts/lane07_driftgarch:/app/artifacts/lane07_driftgarch
+      - ./logs/lane07_ethdrift:/app/logs/lane07_ethdrift
+      - ./artifacts/lane07_ethdrift:/app/artifacts/lane07_ethdrift
       - ./config:/app/config:ro
 
   hermes-lane08_favdepth:
@@ -234,6 +236,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane08_favdepth
+      HERMES_MAKER_MODE: "1"
       HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: fav_cont_depth
@@ -284,6 +287,7 @@ services:
       HERMES_CAPITAL: "2000"
       HERMES_INTERVAL: "${HERMES_INTERVAL:-300}"
       HERMES_INSTANCE_ID: lane10_favopen
+      HERMES_MAKER_MODE: "1"
       HERMES_PURE_MODE: "1"
       MARKET_FILTER: btc15
       HERMES_STRATEGY_VARIANT: fav_cont_open
@@ -347,11 +351,11 @@ services:
         condition: service_started
       hermes-lane04_favcont70:
         condition: service_started
-      hermes-lane05_favcont80:
+      hermes-lane05_favsniper:
         condition: service_started
       hermes-lane06_garch:
         condition: service_started
-      hermes-lane07_driftgarch:
+      hermes-lane07_ethdrift:
         condition: service_started
       hermes-lane08_favdepth:
         condition: service_started

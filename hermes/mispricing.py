@@ -585,6 +585,37 @@ def detect_mispricing(
     # price of the MODEL's side, remaining window time, and book liquidity.
     from hermes.lane_variants import entry_allows
 
+    # Sniper inputs: standardized distance from strike in remaining-vol units,
+    # and the number of times this window's path has crossed its strike (chop).
+    abs_distance = 0.0
+    window_flips: Optional[int] = None
+    strike_f = float(out.features.get("barrier_strike") or 0.0)
+    if strike_f > 0:
+        from strategy.advanced_signals import standardized_distance
+
+        sigma_f = float(
+            out.features.get("barrier_sigma_ann") or DEFAULT_SIGMA_ANN
+        )
+        spot_f = float(out.features.get("barrier_spot") or snap.mid or 0.0)
+        abs_distance = standardized_distance(spot_f, strike_f, sigma_f, float(sec_res))
+        sm_flip = parse_slug(candidate.slug or "")
+        if sm_flip is not None:
+            try:
+                times_f, prices_f = get_asset_price_history(asset, max_points=240)
+                in_window = [
+                    p for t, p in zip(times_f, prices_f) if t >= float(sm_flip.window_ts)
+                ]
+                if len(in_window) >= 3:
+                    signs = [1 if p >= strike_f else -1 for p in in_window]
+                    window_flips = sum(
+                        1 for a, b in zip(signs, signs[1:]) if a != b
+                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("flip count unavailable: %s", exc)
+        out.features["abs_distance_sigma"] = float(abs_distance)
+        if window_flips is not None:
+            out.features["window_flips"] = float(window_flips)
+
     side_price = pm_up if direction == Direction.UP else (1.0 - pm_up)
     allowed, gate_reason = entry_allows(
         side_price=side_price,
@@ -593,6 +624,8 @@ def detect_mispricing(
         spec=spec,
         momentum=float(snap.momentum or 0.0),
         side_is_up=(direction == Direction.UP),
+        abs_distance=abs_distance,
+        window_flips=window_flips,
     )
     if not allowed:
         out.reason = gate_reason

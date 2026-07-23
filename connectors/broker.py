@@ -83,8 +83,12 @@ class BrokerClient:
                 pm = PolymarketClient()
                 book = pm.get_orderbook(token_id)
                 asks = [(lvl.price, lvl.size) for lvl in book.asks]
+                maker = os.environ.get("HERMES_MAKER_MODE", "0").strip().lower() in (
+                    "1", "true", "yes",
+                )
                 filled, px, slip_bps, note = conservative_paper_fill(
-                    asks, intent.size_usd, intent.limit_price, mid=book.mid
+                    asks, intent.size_usd, intent.limit_price, mid=book.mid,
+                    maker=maker,
                 )
                 if note == "no_book":
                     # Book unavailable → legacy vwap sim path
@@ -94,11 +98,14 @@ class BrokerClient:
                     size_usd = filled if filled > 0 else intent.size_usd
                     if note:
                         oracle_note += f" {note}"
-                # Respect limit: no fill worse than limit for paper aggressor
-                if direction in ("YES", "UP"):
-                    fill_price = min(0.99, max(fill_price, intent.limit_price))
-                else:
-                    fill_price = max(0.01, min(fill_price, intent.limit_price + 0.02))
+                # Respect limit for the paper AGGRESSOR — a maker fill is
+                # allowed to price better than the taker limit (that is the
+                # point of resting); the fill model already floors it at mid.
+                if not maker:
+                    if direction in ("YES", "UP"):
+                        fill_price = min(0.99, max(fill_price, intent.limit_price))
+                    else:
+                        fill_price = max(0.01, min(fill_price, intent.limit_price + 0.02))
             except Exception as exc:  # noqa: BLE001
                 logger.debug("orderbook sim failed (%s); using limit+slip", exc)
                 slip = 0.002
