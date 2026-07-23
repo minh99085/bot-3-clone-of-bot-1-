@@ -44,10 +44,12 @@ def test_positive_gross_but_net_negative_sizes_to_zero():
 def test_costs_shrink_kelly_size_vs_gross():
     """With costs on, the sized position is strictly smaller than gross-edge Kelly."""
     cfg = load_enhanced_config(mode="moderate")
-    # Stretched market so it clears the live_real_q fade gate; NO/DOWN side.
+    # Stretched market clearing the live_real_q fade gates: NO side priced
+    # 0.26 (above the 0.25 cheap-fade block) and q=0.36 confidently down
+    # (mid_q_fade requires |q-0.5| >= 0.12 to fade a stretched p).
     m = MarketSnapshot(
         market_id="c2", slug="btc-updown-5m-2", category="crypto",
-        p=0.82, q=0.55, liquidity_usd=50_000, volume_24h=80_000,
+        p=0.74, q=0.36, liquidity_usd=50_000, volume_24h=80_000,
         seconds_to_resolution=300,
     )
     cfg_free = cfg.model_copy(deep=True)

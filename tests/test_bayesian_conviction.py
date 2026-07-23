@@ -50,8 +50,12 @@ def test_hard_filter_passes_extreme_yes():
 
 
 def test_hard_filter_live_real_q_uses_pm_stretch():
-    """Live real-q path: CEX q≈0.55, PM p stretched — must not dead-stop."""
-    q, p = 0.55, 0.765
+    """Live real-q path: CEX q≈0.55, PM p stretched — must not dead-stop.
+
+    p chosen so the NO side costs 0.26 — above the 0.25 cheap-fade block
+    (side<=0.25 ran 2.8% WR live, hard-blocked by design) — and q=0.36 so the
+    model is confidently down (mid_q_fade requires |q-0.5| >= 0.12 to fade)."""
+    q, p = 0.36, 0.74
     bayes = bayesian_conviction(q, p, 80, side="NO")
     ok_synth, _ = passes_hard_entry_filter(
         q, p, bayes.conviction,
