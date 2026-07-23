@@ -1,4 +1,4 @@
-"""Hermes v2 dashboard — 10-lane BTC15 paired experiment, $20k fleet."""
+"""Hermes v2 dashboard — 10-lane paper fleet (BTC-15m + ETH-15m), $20k."""
 
 from __future__ import annotations
 
@@ -293,7 +293,7 @@ def main() -> None:
     bandits = data["bandits"]
 
     st.sidebar.title("Bot 3")
-    st.sidebar.markdown("**10-lane BTC15 experiment**")
+    st.sidebar.markdown("**10-lane fleet · BTC15 + ETH15**")
     st.sidebar.markdown(
         f"**${PER_INSTANCE_BANKROLL:,.0f}** each · **${FLEET_BANKROLL:,.0f}** total"
     )
@@ -312,13 +312,13 @@ def main() -> None:
     st.sidebar.caption(f"Auto-refresh every {REFRESH_SEC}s")
 
     st.markdown(
-        '<p class="main-header">Hermes v2 · 10-Lane BTC15 Experiment</p>',
+        '<p class="main-header">Hermes v2 · 10-Lane Paper Fleet</p>',
         unsafe_allow_html=True,
     )
     st.markdown(
         '<p class="sub-header">'
-        "Paired paper fleet on btc-updown-15m · $2k × 10 = $20k · "
-        "rank by ΔPnL vs random null"
+        "BTC-15m lanes + lane07 ETH-15m drift · $2k × 10 = $20k · "
+        "rank BTC peers by ΔPnL vs random null"
         "</p>",
         unsafe_allow_html=True,
     )
@@ -454,7 +454,8 @@ def main() -> None:
     st.subheader("Paired scoreboard vs null")
     st.caption(
         "All lanes trade the same btc-updown-15m windows. "
-        "ΔPnL vs null cancels market luck — promotion signal is beat lane09 (random)."
+        "ΔPnL vs null cancels BTC market luck (lane07 ETH is unpaired vs BTC random). "
+        "Promotion signal for BTC lanes: beat lane09 random."
     )
     rows = scoreboard.get("rows") or []
     if rows:
@@ -463,6 +464,7 @@ def main() -> None:
             columns={
                 "label": "Lane",
                 "role": "Role",
+                "asset": "Asset",
                 "n": "N",
                 "wr": "WR",
                 "pnl": "PnL $",
@@ -474,6 +476,7 @@ def main() -> None:
             [
                 "Lane",
                 "Role",
+                "Asset",
                 "N",
                 "WR",
                 "PnL $",
@@ -531,7 +534,7 @@ def main() -> None:
         st.subheader("Experiment config")
         st.json(
             {
-                "market_filter": "btc15",
+                "markets": "btc15 + eth15 (lane07)",
                 "series": "btc_updown_15m",
                 "lanes": FLEET_INSTANCE_COUNT,
                 "per_lane_bankroll": PER_INSTANCE_BANKROLL,

@@ -24,8 +24,7 @@ FLEET_INSTANCE_COUNT = 10
 FLEET_BANKROLL = STARTING_BANKROLL * FLEET_INSTANCE_COUNT  # $20,000
 
 # Compose instance_id → strategy variant (must match docker-compose.yml)
-# Registry v2 (main @ 3830088): drift-aware barrier + favorite-continuation;
-# fade/longshot/legacy lanes retired.
+# Registry v2+: drift/fav lanes; lane07 = ETH-15m drift twin of BTC lane03.
 COMPOSE_LANES: tuple[tuple[str, str], ...] = (
     ("lane01_baseline", "baseline"),
     ("lane02_autonomy", "baseline"),  # same q as baseline; full autonomy stack on
@@ -44,32 +43,54 @@ INSTANCE_IDS = tuple(iid for iid, _ in COMPOSE_LANES)
 _LANE_ACCENTS = (
     "#38bdf8",  # baseline
     "#22d3ee",  # autonomy
-    "#a78bfa",  # drift
+    "#a78bfa",  # drift (BTC)
     "#4ade80",  # fav cont 70
-    "#34d399",  # fav cont 80
+    "#34d399",  # fav sniper
     "#fbbf24",  # garch
-    "#fb923c",  # drift+garch
+    "#c084fc",  # ETH drift
     "#2dd4bf",  # fav depth
     "#94a3b8",  # random null
     "#60a5fa",  # fav open
 )
 
+# instance_id → (MARKET_FILTER, series_id, asset code)
+_LANE_MARKETS: dict[str, tuple[str, str, str]] = {
+    "lane07_ethdrift": ("eth15", "eth_updown_15m", "ETH"),
+}
+
+
+def _market_for(iid: str) -> tuple[str, str, str]:
+    """Return (filter_key, series, asset) for a lane."""
+    return _LANE_MARKETS.get(iid, ("btc15", "btc_updown_15m", "BTC"))
+
 
 def _build_instance_metas() -> list[dict[str, Any]]:
-    """Lane cards for the 10× BTC15 paired experiment (registry v2)."""
+    """Lane cards for the 10-lane paper fleet (BTC-15m + ETH-15m)."""
     from hermes.lane_variants import LANES
 
     metas: list[dict[str, Any]] = []
     for i, (iid, variant) in enumerate(COMPOSE_LANES):
         spec = LANES.get(variant)
+        mkt_filter, series, asset = _market_for(iid)
+
         if iid == "lane02_autonomy":
             short = "autonomy"
-            subtitle = "barrier q + full autonomy stack (pure-vs-autonomy A/B)"
+            subtitle = "BTC-15m barrier q + full autonomy stack (pure-vs-autonomy A/B)"
             role = "experiment"
             display_variant = "autonomy"
+        elif iid == "lane07_ethdrift":
+            short = "ETH Drift"
+            subtitle = (
+                "ETH-15m drift-adjusted barrier "
+                "(same variant as lane03 BTC drift, different market)"
+            )
+            role = "experiment"
+            display_variant = "drift_barrier"
         else:
             short = variant.replace("_", " ")
-            subtitle = spec.description if spec else variant
+            base_sub = spec.description if spec else variant
+            # Prefix market so BTC/ETH is obvious on cards
+            subtitle = f"{asset}-15m · {base_sub}"
             if "random" in variant:
                 role = "null"
             elif variant == "baseline":
@@ -77,6 +98,7 @@ def _build_instance_metas() -> list[dict[str, Any]]:
             else:
                 role = "experiment"
             display_variant = variant
+
         metas.append(
             {
                 "id": iid,
@@ -84,9 +106,10 @@ def _build_instance_metas() -> list[dict[str, Any]]:
                 "subtitle": subtitle,
                 "variant": display_variant,
                 "role": role,
-                "filter": "btc15",
+                "filter": mkt_filter,
+                "asset": asset,
                 "accent": _LANE_ACCENTS[i % len(_LANE_ACCENTS)],
-                "series": ["btc_updown_15m"],
+                "series": [series],
             }
         )
     return metas
@@ -327,7 +350,7 @@ def fleet_summary() -> dict[str, Any]:
 
 
 def lane_scoreboard() -> dict[str, Any]:
-    """Paired scoreboard vs random_null for the 10-lane BTC15 experiment."""
+    """Paired scoreboard vs random_null (BTC-15m peers; ETH lane unpaired by design)."""
     from backtest.lane_compare import build_board
     from backtest.paper_ledger import load_trades
 
@@ -354,6 +377,8 @@ def lane_scoreboard() -> dict[str, Any]:
                 "label": meta.get("label", s.lane),
                 "variant": meta.get("variant", s.lane),
                 "role": meta.get("role", "experiment"),
+                "market": meta.get("filter", "btc15"),
+                "asset": meta.get("asset", "BTC"),
                 "n": s.n,
                 "wr": s.wr,
                 "pnl": round(s.pnl, 2),
