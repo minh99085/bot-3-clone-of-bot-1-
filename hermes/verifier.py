@@ -22,6 +22,7 @@ Strict gates (all must pass for PASS):
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional
 
 from hermes.decorators import checker, loop
@@ -142,6 +143,13 @@ def _sizing_ok(signal: Signal, state: dict) -> tuple[bool, float, str]:
 
     max_usd = capital * MAX_SINGLE_POSITION_PCT * dd_scale
     sized = min(suggested, max_usd) if suggested else 0.0
+    # HARD per-trade cap, enforced at the LAST gate before the executor.
+    # Pretrade applies it too, but a signal whose allocation came from the
+    # kelly path without a pretrade clamp reached execution at 10% of
+    # bankroll ($200 single-ticket loss, lane03 2026-07-22). Defense in depth.
+    hard_cap_usd = capital * float(os.environ.get("HERMES_MAX_TRADE_PCT", "0.02"))
+    if sized > hard_cap_usd:
+        sized = hard_cap_usd
 
     if open_exp + sized > capital * MAX_CORRELATED_EXPOSURE_PCT * 2:
         return False, 0.0, "correlated/total exposure cap breached"

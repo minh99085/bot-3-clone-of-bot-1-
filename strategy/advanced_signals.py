@@ -328,6 +328,76 @@ def barrier_implied_up(
     return _clamp01(float(norm.cdf(d)))
 
 
+# ── Drift-aware barrier (the anti-fade fix) ─────────────────────────────────
+# Live evidence (last-10h report 2026-07-22): the DRIFTLESS barrier fades
+# collapsed sides — 72 cheap tickets, 2.8% WR vs ~20% fair (−4.3σ). A side
+# collapsing to 0.15 mid-window is INFORMATION (the move already happened);
+# pricing the window with μ=0 calls that side "cheap" and buys it. Adding an
+# intra-window drift estimate makes the model agree with the market in the
+# tails and only disagree on genuine spot-freshness gaps.
+
+DRIFT_LOOKBACK_SEC = 180.0
+DRIFT_SHRINK = 0.5        # regress the raw estimate halfway to zero
+# |μ| cap, annualized. Scale check: a 25bps move in 3 minutes annualizes to
+# ~440; to matter at all, μ·T must be comparable to σ·√T ≈ 25bps over 5 min,
+# which needs μ ≈ σ/√T ≈ 260. A single-digit clamp would make drift a no-op.
+DRIFT_CLAMP_ANN = 500.0
+
+
+def drift_mu_ann(
+    prices: list[float],
+    times: list[float],
+    *,
+    lookback_sec: float = DRIFT_LOOKBACK_SEC,
+    shrink: float = DRIFT_SHRINK,
+    clamp: float = DRIFT_CLAMP_ANN,
+) -> float:
+    """Annualized intra-window drift from the recent tick history, shrunk.
+
+    Log-return over the trailing ``lookback_sec``, annualized, then shrunk
+    toward zero (drift estimates at 3-minute scale are mostly noise — the
+    shrink keeps the direction while damping the magnitude) and clamped.
+    Returns 0.0 when history is too thin.
+    """
+    if not prices or not times or len(prices) != len(times) or len(prices) < 3:
+        return 0.0
+    t_end = float(times[-1])
+    p_end = float(prices[-1])
+    p_start = None
+    t_start = None
+    for t, p in zip(times, prices):
+        if t_end - float(t) <= lookback_sec:
+            p_start = float(p)
+            t_start = float(t)
+            break
+    if p_start is None or p_start <= 0 or p_end <= 0 or t_start is None:
+        return 0.0
+    dt = max(1.0, t_end - t_start)
+    mu = math.log(p_end / p_start) * (SEC_PER_YEAR / dt) * shrink
+    return float(max(-clamp, min(clamp, mu)))
+
+
+def barrier_implied_up_drift(
+    spot: float,
+    strike: float,
+    sigma_ann: float,
+    seconds_to_resolution: float,
+    mu_ann: float,
+) -> float:
+    """P(S_close > strike) with drift: q = Φ((ln(S/K) + (μ−½σ²)T)/(σ√T))."""
+    S = float(spot)
+    K = float(strike)
+    if S <= 0 or K <= 0:
+        return 0.5
+    T = max(1.0, float(seconds_to_resolution)) / SEC_PER_YEAR
+    sig = max(0.05, float(sigma_ann))
+    denom = sig * math.sqrt(T)
+    if denom <= 1e-12:
+        return 0.95 if S > K else (0.05 if S < K else 0.5)
+    d = (math.log(S / K) + (float(mu_ann) - 0.5 * sig * sig) * T) / denom
+    return _clamp01(float(norm.cdf(d)))
+
+
 def lognormal_cex_prob(
     spot: float,
     strike: float,

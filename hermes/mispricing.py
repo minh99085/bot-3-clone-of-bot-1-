@@ -357,13 +357,25 @@ def compute_cex_implied_up(
         if implied:
             features["sigma_implied_ann"] = float(implied)
         features["sigma_ratio_ewma"] = float(sigma_ratio(asset))
-        q_barrier = barrier_implied_up(spot, strike, sigma_ann, seconds_to_resolution)
+        if spec.q_mode == "barrier_drift":
+            # Anti-fade: include the intra-window drift so a collapsed side is
+            # recognized as INFORMATION, not mispricing (2.8%-WR fade fix).
+            from strategy.advanced_signals import barrier_implied_up_drift, drift_mu_ann
+
+            mu_ann = drift_mu_ann(prices, times)
+            q_barrier = barrier_implied_up_drift(
+                spot, strike, sigma_ann, seconds_to_resolution, mu_ann
+            )
+            features["drift_mu_ann"] = float(mu_ann)
+            q_source = "barrier_drift_open"
+        else:
+            q_barrier = barrier_implied_up(spot, strike, sigma_ann, seconds_to_resolution)
+            # q is priced from fresh CEX spot vs the window-open strike.
+            q_source = "barrier_cex_open"
         features["barrier_q"] = float(q_barrier)
         features["barrier_sigma_ann"] = float(sigma_ann)
         features["barrier_strike"] = float(strike)
         q_out = q_barrier
-        # q is priced from fresh CEX spot vs the window-open strike.
-        q_source = "barrier_cex_open"
         # CRITICAL: downstream (enhance_from_hermes_mispricing) prefers
         # features['advanced_q'] over the returned q — it must carry the
         # barrier, or the ensemble silently clobbers it (live-ledger bug).
@@ -579,6 +591,8 @@ def detect_mispricing(
         seconds_remaining=float(sec_res),
         liquidity_usd=float(candidate.liquidity or 0.0),
         spec=spec,
+        momentum=float(snap.momentum or 0.0),
+        side_is_up=(direction == Direction.UP),
     )
     if not allowed:
         out.reason = gate_reason

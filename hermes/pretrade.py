@@ -209,6 +209,14 @@ def _recalc_live_ev(signal: Signal) -> tuple[float, float, str]:
     return live_ev, slip_bps, note
 
 
+def _max_slip_bps() -> float:
+    """Hard entry-slippage ceiling (bps vs mid). Default 150."""
+    try:
+        return float(os.environ.get("HERMES_MAX_SLIP_BPS", "150"))
+    except ValueError:
+        return 150.0
+
+
 def analyze_signal(
     signal: Signal,
     proposal: AllocationProposal,
@@ -237,8 +245,11 @@ def analyze_signal(
             ):
                 skip = True
                 reasons.append(f"out_of_scope_slug={signal.slug}")
-        live_ev, _slip, ev_note = _recalc_live_ev(signal)
+        live_ev, slip_bps_pure, ev_note = _recalc_live_ev(signal)
         reasons.append(ev_note)
+        if slip_bps_pure > _max_slip_bps():
+            skip = True
+            reasons.append(f"slippage_gate {slip_bps_pure:.0f}bps>{_max_slip_bps():.0f}bps")
         hard_cap = float(os.environ.get("HERMES_MAX_TRADE_PCT", "0.02"))
         size_pct = min(pure_fixed_size_pct(), hard_cap)
         size_usd = round(bankroll * size_pct, 2) if not skip else 0.0
@@ -318,6 +329,13 @@ def analyze_signal(
     reasons: list[str] = []
     skip = False
     size_pct = 0.0
+
+    # Slippage gate — the last-10h fleet paid 389bps AVERAGE entry slippage
+    # (max 3143bps): walking thin books taxes away any edge. Skip entries the
+    # book can't absorb near the touch instead of paying up for them.
+    if slip_bps > _max_slip_bps():
+        skip = True
+        reasons.append(f"slippage_gate {slip_bps:.0f}bps>{_max_slip_bps():.0f}bps")
 
     if fast:
         from hermes.market_scope import MIN_ORACLE_ALIGN, is_allowed_slug
