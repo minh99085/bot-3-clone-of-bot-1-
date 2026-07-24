@@ -160,6 +160,61 @@ def instance_paper_dirs() -> list[Path]:
     return [root]
 
 
+def all_paper_dirs() -> list[Path]:
+    """EVERY per-instance ledger dir on disk — active AND orphaned (renamed/
+    retired) lanes. Fleet LIFETIME aggregates must use this so a lane rename
+    never makes the total trade count / PnL drop (append-only ledgers). The
+    per-lane scoreboard still uses instance_paper_dirs() (current lanes only).
+    """
+    root = paper_dir()
+    dirs = [d for d in sorted(root.glob("*")) if (d / "trade_ledger.jsonl").is_file()]
+    if dirs:
+        return dirs
+    if (root / "trade_ledger.jsonl").exists():
+        return [root]
+    return []
+
+
+def fleet_lifetime_stats() -> dict[str, Any]:
+    """Append-only fleet totals across ALL lanes ever (incl. orphaned).
+
+    Monotonic by construction — this is the number to trust when the active-only
+    dashboard count appears to fall after a lane rename.
+    """
+    active = set(INSTANCE_IDS)
+    n = wins = 0
+    pnl = 0.0
+    orphan_n = 0
+    orphan_pnl = 0.0
+    orphan_lanes: list[str] = []
+    for d in all_paper_dirs():
+        lane = d.name
+        settled = [
+            r for r in read_jsonl(d / "trade_ledger.jsonl")
+            if isinstance(r, dict) and (r.get("event") == "settlement" or r.get("won") is not None)
+        ]
+        if not settled:
+            continue
+        lp = sum(float(r.get("pnl_usd") or 0) for r in settled)
+        lw = sum(1 for r in settled if r.get("won"))
+        n += len(settled)
+        wins += lw
+        pnl += lp
+        if lane not in active and lane != "paper":
+            orphan_n += len(settled)
+            orphan_pnl += lp
+            orphan_lanes.append(lane)
+    return {
+        "lifetime_settled": n,
+        "lifetime_wins": wins,
+        "lifetime_losses": n - wins,
+        "lifetime_pnl": round(pnl, 2),
+        "orphaned_settled": orphan_n,
+        "orphaned_pnl": round(orphan_pnl, 2),
+        "orphaned_lanes": sorted(orphan_lanes),
+    }
+
+
 def load_state() -> dict[str, Any]:
     fields = parse_state_fields(read_state_md())
     per = float(
